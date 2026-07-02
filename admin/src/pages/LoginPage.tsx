@@ -1,6 +1,7 @@
 import { GalleryVerticalEnd } from "lucide-react"
 import { LoginForm } from "@/components/login-form"
-
+// @ts-ignore
+import loginBg from "../assets/login_bg.png"
 export default function LoginPage() {
   return (
     // bg-background pulls the off-white color from your index.css
@@ -28,7 +29,7 @@ export default function LoginPage() {
       {/* Right Column: The Feature Image */}
       <div className="relative hidden lg:block bg-slate-200">
         <img
-          src="https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?q=80&w=2070&auto=format&fit=crop"
+          src={loginBg}
           alt="Wijha West Workspace"
           className="absolute inset-0 h-full w-full object-cover shadow-l"
         />
