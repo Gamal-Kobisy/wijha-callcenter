@@ -1,5 +1,4 @@
 import { useState } from "react"
-import { Check, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -21,13 +20,6 @@ export function LoginForm({
   const [rememberMe, setRememberMe] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
 
-  // 2. Real-time validation checks for the password
-  const rules = {
-    length: password.length >= 8,
-    capital: /[A-Z]/.test(password),
-    number: /[0-9]/.test(password),
-    special: /[!@#$%^&*(),.?":{}|<>]/.test(password),
-  }
 
   const handleSubmit = async (e: React.SyntheticEvent) => {    e.preventDefault()
 
@@ -77,7 +69,6 @@ export function LoginForm({
           <Input
             id="email"
             type="email"
-            placeholder="username@gmail.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -120,14 +111,6 @@ export function LoginForm({
           </div>
         </Field>
 
-        {/* Real-time Password Checklist */}
-        <div className="grid grid-cols-2 gap-2 text-xs my-2">
-          <ValidationItem isValid={rules.length} text="Min 8 characters" />
-          <ValidationItem isValid={rules.capital} text="At least 1 Capital letter" />
-          <ValidationItem isValid={rules.number} text="At least 1 Number" />
-          <ValidationItem isValid={rules.special} text="At least 1 Special character" />
-        </div>
-
         {/* Submit Button */}
         <Field>
           <Button
@@ -148,16 +131,4 @@ export function LoginForm({
   )
 }
 
-// Reusable mini-component for the checklist items
-function ValidationItem({ isValid, text }: { isValid: boolean; text: string }) {
-  return (
-    <div className={cn(
-      "flex items-center gap-2 transition-colors duration-300",
-      isValid ? "text-green-600" : "text-red-400"
-    )}>
-      {isValid ? <Check className="size-3" /> : <X className="size-3" />}
-      <span>{text}</span>
-    </div>
-  )
-}
 
