@@ -142,7 +142,7 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="grid min-h-svh lg:grid-cols-2 bg-background">
+    <div className="grid min-h-svh lg:grid-cols-2 bg-background animate-in fade-in zoom-in-[0.97] duration-500 ease-out">
       {/* Left Column: The Feature Image */}
       <div className="relative hidden lg:block bg-slate-200">
         <img

@@ -5,7 +5,7 @@ import loginBg from "../assets/login_bg.png"
 export default function LoginPage() {
   return (
     // bg-background pulls the off-white color from your index.css
-    <div className="grid min-h-svh lg:grid-cols-2 bg-background">
+    <div className="grid min-h-svh lg:grid-cols-2 bg-background animate-in fade-in zoom-in-[0.97] duration-500 ease-out">
 
       {/* Left Column: The Form */}
       <div className="flex flex-col gap-4 p-6 md:p-10">
