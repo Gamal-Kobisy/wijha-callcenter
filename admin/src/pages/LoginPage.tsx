@@ -1,7 +1,7 @@
-import { GalleryVerticalEnd } from "lucide-react"
 import { LoginForm } from "@/components/login-form"
 // @ts-ignore
 import loginBg from "../assets/login_bg.png"
+import Logo from "@/components/Logo.tsx";
 export default function LoginPage() {
   return (
     // bg-background pulls the off-white color from your index.css
@@ -10,13 +10,7 @@ export default function LoginPage() {
       {/* Left Column: The Form */}
       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex justify-center gap-2 md:justify-start">
-          <a href="#" className="flex items-center gap-3 font-semibold text-lg text-[hsl(var(--tertiary))]">
-            {/* Logo Container */}
-            <div className="flex size-8 items-center justify-center rounded-md bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md">
-              <GalleryVerticalEnd className="size-5" />
-            </div>
-            Wijha West
-          </a>
+          <Logo />
         </div>
 
         <div className="flex flex-1 items-center justify-center">

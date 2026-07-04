@@ -45,7 +45,7 @@ export function LoginForm({
       localStorage.setItem("userToken", data.token);
       localStorage.setItem("userRole", data.role);
 
-      window.location.href = "/"
+      window.location.href = "/dashboard"
     }
     catch(err){
       setErrorMessage("Could not connect to server. Please try again later.")    }

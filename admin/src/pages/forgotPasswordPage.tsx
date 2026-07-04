@@ -1,4 +1,4 @@
-import {ArrowLeft, Check, CheckCircle2, GalleryVerticalEnd, KeyRound, Mail, ShieldCheck, X} from "lucide-react"
+import {ArrowLeft, Check, CheckCircle2, KeyRound, Mail, ShieldCheck, X} from "lucide-react"
 import { useState } from "react";
 // @ts-ignore
 import forgotBg from "../assets/forgot_bg.png";
@@ -7,6 +7,7 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Link } from "react-router-dom"
 import { apiFetch } from "@/lib/api";
+import Logo from "@/components/Logo.tsx";
 
 export default function ForgotPasswordPage() {
   // Step 1: Email | Step 2: Code | Step 3: New Password | Step 4: Success
@@ -155,12 +156,7 @@ export default function ForgotPasswordPage() {
       {/* Right Column: The Form */}
       <div className="flex flex-col gap-4 p-6 md:p-10">
         <div className="flex justify-center gap-2 md:justify-end">
-          <a href="#" className="flex items-center gap-3 font-semibold text-lg text-[hsl(var(--tertiary))]">
-            Wijha West
-            <div className="flex size-8 items-center justify-center rounded-md bg-[hsl(var(--primary))] text-[hsl(var(--primary-foreground))] shadow-md">
-              <GalleryVerticalEnd className="size-5" />
-            </div>
-          </a>
+          <Logo />
         </div>
 
         <div className="flex flex-1 items-center justify-center">
