@@ -6,7 +6,7 @@
     "module": "nodenext",
     "moduleResolution": "nodenext",
     "target": "esnext",
-    "types": [],
+    "types": [ "jest" ],
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
@@ -21,7 +21,7 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src/tests"],
   "exclude": ["node_modules"]
 
 }
