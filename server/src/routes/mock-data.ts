@@ -62,7 +62,7 @@ const userSeed: User[] = [
     email: "agent",
     name: "Agent Smith",
     phone_number: "123-456-7890",
-    role: "agent",
+    role: "user",
   },
   {
     id: 2,
@@ -76,7 +76,7 @@ const userSeed: User[] = [
     email: "agent.jane",
     name: "Jane Doe",
     phone_number: "+201009998887",
-    role: "agent",
+    role: "user",
   },
 ];
 
@@ -323,13 +323,13 @@ export function getUserStats(userId: number): UserStats | undefined {
   }
 
   return {
-    total_calls: user.role === "agent" ? 12 : 0,
-    answered: user.role === "agent" ? 5 : 0,
-    no_answer: user.role === "agent" ? 3 : 0,
-    busy: user.role === "agent" ? 1 : 0,
-    failed: user.role === "agent" ? 2 : 0,
-    callback: user.role === "agent" ? 1 : 0,
-    avg_duration_seconds: user.role === "agent" ? 184.5 : 0,
-    total_session_time_seconds: user.role === "agent" ? 14400 : 0,
+    total_calls: user.role === "user" ? 12 : 0,
+    answered: user.role === "user" ? 5 : 0,
+    no_answer: user.role === "user" ? 3 : 0,
+    busy: user.role === "user" ? 1 : 0,
+    failed: user.role === "user" ? 2 : 0,
+    callback: user.role === "user" ? 1 : 0,
+    avg_duration_seconds: user.role === "user" ? 184.5 : 0,
+    total_session_time_seconds: user.role === "user" ? 14400 : 0,
   };
 }

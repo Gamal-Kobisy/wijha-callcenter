@@ -17,7 +17,7 @@ export class AuthController implements AuthControllerI {
 			email: "agent",
 			name: "Agent Smith",
 			phone_number: "123-456-7890",
-			role: "agent" as UserRole,
+			role: "user" as UserRole,
 		},
 		{
 			id: 2,
