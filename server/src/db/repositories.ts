@@ -1,4 +1,4 @@
-import {ilike, sql} from 'drizzle-orm';
+import {ilike} from 'drizzle-orm';
 import * as schema from './schema.js';
 import type * as DTO from '../types/index.js';
 import { eq, and, desc} from 'drizzle-orm';
@@ -6,7 +6,6 @@ import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 // import { db } from './pool.js';
 import {
   project,
-  callStatus,
   user,
   userLog,
   owner,
@@ -213,7 +212,7 @@ export class OwnerRepository {
 }
 
 // =========================================================================
-// Call Status (lookup table)
+// Call Status (distinct values from call_detail_record)
 // =========================================================================
 export class CallStatusRepository {
   private db: DB;
@@ -221,34 +220,12 @@ export class CallStatusRepository {
     this.db = db;
   }
 
-  async findAll(): Promise<{ id: number; name: string }[]> {
-    return this.db.select().from(callStatus);
-  }
-
-  async findByName(name: string): Promise<number | undefined> {
-    const rows = await this.db.select().from(callStatus).where(ilike(callStatus.name, `%${name}%`));
-    return rows[0]?.id;
-  }
-
-  async create(name: string): Promise<{ id: number; name: string }> {
-    const rows = await this.db.insert(callStatus).values({ name }).returning();
-    const row = rows[0];
-    if (!row) throw new Error('Failed to create call status');
-    return row;
-  }
-
-  async delete(id: number): Promise<boolean> {
-    const result = await this.db.delete(callStatus).where(eq(callStatus.id, id));
-    return (result.rowCount ?? 0) > 0;
-  }
-
-  async update(id: number, name: string): Promise<{ id: number; name: string } | undefined> {
+  async findAll(): Promise<string[]> {
     const rows = await this.db
-      .update(callStatus)
-      .set({ name })
-      .where(eq(callStatus.id, id))
-      .returning();
-    return rows[0];
+      .select({ status: callDetailRecord.status })
+      .from(callDetailRecord)
+      .groupBy(callDetailRecord.status);
+    return rows.map((r) => r.status).filter((s): s is string => s !== null);
   }
 }
 
