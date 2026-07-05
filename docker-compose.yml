@@ -5,5 +5,13 @@ services:
     env_file: .env
     ports:
       - "5432:5432"
-    volumes:
-      - ./db/pgdata:/var/lib/postgresql/data
+    # volumes:
+    #   - ./db/pgdata:/var/lib/postgresql/data
+  test_db:
+    build: ./db
+    container_name: test_postgres_db
+    env_file: .env
+    ports:
+      - "5433:5432"
+    # volumes:
+    #   - ./db/pgdata:/var/lib/postgresql/data
