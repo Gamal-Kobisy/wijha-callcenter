@@ -7,8 +7,8 @@ info:
     Agents authenticate, receive owners to call, and submit call outcomes.
 
 servers:
-  - url: https://api.server.test/v1
-  - url: http://localhost:8000/v1
+  - url: https://api.server.test/api/v1
+  - url: http://localhost:8000/api/v1
     description: Local dev
 
 security:
@@ -29,11 +29,7 @@ components:
 
     UserRole:
       type: string
-      enum: [admin, agent]
-
-    OwnerStatus:
-      type: string
-      enum: [active, inactive]
+      enum: [admin, user]
 
     OwnerNumber:
       type: object
@@ -65,7 +61,8 @@ components:
           type: string
           example: "Mohamed Ali"
         status:
-          $ref: "#/components/schemas/OwnerStatus"
+          type: string
+          example: "active"
         attempt_count:
           type: integer
           example: 2
@@ -95,7 +92,7 @@ components:
         project_id:
           type: integer
         status:
-          $ref: "#/components/schemas/OwnerStatus"
+          type: string
         numbers:
           type: array
           minItems: 1
@@ -121,12 +118,13 @@ components:
 
     User:
       type: object
-      required: [id, username, role]
+      required: [id, email, role]
       properties:
         id:
           type: integer
-        username:
+        email:
           type: string
+          format: email
         name:
           type: string
           nullable: true
@@ -241,7 +239,7 @@ components:
 
 paths:
 
-  /auth/login:
+  /login:
     post:
       summary: Agent / admin login
       operationId: login
@@ -253,10 +251,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [username, password]
+              required: [email, password]
               properties:
-                username:
+                email:
                   type: string
+                  format: email
                 password:
                   type: string
                   format: password
@@ -277,16 +276,24 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /auth/logout:
+  /logout:
     post:
       summary: Invalidate the current session
       operationId: logout
       tags: [auth]
       responses:
-        "204":
+        "200":
           description: Logged out
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Logged out successfully"
 
-  /auth/me:
+  /me:
     get:
       summary: Get the currently authenticated user
       operationId: getMe
@@ -786,10 +793,11 @@ paths:
           application/json:
             schema:
               type: object
-              required: [username, password, role]
+              required: [email, password, role]
               properties:
-                username:
+                email:
                   type: string
+                  format: email
                 password:
                   type: string
                   format: password
@@ -848,8 +856,9 @@ paths:
             schema:
               type: object
               properties:
-                username:
+                email:
                   type: string
+                  format: email
                 password:
                   type: string
                   format: password
