@@ -8,7 +8,6 @@ import {
   text,
   timestamp,
   boolean,
-  char,
   primaryKey,
   serial,
 } from 'drizzle-orm/pg-core';
@@ -22,11 +21,6 @@ export const project = pgTable('project', {
   id: serial('id').primaryKey(),
   name: varchar('name', { length: 100 }).notNull(),
   description: text('description'),
-});
-
-export const callStatus = pgTable('call_status', {
-  id: serial('id').primaryKey(),
-  name: varchar('name', { length: 20 }).notNull(),
 });
 
 export const user = pgTable('user', {
@@ -58,7 +52,7 @@ export const owner = pgTable('owner', {
 });
 
 export const numbers = pgTable('numbers', {
-  number: char('number', { length: 13 }),
+  number: varchar('number', { length: 20 }),
   ownerId: serial('owner_id').references(() => owner.id),
 });
 
@@ -72,7 +66,7 @@ export const callDetailRecord = pgTable('call_detail_record', {
   id: serial('id').primaryKey(),
   ownerId: serial('owner_id').references(() => owner.id),
   agentId: serial('agent_id').references(() => user.id),
-  status: integer('status').references(() => callStatus.id),
+  status: varchar('status', { length: 50 }),
   time: timestamp('time').notNull(),
   duration: integer('duration'),
   agentNotes: text('agent_notes'),
