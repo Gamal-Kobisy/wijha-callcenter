@@ -23,9 +23,9 @@ CREATE TABLE "user" (
   "password_hash" varchar(255) NOT NULL,
   "name" varchar(50),
   "role" user_role NOT NULL,
-  "otp" varchar(6),
-  "otpExpiry" timestamp,
-  "jwtToken" text
+  "otp" varchar(6) NULL,
+  "otp_expiry" timestamp NULL,
+  "jwt_token" text NULL
 );
 
 CREATE TABLE "user_log" (
