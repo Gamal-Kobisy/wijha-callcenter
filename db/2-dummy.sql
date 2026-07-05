@@ -6,15 +6,6 @@
 BEGIN;
 SET CONSTRAINTS ALL DEFERRED;
 
--- call_status (with explicit IDs to match references)
-INSERT INTO "call_status" ("id", "name")
-VALUES
-  (1, 'new'),
-  (2, 'contacted'),
-  (3, 'not_interested'),
-  (4, 'busy'),
-  (5, 'callback');
-
 -- project (10 items)
 INSERT INTO "project" ("id", "name", "description")
 VALUES
@@ -108,24 +99,24 @@ VALUES
   (11, 10, '2026-07-03 08:30:00', 7200, false),
   (12, 11, '2026-07-03 10:00:00', NULL, true);
 
--- call_detail_record (15 items) – status IDs match call_status
+-- call_detail_record (15 items)
 INSERT INTO "call_detail_record" ("id", "owner_id", "agent_id", "status", "time", "duration", "agent_notes")
 VALUES
-  (1, 1, 2, 2, '2026-06-30 14:30:00', 320, 'Customer interested in product upgrade. Sending brochure.'),
-  (2, 2, 3, 2, '2026-07-01 09:15:00', 180, 'Discussed new pricing options. Will review and call back.'),
-  (3, 3, 4, 3, '2026-07-01 16:45:00', 45, 'Not interested at this time. Remove from list.'),
-  (4, 5, 6, 4, '2026-06-29 10:20:00', 10, 'Line busy. Will retry later.'),
-  (5, 6, 7, 2, '2026-07-02 08:30:00', 600, 'Lengthy discussion about service offerings. Very interested.'),
-  (6, 7, 8, 1, '2026-06-28 11:00:00', 0, 'No answer. Left voicemail.'),
-  (7, 9, 2, 5, '2026-07-01 13:20:00', 240, 'Wants callback next week when budget is finalized.'),
-  (8, 10, 3, 2, '2026-06-30 15:10:00', 420, 'Scheduled demo for next Tuesday at 2 PM.'),
-  (9, 11, 4, 3, '2026-07-02 10:05:00', 90, 'Asked to be removed from calling list.'),
-  (10, 12, 6, 1, '2026-06-27 12:45:00', 0, 'Wrong number.'),
-  (11, 1, 9, 2, '2026-07-02 11:20:00', 280, 'Follow-up call. Customer has questions about contract terms.'),
-  (12, 3, 10, 4, '2026-07-02 14:00:00', 15, 'Voicemail box full.'),
-  (13, 4, 11, 2, '2026-07-03 09:45:00', 350, 'First contact. Explained services. Positive response.'),
-  (14, 8, 7, 1, '2026-07-03 10:30:00', 0, 'Ringing, no answer.'),
-  (15, 2, 2, 2, '2026-07-03 11:15:00', 195, 'Customer ready to proceed. Processing order.');
+  (1, 1, 2, 'contacted', '2026-06-30 14:30:00', 320, 'Customer interested in product upgrade. Sending brochure.'),
+  (2, 2, 3, 'contacted', '2026-07-01 09:15:00', 180, 'Discussed new pricing options. Will review and call back.'),
+  (3, 3, 4, 'not_interested', '2026-07-01 16:45:00', 45, 'Not interested at this time. Remove from list.'),
+  (4, 5, 6, 'busy', '2026-06-29 10:20:00', 10, 'Line busy. Will retry later.'),
+  (5, 6, 7, 'contacted', '2026-07-02 08:30:00', 600, 'Lengthy discussion about service offerings. Very interested.'),
+  (6, 7, 8, 'no_answer', '2026-06-28 11:00:00', 0, 'No answer. Left voicemail.'),
+  (7, 9, 2, 'callback', '2026-07-01 13:20:00', 240, 'Wants callback next week when budget is finalized.'),
+  (8, 10, 3, 'contacted', '2026-06-30 15:10:00', 420, 'Scheduled demo for next Tuesday at 2 PM.'),
+  (9, 11, 4, 'not_interested', '2026-07-02 10:05:00', 90, 'Asked to be removed from calling list.'),
+  (10, 12, 6, 'failed', '2026-06-27 12:45:00', 0, 'Wrong number.'),
+  (11, 1, 9, 'contacted', '2026-07-02 11:20:00', 280, 'Follow-up call. Customer has questions about contract terms.'),
+  (12, 3, 10, 'busy', '2026-07-02 14:00:00', 15, 'Voicemail box full.'),
+  (13, 4, 11, 'contacted', '2026-07-03 09:45:00', 350, 'First contact. Explained services. Positive response.'),
+  (14, 8, 7, 'no_answer', '2026-07-03 10:30:00', 0, 'Ringing, no answer.'),
+  (15, 2, 2, 'contacted', '2026-07-03 11:15:00', 195, 'Customer ready to proceed. Processing order.');
 
 -- project_call_detail_record (15 items)
 INSERT INTO "project_call_detail_record" ("project_id", "call_detail_record_id")

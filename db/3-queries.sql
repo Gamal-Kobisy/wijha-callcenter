@@ -8,28 +8,24 @@ UNION ALL SELECT 'user_log', COUNT(*) FROM user_log
 UNION ALL SELECT 'call_detail_record', COUNT(*) FROM call_detail_record
 UNION ALL SELECT 'project_call_detail_record', COUNT(*) FROM project_call_detail_record
 UNION ALL SELECT 'owner_project', COUNT(*) FROM owner_project
-UNION ALL SELECT 'call_status', COUNT(*) FROM call_status;
-
--- 2. All call records with agent name, owner name, and status label
+-- 2. All call records with agent name, owner name, and status
 SELECT
   cdr.id,
   u.name AS agent_name,
   o.name AS owner_name,
-  cs.name AS call_status,
+  cdr.status AS call_status,
   cdr.time,
   cdr.duration,
   cdr.agent_notes
 FROM call_detail_record cdr
 JOIN "user" u ON cdr.agent_id = u.id
 JOIN owner o ON cdr.owner_id = o.id
-JOIN call_status cs ON cdr.status = cs.id
 ORDER BY cdr.time DESC;
 
 -- 3. Which call statuses are used and how many calls per status
-SELECT cs.name, COUNT(*) AS total_calls
+SELECT cdr.status AS name, COUNT(*) AS total_calls
 FROM call_detail_record cdr
-JOIN call_status cs ON cdr.status = cs.id
-GROUP BY cs.name
+GROUP BY cdr.status
 ORDER BY total_calls DESC;
 
 -- 4. Agents and their total calls / total call duration
@@ -85,10 +81,6 @@ LEFT JOIN owner o ON cdr.owner_id = o.id WHERE o.id IS NULL;
 -- call_detail_record with invalid agent
 SELECT cdr.id FROM call_detail_record cdr
 LEFT JOIN "user" u ON cdr.agent_id = u.id WHERE u.id IS NULL;
-
--- call_detail_record with invalid status
-SELECT cdr.id FROM call_detail_record cdr
-LEFT JOIN call_status cs ON cdr.status = cs.id WHERE cs.id IS NULL;
 
 -- numbers with invalid owner
 SELECT * FROM numbers n
