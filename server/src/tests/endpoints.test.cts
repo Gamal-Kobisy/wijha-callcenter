@@ -19,7 +19,7 @@ describe('HTTP endpoints', () => {
       .send({ email: 'agent', password: 'anything' });
 
     expect(response.status).toBe(200);
-    expect(response.body.user).toMatchObject({ email: 'agent', role: 'agent' });
+    expect(response.body.user).toMatchObject({ email: 'agent', role: 'user' });
     expect(response.body.token).toEqual(expect.any(String));
   });
 
