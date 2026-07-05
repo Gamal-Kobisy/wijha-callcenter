@@ -1,6 +1,5 @@
 import {ilike} from 'drizzle-orm';
 import * as schema from './schema.js';
-import type * as DTO from '../types/index.js';
 import { eq, and, desc} from 'drizzle-orm';
 import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 // import { db } from './pool.js';
@@ -160,8 +159,12 @@ export class OwnerRepository {
     return (result.rowCount ?? 0) > 0;
   }
 
-  // Full owner shape matching your `Owner` DTO (numbers + info attached)
-  async findByIdWithDetails(id: number) {
+  async findByIdWithDetails(
+    id: number
+  ): Promise<(Owner & {
+    numbers: { number: string | null }[];
+    info: { key: string | null; value: string | null }[];
+  }) | undefined> {
     const ownerRow = await this.findById(id);
     if (!ownerRow) return undefined;
 
@@ -185,7 +188,7 @@ export class OwnerRepository {
     attemptCount?: number;
     ownerNumbers: string[];
     info?: { key: string; value: string }[];
-  }) {
+  }): Promise<Owner> {
     return this.db.transaction(async (tx) => {
       const ownerRows = await tx
         .insert(owner)
