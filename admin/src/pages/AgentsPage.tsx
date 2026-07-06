@@ -24,7 +24,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuLabel
 } from "@/components/ui/dropdown-menu"
 import {
   Dialog,
@@ -44,12 +43,13 @@ import {
   Calendar,
   ChevronLeft,
   ChevronRight,
-  Activity,
+  Activity, Download,
 } from "lucide-react"
 import { apiFetch } from "@/lib/api.tsx"
 import PasswordRequirements, { checkPasswordValidity } from "@/components/PasswordRequirements"
 
-import {toast, Toaster} from "sonner"
+import { toast, Toaster } from "sonner"
+import {useNavigate} from "react-router-dom";
 
 // --- INITIAL DUMMY DATA ---
 const initialAgents = [
@@ -77,17 +77,30 @@ const initialAgents = [
 ]
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState(initialAgents)
+  const navigate = useNavigate()
+  const [agents] = useState(initialAgents)
   const [dateRange, setDateRange] = useState("Today")
+
+  // --- SEARCH & FILTER STATE ---
+  const [searchTerm, setSearchTerm] = useState("")
+  const [roleFilter, setRoleFilter] = useState("All")
+
+  // --- FILTER LOGIC ---
+  const filteredAgents = agents.filter(agent => {
+    const matchesSearch = agent.agent.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          agent.email.toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesRole = roleFilter === "All" || agent.role.toLowerCase() === roleFilter.toLowerCase()
+    return matchesSearch && matchesRole
+  })
 
   // --- PAGINATION LOGIC ---
   const [currentPage, setCurrentPage] = useState(1)
   const ITEMS_PER_PAGE = 10
-  const totalPages = Math.ceil(agents.length / ITEMS_PER_PAGE) || 1
+  const totalPages = Math.ceil(filteredAgents.length / ITEMS_PER_PAGE) || 1
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
-  const currentAgents = agents.slice(startIndex, endIndex)
+  const currentAgents = filteredAgents.slice(startIndex, endIndex)
 
   // Edit Agent State
   const [editingAgent, setEditingAgent] = useState<typeof initialAgents[0] | null>(null)
@@ -103,6 +116,27 @@ export default function AgentsPage() {
     if (e.target.value) {
       setDateRange(e.target.value)
     }
+  }
+
+  // --- EXPORT CSV FUNCTION ---
+  const exportToCSV = () => {
+    const headers = ["ID", "Agent", "Email", "Phone", "Role", "Calls"]
+    const csvContent = [
+      headers.join(","),
+      // Wrap strings in quotes to prevent issues with commas in names
+      ...filteredAgents.map(a => [a.id, `"${a.agent}"`, `"${a.email}"`, `"${a.number}"`, `"${a.role}"`, a.calls].join(","))
+    ].join("\n")
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = window.URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.setAttribute('href', url)
+    a.setAttribute('download', `agents_export_${new Date().toISOString().split('T')[0]}.csv`)
+    a.click()
+
+    toast.success("Export Complete", {
+      description: "Your CSV file has been downloaded.",
+    })
   }
 
   // --- API FUNCTIONS ---
@@ -121,10 +155,6 @@ export default function AgentsPage() {
       })
 
       if (!response.ok) throw new Error("Failed to update agent")
-
-      setAgents((prevAgents) =>
-        prevAgents.map((a) => (a.id === payload.id ? payload : a))
-      )
 
       toast.success("Agent Updated", {
         description: `${payload.agent}'s details have been saved successfully.`,
@@ -166,18 +196,6 @@ export default function AgentsPage() {
 
       if (!response.ok) throw new Error("Failed to add agent")
 
-      const newAgentEntry = {
-        id: Math.floor(Math.random() * 10000).toString(),
-        agent: agentData.agent,
-        email: agentData.email,
-        number: agentData.number,
-        role: agentData.role,
-        isOnline: false,
-        calls: 0
-      }
-
-      setAgents([newAgentEntry, ...agents])
-
       toast.success("Agent Created", {
         description: `${agentData.agent} has been added to the system.`,
       })
@@ -206,8 +224,6 @@ export default function AgentsPage() {
       })
 
       if (!response.ok) throw new Error("Failed to delete agent")
-
-      setAgents((prevAgents) => prevAgents.filter((a) => a.id !== targetId))
 
       toast.success("Agent Deactivated", {
         description: "The agent has been successfully removed.",
@@ -275,54 +291,94 @@ export default function AgentsPage() {
 
         {/* --- SECTION 2: AGENTS TABLE --- */}
         <Card className="flex flex-col">
-          {/* UPDATED: Flex layout handles full width on mobile perfectly */}
-          <CardHeader className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 pb-6">
-            <div className="w-full md:w-auto">
-              <CardTitle className="text-[hsl(var(--tertiary))] text-xl">Agents</CardTitle>
-              <CardDescription>
-                Manage your team and view their performance metrics.
-              </CardDescription>
-            </div>
 
-            {/* UPDATED: Buttons stack and stretch to w-full on mobile, sit inline on md+ screens */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" className="h-9 w-full sm:w-auto justify-start sm:justify-center">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {dateRange.includes("-") ? "Custom" : dateRange}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-background border-border shadow-md">
-                  <DropdownMenuItem onClick={() => setDateRange("Today")}>Today</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setDateRange("Past Week")}>Past Week</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setDateRange("Past Month")}>Past Month</DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => setDateRange("Past Year")}>Past Year</DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+          <CardHeader className="flex flex-col gap-5 pb-6">
 
-              <div className="relative flex items-center w-full sm:w-auto">
-                <input
-                  type="date"
-                  onChange={handleDateChange}
-                  className="h-9 w-full sm:w-auto rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors hover:bg-slate-100 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
-                  title="Select a specific date"
-                />
+            {/* Top Row: Title (Left) & Search (Right) */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
+              <div>
+                <CardTitle className="text-[hsl(var(--tertiary))] text-xl">Agents</CardTitle>
+                <CardDescription>
+                  Manage your team and view their performance metrics.
+                </CardDescription>
               </div>
 
-              <Button
-                  onClick={() => {
-                    setAddingAgent({ agent: "", email: "", password: "", confirmPassword: "", number: "", role: "" })
-                    setPasswordError(null)
+              <div className="w-full md:w-auto flex justify-end">
+                <Input
+                  placeholder="Search agents..."
+                  className="w-full md:w-[250px] h-9"
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value)
+                    setCurrentPage(1)
                   }}
-                  className="h-9 w-full sm:w-auto bg-emerald-500 text-white hover:bg-emerald-600 border-none transition-colors justify-center">
-                <Plus className="mr-2 h-4 w-4" />
-                Add Agent
-              </Button>
+                />
+              </div>
+            </div>
+
+            {/* Bottom Row: Filters (Left) & Actions (Right) */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
+
+              {/* Left Side: Role Filter & Date Picker */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+                <select
+                  className="h-9 w-full sm:w-auto rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                  value={roleFilter}
+                  onChange={(e) => {
+                    setRoleFilter(e.target.value)
+                    setCurrentPage(1)
+                  }}
+                >
+                  <option value="All">All Roles</option>
+                  <option value="Agent">Agent</option>
+                  <option value="Supervisor">Supervisor</option>
+                  <option value="Admin">Admin</option>
+                </select>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-9 w-full sm:w-auto justify-start sm:justify-center">
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dateRange.includes("-") ? "Custom" : dateRange}
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start" className="bg-background border-border shadow-md">
+                    <DropdownMenuItem onClick={() => setDateRange("Today")}>Today</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setDateRange("Past Week")}>Past Week</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setDateRange("Past Month")}>Past Month</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setDateRange("Past Year")}>Past Year</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <div className="relative flex items-center w-full sm:w-auto">
+                  <input
+                    type="date"
+                    onChange={handleDateChange}
+                    className="h-9 w-full sm:w-auto rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors hover:bg-slate-100 hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring cursor-pointer"
+                    title="Select a specific date"
+                  />
+                </div>
+              </div>
+
+              {/* Right Side: Export & Add Agent */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto justify-end">
+                <Button onClick={exportToCSV} variant="default" className="h-9 w-full sm:w-auto">
+                  <Download className="mr-2 h-4 w-4"/> Export CSV
+                </Button>
+                <Button
+                    onClick={() => {
+                      setAddingAgent({ agent: "", email: "", password: "", confirmPassword: "", number: "", role: "" })
+                      setPasswordError(null)
+                    }}
+                    className="h-9 w-full sm:w-auto bg-emerald-500 text-white hover:bg-emerald-600 border-none transition-colors justify-center">
+                  <Plus className="h-4 w-4" />
+                  Add Agent
+                </Button>
+              </div>
+
             </div>
           </CardHeader>
 
-          {/* UPDATED: Explicit block wrapper with overflow-x-auto handles the horizontal scroll perfectly */}
           <CardContent className="p-0">
             <div className="block w-full overflow-x-auto">
               <Table className="min-w-[800px] w-full">
@@ -333,66 +389,74 @@ export default function AgentsPage() {
                     <TableHead>Phone Number</TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Total Calls</TableHead>
-                    <TableHead className="text-right pr-4 sm:pr-6">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currentAgents.map((agent) => (
-                    <TableRow key={agent.id}>
-                      <TableCell className="font-medium whitespace-nowrap pl-4 sm:pl-6">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`h-2.5 w-2.5 rounded-full shrink-0 ${agent.isOnline ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}
-                            title={agent.isOnline ? "Online" : "Offline"}
-                          />
-                          {agent.agent}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground whitespace-nowrap">{agent.email}</TableCell>
-                      <TableCell className="whitespace-nowrap">{agent.number}</TableCell>
-                      <TableCell className="whitespace-nowrap">
-                        <Badge variant="outline" className="font-normal text-muted-foreground">
-                          {agent.role}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="whitespace-nowrap">{agent.calls}</TableCell>
-                      <TableCell className="text-right pr-4 sm:pr-6">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="bg-background border-border shadow-md">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem className="cursor-pointer focus:bg-slate-200">View Performance</DropdownMenuItem>
-                            <DropdownMenuSeparator className="bg-border" />
-                            <DropdownMenuItem
-                              className="cursor-pointer focus:bg-slate-200"
-                              onClick={() => setEditingAgent(agent)}
-                            >
-                              Edit Details
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                                onClick={() => setDeactivateAgentId(agent.id)}
-                                className="cursor-pointer text-destructive focus:bg-red-50 focus:text-red-600">
-                              Deactivate Agent
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {currentAgents.length > 0 ? (
+                    currentAgents.map((agent) => (
+                      <TableRow key={agent.id}>
+                        <TableCell className="font-medium whitespace-nowrap pl-4 sm:pl-6">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`h-2.5 w-2.5 rounded-full shrink-0 ${agent.isOnline ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}
+                              title={agent.isOnline ? "Online" : "Offline"}
+                            />
+                            {agent.agent}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground whitespace-nowrap">{agent.email}</TableCell>
+                        <TableCell className="whitespace-nowrap">{agent.number}</TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <Badge variant="outline" className="font-normal text-muted-foreground">
+                            {agent.role}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap">{agent.calls}</TableCell>
+                        <TableCell className="text-right pr-4 sm:pr-6">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" className="h-8 w-8 p-0">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="bg-background border-border shadow-md">
+                              <DropdownMenuItem
+                                  onClick={() => navigate(`/agents/${agent.id}`)}
+                                  className="cursor-pointer focus:bg-slate-200">Performance
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator className="bg-border" />
+                              <DropdownMenuItem
+                                className="cursor-pointer focus:bg-slate-200"
+                                onClick={() => setEditingAgent(agent)}
+                              >
+                                Edit Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                  onClick={() => setDeactivateAgentId(agent.id)}
+                                  className="cursor-pointer text-destructive focus:bg-red-50 focus:text-red-600">
+                                Deactivate Agent
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                        No agents found matching your search.
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </div>
           </CardContent>
 
-          {/* UPDATED: flex-col-reverse on mobile forces buttons above text so neither are squished */}
           <CardFooter className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 border-t border-border p-4 sm:p-6">
             <div className="text-sm text-muted-foreground text-center sm:text-left w-full sm:w-auto">
-              Showing <strong>{agents.length === 0 ? 0 : startIndex + 1}</strong> to <strong>{Math.min(endIndex, agents.length)}</strong> of <strong>{agents.length}</strong> agents
+              Showing <strong>{filteredAgents.length === 0 ? 0 : startIndex + 1}</strong> to <strong>{Math.min(endIndex, filteredAgents.length)}</strong> of <strong>{filteredAgents.length}</strong> agents
             </div>
             <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
               <Button
