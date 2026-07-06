@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.ts",
+    "start": "node dist/index.js",
     "dev": "nodemon --exec tsx src/index.ts",
     "test": "jest --runInBand"
   },

@@ -16,7 +16,7 @@ pool.on('error', (err) => {
 });
 
 const testing_pool = new Pool({
-  host: process.env.DB_HOST,
+  host: process.env.TEST_DB_HOST,
   port: Number(process.env.TEST_DB_PORT),
   database: process.env.DB_NAME,
   user: process.env.DB_USER,

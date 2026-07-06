@@ -1,5 +1,5 @@
 import { sql } from 'drizzle-orm';
-import { test_db } from '../../db/pool';
+import { test_db } from '../../db/pool.js';
 
 const tables = [
   'project_call_detail_record',
@@ -8,7 +8,6 @@ const tables = [
   'user_log',
   'owner_info',
   'numbers',
-  'call_status',
   'user',
   'owner',
   'project',

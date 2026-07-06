@@ -40,7 +40,7 @@ export class OwnerRepository {
   async findByIdWithDetails(
     id: number
   ): Promise<(Owner & {
-    numbers: { number: string | null }[];
+    numbers: { number: string | undefined }[];
     info: { key: string | null; value: string | null }[];
   }) | undefined> {
     const ownerRow = await this.findById(id);
