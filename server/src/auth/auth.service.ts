@@ -60,23 +60,6 @@ export class AuthService {
       },
     });
 
-    // const payload = { id: user.id, email: user.email, role: user.role };
-    // const token = this.jwtService.sign(payload);
-    // await this.prisma.user.update({
-    //   where: { id: user.id },
-    //   data: { jwtToken: token }, // Store JWT token after successful registration
-    // });
-
-    // return {
-    //   token,
-    //   user: {
-    //     id: user.id,
-    //     email: user.email,
-    //     name: user.name,
-    //     phone_number: user.phoneNumber,
-    //     role: user.role,
-    //   },
-    // };
     return user.id;
   }
 
