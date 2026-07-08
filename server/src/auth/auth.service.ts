@@ -70,8 +70,8 @@ export class AuthService {
   }
 
   async logout(user: AuthenticatedUser): Promise<{message:string}> {
-    let updated = await this.prisma.user.update({where: {id: user.id}, data: {jwtToken: null}});
-    if(!updated.jwtToken){
+    let updated = (await this.prisma.user.update({where: {id: user.id}, data: {jwtToken: null}})).jwtToken;
+    if(!updated){
       return { message: "Logged out successfully" };
     } else {
       return { message: "Something went wrong" };
