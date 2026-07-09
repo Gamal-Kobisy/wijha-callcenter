@@ -71,8 +71,8 @@ model Owner {
 }
 
 model Number {
-  number  String @db.VarChar(20)
-  ownerId BigInt @map("owner_id") @unique
+  number  String @db.VarChar(20) @unique
+  ownerId BigInt @map("owner_id")
 
   owner Owner @relation(fields: [ownerId], references: [id])
 

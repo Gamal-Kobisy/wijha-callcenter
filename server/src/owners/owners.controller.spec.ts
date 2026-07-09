@@ -3,7 +3,7 @@ import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { OwnersController } from './owners.controller';
 import { OwnersService } from './owners.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo } from '../prisma/mock-data';
+import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '../prisma/mock-data';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 describe('OwnersController', () => {
@@ -114,6 +114,18 @@ describe('OwnersController', () => {
     it('should update owner', async () => {
       const result = await controller.patch(1, { status: 'completed' });
       expect(result.status).toBe('completed');
+    });
+  });
+
+  describe('POST /owners/:ownerId/projects', () => {
+    it('should assign owner to a project', async () => {
+      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.project.findFirst.mockResolvedValue(mockProject({ name: 'Default Project' }));
+      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1 });
+
+      const result = await controller.assignProject(1, { project_name: 'Default Project' });
+      expect(result).toHaveProperty('id');
+      expect(result.name).toBe('John');
     });
   });
 });

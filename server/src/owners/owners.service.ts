@@ -68,6 +68,15 @@ export class OwnersService {
   }
 
   async create(dto: CreateOwnerDto): Promise<OwnerResponseDto> {
+    const numbers = dto.numbers.map(n => n.number);
+    const existingNumber = await this.prisma.number.findFirst({
+      where: { number: { in: numbers } },
+      include: { owner: { include: { numbers: true, ownerInfo: true } } },
+    });
+    if (existingNumber) {
+      return toOwnerResponse(existingNumber.owner);
+    }
+
     const owner = await this.prisma.owner.create({
       data: {
         name: dto.name,
@@ -127,6 +136,26 @@ export class OwnersService {
     });
 
     return toOwnerResponse(updated);
+  }
+
+  async assignToProject(ownerId: number, projectName: string): Promise<OwnerResponseDto> {
+    const owner = await this.prisma.owner.findUnique({ where: { id: ownerId } });
+    if (!owner) throw new NotFoundException('Owner not found');
+
+    const project = await this.prisma.project.findFirst({ where: { name: projectName } });
+    if (!project) throw new NotFoundException(`Project "${projectName}" not found`);
+
+    await this.prisma.ownerProject.upsert({
+      where: { ownerId_projectId: { ownerId, projectId: project.id } },
+      create: { ownerId, projectId: project.id },
+      update: {},
+    });
+
+    const updated = await this.prisma.owner.findUnique({
+      where: { id: ownerId },
+      include: { numbers: true, ownerInfo: true },
+    });
+    return toOwnerResponse(updated!);
   }
 
   async remove(id: number): Promise<void> {

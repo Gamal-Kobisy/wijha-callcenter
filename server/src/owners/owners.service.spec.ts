@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { OwnersService } from './owners.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo } from '../prisma/mock-data';
+import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '../prisma/mock-data';
 
 describe('OwnersService', () => {
   let service: OwnersService;
@@ -72,6 +72,7 @@ describe('OwnersService', () => {
 
   describe('create', () => {
     it('should create owner with numbers and info', async () => {
+      prisma.number.findFirst.mockResolvedValue(null);
       prisma.owner.create.mockResolvedValue(
         mockOwner({
           id: 3n, name: 'Test Owner',
@@ -92,12 +93,60 @@ describe('OwnersService', () => {
     });
 
     it('should default status to active', async () => {
+      prisma.number.findFirst.mockResolvedValue(null);
       prisma.owner.create.mockResolvedValue(mockOwner({ id: 3n, name: 'No Status', numbers: [], ownerInfo: [] }));
 
       const owner = await service.create({
         name: 'No Status', project_id: 1, numbers: [{ number: '555-0000' }],
       });
       expect(owner.status).toBe('active');
+    });
+
+    it('should return existing owner when number already exists', async () => {
+      const existingOwner = mockOwner({
+        id: 2n, name: 'Existing Jane',
+        numbers: [mockNumber({ number: '555-9999' })],
+        ownerInfo: [],
+      });
+      prisma.number.findFirst.mockResolvedValue({
+        number: '555-9999',
+        ownerId: 2n,
+        owner: existingOwner,
+      } as any);
+
+      const result = await service.create({
+        name: 'New Guy',
+        project_id: 1,
+        numbers: [{ number: '555-9999' }],
+      });
+
+      expect(result.name).toBe('Existing Jane');
+      expect(prisma.owner.create).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('assignToProject', () => {
+    it('should assign owner to a project', async () => {
+      const owner = mockOwner({ name: 'John', numbers: [], ownerInfo: [] });
+      prisma.owner.findUnique.mockResolvedValue(owner);
+      prisma.project.findFirst.mockResolvedValue(mockProject({ name: 'Default Project' }));
+      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1 });
+
+      const result = await service.assignToProject(1, 'Default Project');
+      expect(result.name).toBe('John');
+    });
+
+    it('should throw NotFoundException when owner does not exist', async () => {
+      prisma.owner.findUnique.mockResolvedValue(null);
+
+      await expect(service.assignToProject(999, 'Default Project')).rejects.toThrow('Owner not found');
+    });
+
+    it('should throw NotFoundException when project does not exist', async () => {
+      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.project.findFirst.mockResolvedValue(null);
+
+      await expect(service.assignToProject(1, 'NoProject')).rejects.toThrow('Project "NoProject" not found');
     });
   });
 
