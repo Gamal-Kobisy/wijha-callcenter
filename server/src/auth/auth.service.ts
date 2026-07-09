@@ -63,9 +63,10 @@ export class AuthService {
     return user.id;
   }
 
-  async validateUser(userId: number): Promise<AuthenticatedUser | null> {
+  async validateUserWithToken(userId: number, token: string): Promise<AuthenticatedUser | null> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return null;
+    if (user.jwtToken !== token) return null;
     return { id: user.id, email: user.email, role: user.role };
   }
 

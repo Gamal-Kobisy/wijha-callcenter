@@ -16,7 +16,7 @@ enum UserRole {
 
 model Project {
   id        Int     @id @default(autoincrement())
-  name      String  @db.VarChar(100)
+  name      String  @db.VarChar(100) @unique
   description String? @db.Text
 
   ownerProjects           OwnerProject[]
@@ -29,7 +29,7 @@ model User {
   id           Int      @id @default(autoincrement())
   email        String   @unique @db.VarChar(50)
   passwordHash String   @map("password_hash") @db.VarChar(255)
-  phoneNumber  String?   @map("phone_number") @db.VarChar(20)
+  phoneNumber  String?  @unique @map("phone_number") @db.VarChar(20)
   name         String?  @db.VarChar(50)
   role         UserRole
   otp          String?  @db.VarChar(6)
