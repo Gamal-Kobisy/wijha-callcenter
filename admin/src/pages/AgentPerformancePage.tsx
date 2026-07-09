@@ -346,15 +346,15 @@ export default function AgentPerformancePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { title: "Total Calls", val: filteredLogs.length, icon: Phone },
-              { title: "Success Rate", val: "78%", icon: TrendingUp },
-              { title: "Avg Duration", val: "105s", icon: Clock },
-              { title: "Active Hours", val: "6.5h", icon: Target },
+              { title: "Total Calls", val: filteredLogs.length, icon: Phone, color: "text-emerald-500" },
+              { title: "Success Rate", val: "78%", icon: TrendingUp, color: "text-blue-500" },
+              { title: "Avg Duration", val: "105s", icon: Clock, color: "text-amber-500" },
+              { title: "Active Hours", val: "6.5h", icon: Target, color: "text-indigo-500" },
             ].map((item, i) => (
               <Card key={i} className="w-full shadow-sm border-slate-100 hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                   <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">{item.title}</CardTitle>
-                  <item.icon className="h-4 w-4 text-slate-400"/>
+                  <item.icon className={`h-4 w-4 ${item.color}`} />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold text-slate-800">{item.val}</div>
@@ -362,11 +362,11 @@ export default function AgentPerformancePage() {
               </Card>
             ))}
           </div>
-         <div className="flex flex-wrap justify-center gap-4 w-full ">
+          <div className="flex flex-wrap justify-center gap-4 w-full">
             {[
-              { title: "Connect Rate", val: "73%", icon: Wifi },
-              { title: "Avg Attempts / Convert", val: "3.0", icon: Repeat },
-              { title: "Overdue Follow-ups", val: 1, icon: AlertTriangle },
+              { title: "Connect Rate", val: "73%", icon: Wifi, color: "text-teal-500" },
+              { title: "Avg Attempts / Convert", val: "3.0", icon: Repeat, color: "text-violet-500" },
+              { title: "Overdue Follow-ups", val: 1, icon: AlertTriangle, color: "text-slate-400" },
             ].map((item, i) => {
               // @ts-ignore
               const isUrgent = item.title === "Overdue Follow-ups" && item.val > 0;
@@ -375,7 +375,7 @@ export default function AgentPerformancePage() {
                 <Card key={i} className={`w-full sm:w-[240px] shadow-sm border-slate-100 hover:shadow-md transition-shadow ${isUrgent ? 'bg-red-50' : 'background-color: hsl(var(--card))'}`}>
                   <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
                     <CardTitle className={`text-sm font-medium ${isUrgent ? 'text-rose-600' : 'text-[hsl(var(--tertiary))]'}`}>{item.title}</CardTitle>
-                    <item.icon className={`h-4 w-4 ${isUrgent ? 'text-rose-600' : 'text-slate-400'}`} />
+                    <item.icon className={`h-4 w-4 ${isUrgent ? 'text-rose-600' : item.color}`} />
                   </CardHeader>
                   <CardContent>
                     <div
