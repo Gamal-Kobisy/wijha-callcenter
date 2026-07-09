@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+  engineType = "client"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  admin
+  user
+
+  @@map("user_role")
+}
+
+model Project {
+  id        Int     @id @default(autoincrement())
+  name      String  @db.VarChar(100)
+  description String? @db.Text
+
+  ownerProjects           OwnerProject[]
+  projectCallDetailRecords ProjectCallDetailRecord[]
+
+  @@map("project")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique @db.VarChar(50)
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  phoneNumber  String?   @map("phone_number") @db.VarChar(20)
+  name         String?  @db.VarChar(50)
+  role         UserRole
+  otp          String?  @db.VarChar(6)
+  otpExpiry    DateTime? @map("otp_expiry")
+  jwtToken     String?  @map("jwt_token") @db.Text
+
+  userLogs          UserLog[]
+  callDetailRecords CallDetailRecord[]
+
+  @@map("user")
+}
+
+model UserLog {
+  id        BigInt   @id @default(autoincrement())
+  agentId   Int?     @map("agent_id")
+  startTime DateTime @default(now()) @map("start_time")
+  duration  Int?
+  isActive  Boolean? @map("is_active")
+
+  agent User? @relation(fields: [agentId], references: [id])
+
+  @@map("user_log")
+}
+
+model Owner {
+  id           BigInt    @id @default(autoincrement())
+  name         String?   @db.VarChar(50)
+  status       String?   @db.VarChar(50)
+  attemptCount Int?      @map("attempt_count")
+  lastDialedAt DateTime? @map("last_dialed_at")
+  nextDialAt   DateTime? @map("next_dial_at")
+
+  numbers           Number[]
+  ownerInfo         OwnerInfo[]
+  callDetailRecords CallDetailRecord[]
+  ownerProjects     OwnerProject[]
+
+  @@map("owner")
+}
+
+model Number {
+  number  String @db.VarChar(20)
+  ownerId BigInt @map("owner_id") @unique
+
+  owner Owner @relation(fields: [ownerId], references: [id])
+
+  @@id([number, ownerId])
+  @@map("numbers")
+}
+
+model OwnerInfo {
+  key     String @db.VarChar(60)
+  ownerId BigInt @map("owner_id")
+  value   String @db.VarChar(60)
+
+  owner Owner @relation(fields: [ownerId], references: [id])
+
+  @@id([key, ownerId])
+  @@map("owner_info")
+}
+
+model CallDetailRecord {
+  id         BigInt   @id @default(autoincrement())
+  ownerId    BigInt?  @map("owner_id")
+  agentId    Int?     @map("agent_id")
+  status     String?  @db.VarChar(50)
+  time       DateTime
+  duration   Int?
+  agentNotes String?  @map("agent_notes") @db.Text
+
+  owner        Owner?                       @relation(fields: [ownerId], references: [id])
+  agent        User?                        @relation(fields: [agentId], references: [id])
+  projectLinks ProjectCallDetailRecord[]
+
+  @@map("call_detail_record")
+}
+
+model ProjectCallDetailRecord {
+  projectId          Int   @map("project_id")
+  callDetailRecordId BigInt @map("call_detail_record_id")
+
+  project    Project          @relation(fields: [projectId], references: [id])
+  callRecord CallDetailRecord @relation(fields: [callDetailRecordId], references: [id])
+
+  @@id([projectId, callDetailRecordId])
+  @@map("project_call_detail_record")
+}
+
+model OwnerProject {
+  ownerId   BigInt @map("owner_id")
+  projectId Int    @map("project_id")
+
+  owner   Owner   @relation(fields: [ownerId], references: [id])
+  project Project @relation(fields: [projectId], references: [id])
+
+  @@id([ownerId, projectId])
+  @@map("owner_project")
+}

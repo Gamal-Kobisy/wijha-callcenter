@@ -1,0 +1,62 @@
+import {
+  Controller,
+  Get,
+  Post,
+  Patch,
+  Body,
+  Param,
+  Query,
+  UseGuards,
+  ParseIntPipe,
+  HttpCode,
+  HttpStatus,
+  Delete,
+} from '@nestjs/common';
+import { OwnersService } from './owners.service';
+import { CreateOwnerDto } from './dto/create-owner.dto';
+import { UpdateOwnerDto } from './dto/update-owner.dto';
+import { ListOwnersQueryDto } from './dto/list-owners-query.dto';
+import type { OwnerResponseDto } from './dto/owner-response.dto';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+
+@Controller('owners')
+@UseGuards(JwtAuthGuard)
+export class OwnersController {
+  constructor(private ownersService: OwnersService) {}
+
+  @Get()
+  async findAll(@Query() query: ListOwnersQueryDto): Promise<{
+    data: OwnerResponseDto[];
+    meta: { total: number; page: number; limit: number };
+  }> {
+    const projectId = query.project_id ? Number(query.project_id) : undefined;
+    const page = query.page ? Number(query.page) : 1;
+    const limit = query.limit ? Math.min(Number(query.limit), 100) : 20;
+    return this.ownersService.findAll(projectId, query.status, page, limit);
+  }
+
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  async create(@Body() dto: CreateOwnerDto): Promise<OwnerResponseDto> {
+    return this.ownersService.create(dto);
+  }
+
+  @Get(':ownerId')
+  async findOne(@Param('ownerId', ParseIntPipe) ownerId: number): Promise<OwnerResponseDto | null> {
+    return this.ownersService.findById(ownerId);
+  }
+
+  @Patch(':ownerId')
+  async patch(
+    @Param('ownerId', ParseIntPipe) ownerId: number,
+    @Body() dto: UpdateOwnerDto,
+  ): Promise<OwnerResponseDto> {
+    return this.ownersService.update(ownerId, dto);
+  }
+
+  @Delete(':ownerId')
+  @HttpCode(HttpStatus.NOT_FOUND)
+  async remove(@Param('ownerId', ParseIntPipe) ownerId: number): Promise<void> {
+    return this.ownersService.remove(ownerId);
+  }
+}
