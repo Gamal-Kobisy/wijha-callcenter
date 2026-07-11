@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { SubmitCallDto } from './dto/submit-call.dto';
 import type { NotifyCallingDto } from './dto/notify-calling.dto';
 import type { CallResponseDto } from './dto/call-response.dto';
+import type { NextOwnerResponseDto } from './dto/next-owner-response.dto';
 import { OwnersService } from '../owners/owners.service';
 
 @Injectable()
@@ -17,11 +18,15 @@ export class CallsService {
     agent_id?: number;
     status?: string;
     limit?: number;
+    from?: Date;
+    to?: Date;
   }): Promise<{ data: CallResponseDto[]; meta: { total: number; page: number; limit: number } }> {
     const where: any = {};
     if (filters.owner_id !== undefined) where.ownerId = filters.owner_id;
     if (filters.agent_id !== undefined) where.agentId = filters.agent_id;
     if (filters.status) where.status = filters.status;
+    if (filters.from) where.time = { ...where.time, gte: filters.from };
+    if (filters.to) where.time = { ...where.time, lte: filters.to };
 
     const limit = filters.limit ?? 50;
 
@@ -85,22 +90,30 @@ export class CallsService {
     };
   }
 
-  async getNextOwner(projectId: number): Promise<CallResponseDto | null> {
-    const owner = await this.ownersService.getNextOwner(projectId);
+  async getNextOwner(args?: { projectId?: number, date?: Date }): Promise<NextOwnerResponseDto | null> {
+    const owner = await this.ownersService.getNextOwner(args);
     if (!owner) return null;
 
+    const calls = await this.prisma.callDetailRecord.findMany({
+      where: { ownerId: owner.id },
+      orderBy: { time: 'desc' },
+    });
+
     return {
-      id: 0,
-      owner_id: owner.id,
-      agent_id: 0,
-      status: 'pending',
-      time: new Date().toISOString(),
-      duration: null,
-      agent_notes: null,
+      owner,
+      calls: calls.map(c => ({
+        id: Number(c.id),
+        owner_id: Number(c.ownerId),
+        agent_id: c.agentId ?? 0,
+        status: c.status ?? '',
+        time: c.time.toISOString(),
+        duration: c.duration,
+        agent_notes: c.agentNotes,
+      })),
     };
   }
 
   async notifyCalling(_dto: NotifyCallingDto): Promise<void> {
-    // In-memory: no-op
+    
   }
 }

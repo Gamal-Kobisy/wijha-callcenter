@@ -266,7 +266,7 @@ components:
 
 paths:
 
-  /auth/login:
+  /login:
     post:
       summary: Agent / admin login
       operationId: login
@@ -295,7 +295,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /auth/register:
+  /register:
     post:
       summary: Register a new user (auto-login)
       operationId: register
@@ -330,7 +330,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
 
-  /auth/logout:
+  /logout:
     post:
       summary: Invalidate the current session
       operationId: logout
@@ -349,7 +349,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /auth/me:
+  /me:
     get:
       summary: Get the currently authenticated user
       operationId: getMe
