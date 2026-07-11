@@ -58,10 +58,18 @@ describe('AuthController', () => {
   });
 
   describe('GET /me', () => {
-    it('should return authenticated user', () => {
+    it('should return authenticated user', async () => {
       const user = { id: 1, email: 'agent', role: 'user' as const };
-      const result = controller.getMe(user);
-      expect(result).toEqual(user);
+      const fullUser = { ...user, name: 'Agent', phoneNumber: '1234567890' };
+      prisma.user.findUnique.mockResolvedValue(mockUser({ ...fullUser }));
+      const result = await controller.getMe(user);
+      expect(result).toEqual({
+        id: fullUser.id,
+        email: fullUser.email,
+        role: fullUser.role,
+        name: fullUser.name,
+        phone_number: fullUser.phoneNumber,
+      });
     });
   });
 });

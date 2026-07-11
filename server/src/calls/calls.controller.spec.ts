@@ -127,7 +127,7 @@ describe('CallsController', () => {
   describe('POST /calls/calling', () => {
     it('should notify calling', async () => {
       await expect(
-        controller.notifyCalling({ owner_number: '555-0100' }),
+        controller.notifyCalling({ owner_id: 1 }),
       ).resolves.toBeUndefined();
     });
   });

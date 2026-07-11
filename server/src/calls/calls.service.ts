@@ -79,6 +79,9 @@ export class CallsService {
       },
     });
 
+    if (call.ownerId && (['not_interested', 'contacted'].includes(call.status??""))) 
+      await this.ownersService.update(Number(call.ownerId), { status: 'inactive' });
+
     return {
       id: Number(call.id),
       owner_id: Number(call.ownerId),
@@ -113,9 +116,16 @@ export class CallsService {
     };
   }
 
-  async notifyCalling(_dto: NotifyCallingDto): Promise<void> {
+  async notifyCalling(dto: NotifyCallingDto): Promise<void> {
+    const where:any = {};
+    where.id = dto.owner_id;
+    if (dto.owner_number) {
+      where.ownerNumbers = { some: { number: dto.owner_number } };
+    }
+
+    await
     this.prisma.owner.update({
-      where: { id: _dto.owner_id },
+      where,
       data: { lastDialedAt: new Date().toISOString() },
     })
   }

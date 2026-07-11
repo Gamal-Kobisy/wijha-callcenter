@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
-import { LoginResponseDto } from './dto/login-response.dto';
+import { LoginResponseDto, UserResponse } from './dto/login-response.dto';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { RegisterUserDTO } from './dto/register.dto';
 
@@ -78,5 +78,11 @@ export class AuthService {
       return { message: "Something went wrong" };
     }
     
+  }
+
+  async getMe(user: AuthenticatedUser): Promise<UserResponse | null> {
+    const existingUser = await this.prisma.user.findUnique({ where: { id: user.id } });
+    if (!existingUser) return null;
+    return { id: existingUser.id, email: existingUser.email, role: existingUser.role, name: existingUser.name, phone_number: existingUser.phoneNumber };
   }
 }
