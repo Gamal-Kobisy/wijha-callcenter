@@ -128,4 +128,14 @@ describe('OwnersController', () => {
       expect(result.name).toBe('John');
     });
   });
+
+  describe('DELETE /owners/:ownerId', () => {
+    it('should delete an owner', async () => {
+      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.owner.delete.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+
+      await expect(controller.remove(1)).resolves.toBeUndefined();
+      expect(prisma.owner.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+    });
+  });
 });
