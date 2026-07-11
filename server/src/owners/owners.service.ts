@@ -107,7 +107,7 @@ export class OwnersService {
       where: { id },
       data: {
         ...(dto.status !== undefined ? { status: dto.status } : {}),
-        ...(dto.next_dial_at !== undefined ? { nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at) : null } : {}),
+        ...(dto.next_dial_at !== undefined ? { nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at).toISOString() : null } : {}),
       },
       include: { numbers: true, ownerInfo: true },
     });

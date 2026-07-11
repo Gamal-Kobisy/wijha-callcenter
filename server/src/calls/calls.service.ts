@@ -114,6 +114,9 @@ export class CallsService {
   }
 
   async notifyCalling(_dto: NotifyCallingDto): Promise<void> {
-    
+    this.prisma.owner.update({
+      where: { id: _dto.owner_id },
+      data: { lastDialedAt: new Date().toISOString() },
+    })
   }
 }
