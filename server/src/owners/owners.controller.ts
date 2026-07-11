@@ -15,6 +15,7 @@ import {
 import { OwnersService } from './owners.service';
 import { CreateOwnerDto } from './dto/create-owner.dto';
 import { UpdateOwnerDto } from './dto/update-owner.dto';
+import { AssignProjectDto } from './dto/assign-project.dto';
 import { ListOwnersQueryDto } from './dto/list-owners-query.dto';
 import type { OwnerResponseDto } from './dto/owner-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -39,6 +40,15 @@ export class OwnersController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateOwnerDto): Promise<OwnerResponseDto> {
     return this.ownersService.create(dto);
+  }
+
+  @Post(':ownerId/projects')
+  @HttpCode(HttpStatus.OK)
+  async assignProject(
+    @Param('ownerId', ParseIntPipe) ownerId: number,
+    @Body() dto: AssignProjectDto,
+  ): Promise<OwnerResponseDto> {
+    return this.ownersService.assignToProject(ownerId, dto.project_name);
   }
 
   @Get(':ownerId')

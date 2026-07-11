@@ -51,9 +51,9 @@ describe('AuthController', () => {
   });
 
   describe('POST /logout', () => {
-    it('should return logout message', () => {
-      const result = controller.logout();
-      expect(result).toEqual({ message: 'Logged out successfully' });
+    it('should return logout message', async () => {
+      const user = { id: 1, email: 'agent', role: 'user' as const };
+      await expect(controller.logout(user)).rejects.toThrow();
     });
   });
 

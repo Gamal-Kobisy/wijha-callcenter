@@ -68,17 +68,32 @@ describe('AuthService', () => {
     });
   });
 
-  describe('validateUser', () => {
-    it('should return authenticated user for valid id', async () => {
-      prisma.user.findUnique.mockResolvedValue(mockUser({ email: 'agent' }));
+  describe('validateUserWithToken', () => {
+    it('should return user when token matches stored jwtToken', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser({ email: 'agent', jwtToken: 'valid-token' }));
 
-      const result = await service.validateUser(1);
+      const result = await service.validateUserWithToken(1, 'valid-token');
       expect(result).toEqual({ id: 1, email: 'agent', role: 'user' });
     });
 
-    it('should return null for invalid id', async () => {
+    it('should return null when token does not match stored jwtToken', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser({ email: 'agent', jwtToken: 'other-token' }));
+
+      const result = await service.validateUserWithToken(1, 'wrong-token');
+      expect(result).toBeNull();
+    });
+
+    it('should return null when stored jwtToken is null (logged out)', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser({ email: 'agent', jwtToken: null }));
+
+      const result = await service.validateUserWithToken(1, 'any-token');
+      expect(result).toBeNull();
+    });
+
+    it('should return null for invalid user id', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
-      const result = await service.validateUser(999);
+
+      const result = await service.validateUserWithToken(999, 'any-token');
       expect(result).toBeNull();
     });
   });

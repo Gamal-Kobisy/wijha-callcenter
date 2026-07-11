@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS "project" (
 CREATE TABLE IF NOT EXISTS "user" (
     "id"            SERIAL PRIMARY KEY,
     "email"         VARCHAR(50)  NOT NULL,
-    "phone_number"  VARCHAR(20)  NOT NULL,
+    "phone_number"  VARCHAR(20),
     "password_hash" VARCHAR(255) NOT NULL,
     "name"          VARCHAR(50),
     "role"          "user_role"  NOT NULL,
@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS "user" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "user_email_key" ON "user" ("email");
+CREATE UNIQUE INDEX IF NOT EXISTS "user_phone_number_key" ON "user" ("phone_number");
 
 -- ============================================================
 -- Table: owner
@@ -55,6 +56,8 @@ CREATE TABLE IF NOT EXISTS "numbers" (
     CONSTRAINT "numbers_owner_id_fkey" FOREIGN KEY ("owner_id")
         REFERENCES "owner" ("id") ON DELETE CASCADE
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS "numbers_number_key" ON "numbers" ("number");
 
 -- ============================================================
 -- Table: owner_info

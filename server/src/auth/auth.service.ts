@@ -60,35 +60,19 @@ export class AuthService {
       },
     });
 
-    // const payload = { id: user.id, email: user.email, role: user.role };
-    // const token = this.jwtService.sign(payload);
-    // await this.prisma.user.update({
-    //   where: { id: user.id },
-    //   data: { jwtToken: token }, // Store JWT token after successful registration
-    // });
-
-    // return {
-    //   token,
-    //   user: {
-    //     id: user.id,
-    //     email: user.email,
-    //     name: user.name,
-    //     phone_number: user.phoneNumber,
-    //     role: user.role,
-    //   },
-    // };
     return user.id;
   }
 
-  async validateUser(userId: number): Promise<AuthenticatedUser | null> {
+  async validateUserWithToken(userId: number, token: string): Promise<AuthenticatedUser | null> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return null;
+    if (user.jwtToken !== token) return null;
     return { id: user.id, email: user.email, role: user.role };
   }
 
   async logout(user: AuthenticatedUser): Promise<{message:string}> {
-    let updated = await this.prisma.user.update({where: {id: user.id}, data: {jwtToken: null}});
-    if(!updated.jwtToken){
+    let updated = (await this.prisma.user.update({where: {id: user.id}, data: {jwtToken: null}})).jwtToken;
+    if(!updated){
       return { message: "Logged out successfully" };
     } else {
       return { message: "Something went wrong" };

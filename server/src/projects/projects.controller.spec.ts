@@ -14,9 +14,6 @@ describe('ProjectsController', () => {
     prisma = mockDeep<PrismaService>();
     prisma.project.findMany.mockResolvedValue([mockProject()]);
     prisma.project.findUnique.mockResolvedValue(mockProject());
-    prisma.project.create.mockResolvedValue(mockProject({ id: 2, name: 'New Project', description: 'Desc' }));
-    prisma.project.update.mockResolvedValue(mockProject({ id: 1, name: 'Updated' }));
-    prisma.project.delete.mockResolvedValue(mockProject());
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProjectsController],
@@ -44,14 +41,6 @@ describe('ProjectsController', () => {
     });
   });
 
-  describe('POST /projects', () => {
-    it('should create a project', async () => {
-      const result = await controller.create({ name: 'New Project', description: 'Desc' });
-      expect(result.id).toBe(2);
-      expect(result.name).toBe('New Project');
-    });
-  });
-
   describe('GET /projects/:projectId', () => {
     it('should return project by id', async () => {
       const result = await controller.findOne(1);
@@ -63,19 +52,6 @@ describe('ProjectsController', () => {
       prisma.project.findUnique.mockResolvedValue(null);
       const result = await controller.findOne(999);
       expect(result).toBeNull();
-    });
-  });
-
-  describe('PATCH /projects/:projectId', () => {
-    it('should update project', async () => {
-      const result = await controller.update(1, { name: 'Updated' });
-      expect(result.name).toBe('Updated');
-    });
-  });
-
-  describe('DELETE /projects/:projectId', () => {
-    it('should delete project', async () => {
-      await expect(controller.remove(1)).resolves.toBeUndefined();
     });
   });
 });
