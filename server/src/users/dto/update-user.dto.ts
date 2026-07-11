@@ -2,7 +2,7 @@ import { IsEmail, IsString, MinLength, IsOptional, IsEnum } from 'class-validato
 
 export class UpdateUserDto {
   @IsOptional()
-  @IsEmail()
+  @IsString()
   email?: string;
 
   @IsOptional()
