@@ -9,16 +9,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
+
 interface SidebarUserButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   name?: string
   email?: string
   avatarSrc?: string
+  onLogout?: () => void,
+  onAccountClick?: () => void
 }
 
+
 export default function NavbarUserButton({
-  name = "Youssef Elkhatib",
-  email = "admin@wijhawest.com",
+  name,
+  email,
   avatarSrc,
+  onLogout,
+  onAccountClick,
   ...props
 }: SidebarUserButtonProps) {
   return (
@@ -70,7 +76,7 @@ export default function NavbarUserButton({
         <DropdownMenuSeparator className="bg-border" />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-slate-200 focus:text-slate-900">
+          <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-slate-200 focus:text-slate-900" onClick={onAccountClick}>
             <BadgeCheck className="mr-2 size-4" />
             Account
           </DropdownMenuItem>
@@ -78,7 +84,7 @@ export default function NavbarUserButton({
 
         <DropdownMenuSeparator className="bg-border" />
 
-        <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-slate-200 focus:text-slate-900">
+        <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-slate-200 focus:text-slate-900" onClick={onLogout}>
           <LogOut className="mr-2 size-4" />
           Log out
         </DropdownMenuItem>

@@ -1,4 +1,4 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import AppNavbar from "@/components/AppNavbar.tsx"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,38 +8,129 @@ import { Camera, Save, X, Edit, Mail, Phone, Shield, User } from "lucide-react"
 import { toast, Toaster } from "sonner"
 // @ts-ignore
 import avatar from "../assets/avatar.jpg"
+import { useAuth } from "@/contexts/AuthContext.tsx"
+import { apiFetch } from "@/lib/api.tsx"
 
 export default function AccountPage() {
   const [isEditing, setIsEditing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const { user,refreshUser } = useAuth()
 
-  const [user, setUser] = useState({
-    name: "Youssef Elkhatib",
-    email: "admin@wijhawest.com",
-    role: "Admin",
-    phone: "+20 100 123 4567",
+  // 1. Initialize with safe empty strings to prevent null crashes
+  const [formData, setFormData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+    role: "",
     avatarUrl: avatar
   })
 
-  const [formData, setFormData] = useState(user)
+  // 2. Sync data when the user finishes loading from the context
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        role: user.role || "",
+        avatarUrl: avatar
+      })
+    }
+  }, [user])
+
+  // --- VALIDATION LOGIC ---
+  const validateForm = () => {
+    // Check for empty name
+    if (!formData.name.trim()) {
+      toast.error("Name cannot be empty")
+      return false
+    }
+
+    // Check email using Regex
+    // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    // if (!emailRegex.test(formData.email)) {
+    //   toast.error("Please enter a valid email address")
+    //   return false
+    // }
+
+    // Check phone number (Allows optional +, spaces, dashes, and 8-15 digits)
+    const phoneRegex = /^\d{11}$/
+    if (formData.phone && !phoneRegex.test(formData.phone)) {
+      toast.error("Please enter a valid phone number")
+      return false
+    }
+
+    return true
+  }
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      // 1. Save the actual file object for the API request
+      setSelectedFile(file)
+
+      // 2. Create a temporary local preview for the UI
       const reader = new FileReader()
       reader.onloadend = () => {
         setFormData(prev => ({ ...prev, avatarUrl: reader.result as string }))
       }
       reader.readAsDataURL(file)
-      toast.success("Profile picture updated")
+      toast.success("Profile picture updated locally")
     }
   }
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    setUser(formData)
+
+    if (!validateForm()) return
+
+    // NEW: Use FormData to package the text data AND the file
+    const submitData = new FormData()
+    submitData.append("name", formData.name)
+    submitData.append("email", formData.email)
+    if (formData.phone) submitData.append("phone", formData.phone)
+
+    // Attach the file only if the user selected a new one
+    if (selectedFile) {
+      submitData.append("avatar", selectedFile)
+    }
+
+    try {
+      if (!user?.id) throw new Error("User ID missing")
+
+      const response = await apiFetch(`users/${user.id}`, {
+        method: "PATCH",
+        body: submitData,
+      })
+
+      if (!response.ok) {
+        throw new Error("Failed to update profile. Please try again later")
+      }
+
+      setIsEditing(false)
+      setSelectedFile(null) // Clear the file state after successful save
+      toast.success("Profile saved successfully")
+
+      await refreshUser()
+    } catch (e: any) {
+      toast.error(e.message || "An error occurred")
+    }
+  }
+
+  // --- CANCEL LOGIC ---
+  const handleCancel = () => {
+    // Revert the form back to the real user data
+    if (user) {
+      setFormData({
+        name: user.name || "",
+        email: user.email || "",
+        phone: user.phone || "",
+        role: user.role || "",
+        avatarUrl: avatar
+      })
+    }
     setIsEditing(false)
-    toast.success("Profile saved successfully")
   }
 
   return (
@@ -50,7 +141,6 @@ export default function AccountPage() {
         <main className="flex-1 p-4 md:p-8 flex items-center justify-center w-full">
           <Card className="w-full max-w-2xl shadow-xl border-slate-100 overflow-hidden bg-white relative ">
 
-            {/* Cooler, Abstract Geometric Banner */}
             <div className="h-35 w-full bg-slate-900 relative overflow-hidden !-mt-6">
                <div className="absolute -top-10 -right-10 size-40 bg-indigo-500 rounded-full opacity-30 blur-2xl animate-pulse"></div>
                <div className="absolute -bottom-10 -left-10 size-40 bg-blue-500 rounded-full opacity-30 blur-2xl"></div>
@@ -77,7 +167,7 @@ export default function AccountPage() {
                 </div>
 
                 <div className="sm:mb-4">
-                  <h2 className="text-2xl font-bold text-slate-900">{formData.name}</h2>
+                  <h2 className="text-2xl font-bold text-slate-900">{formData.name || "Loading..."}</h2>
                   <p className="text-slate-500 font-medium">{formData.role}</p>
                 </div>
 
@@ -91,7 +181,7 @@ export default function AccountPage() {
                       <Button
                         variant="ghost"
                         type="button"
-                        onClick={() => setIsEditing(false)}
+                        onClick={handleCancel}
                         className="bg-red-50 text-red-600 hover:bg-red-100 hover:text-red-700"
                       >
                         <X className="size-4 mr-2" /> Cancel
