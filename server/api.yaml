@@ -176,6 +176,17 @@ components:
           type: string
           nullable: true
 
+    NextOwnerResponse:
+      type: object
+      required: [owner, calls]
+      properties:
+        owner:
+          $ref: "#/components/schemas/Owner"
+        calls:
+          type: array
+          items:
+            $ref: "#/components/schemas/CallDetailRecord"
+
     SessionResponse:
       type: object
       required: [id, agent_id, start_time, is_active]
@@ -662,11 +673,11 @@ paths:
             type: integer
       responses:
         "200":
-          description: Next call assignment (id=0, status=pending)
+          description: Next owner to call with past call history
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CallDetailRecord"
+                $ref: "#/components/schemas/NextOwnerResponse"
         "204":
           description: No owners available right now
         "401":
