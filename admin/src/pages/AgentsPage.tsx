@@ -241,7 +241,7 @@ export default function AgentsPage() {
   return (
     <>
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <AppNavbar link1Name="Dashboard" link2Name="Reports" link3Name="Leads" />
+      <AppNavbar link1Name="Dashboard" link2Name="Reports" link3Name="Clients" />
 
       <main className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-7xl mx-auto w-full">
 

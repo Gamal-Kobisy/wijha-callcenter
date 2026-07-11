@@ -1,5 +1,5 @@
 import { Menu, BarChart3, Target, Headset, BadgeCheck, LogOut, LayoutDashboard } from "lucide-react"
-import { Link, useLocation } from "react-router-dom"
+import {Link, useLocation, useNavigate} from "react-router-dom"
 import Logo from "@/components/Logo"
 import NavbarUserButton from "@/components/NavbarUserButton.tsx"
 import {
@@ -20,18 +20,19 @@ interface AppNavbarProps {
 
 export default function AppNavbar({
   link1Name = "Reports",
-  link2Name = "Leads",
+  link2Name = "Clients",
   link3Name = "Agents",
 }: AppNavbarProps) {
   const location = useLocation()
   const isActive = (path: string) => location.pathname === path
+
 
   // Helper to map icons to specific link names
   const getIcon = (name: string) => {
     switch (name.toLowerCase()) {
       case "dashboard": return <LayoutDashboard className="size-5 shrink-0" />
       case "reports": return <BarChart3 className="size-5 shrink-0" />
-      case "leads": return <Target className="size-5 shrink-0" />
+      case "clients": return <Target className="size-5 shrink-0" />
       case "agents": return <Headset className="size-5 shrink-0" />
       default: return <BarChart3 className="size-5 shrink-0" />
     }
@@ -57,6 +58,8 @@ export default function AppNavbar({
       </Link>
     </DropdownMenuItem>
   )
+
+  // const navigate = useNavigate()
 
   return (
     <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-border bg-background px-4 sm:px-6">
@@ -98,9 +101,10 @@ export default function AppNavbar({
 
               <DropdownMenuSeparator className="my-2 bg-border" />
 
-              <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-primary focus:text-primary-foreground p-3">
+              <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-primary focus:text-primary-foreground p-3" >
                 <BadgeCheck className="mr-3 size-5" /> Account
               </DropdownMenuItem>
+
               <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-primary focus:text-primary-foreground p-3">
                 <LogOut className="mr-3 size-5" /> Log out
               </DropdownMenuItem>
