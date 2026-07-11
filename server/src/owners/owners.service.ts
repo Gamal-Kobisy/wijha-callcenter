@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { CreateOwnerDto } from './dto/create-owner.dto';
 import type { UpdateOwnerDto } from './dto/update-owner.dto';
 import type { OwnerResponseDto, OwnerNumberResponse, OwnerInfoResponse } from './dto/owner-response.dto';
+import { isSameDay } from 'date-fns';
 
 type OwnerWithRelations = {
   id: bigint;
@@ -40,7 +41,7 @@ export class OwnersService {
   ): Promise<{ data: OwnerResponseDto[]; meta: { total: number; page: number; limit: number } }> {
     const where: any = {};
     if (status) where.status = status;
-    if (project_id) where.project_id = project_id;
+    if (project_id) where.ownerProjects = { some: { projectId: project_id } };
 
     const [owners, total] = await Promise.all([
       this.prisma.owner.findMany({
@@ -114,28 +115,27 @@ export class OwnersService {
     return toOwnerResponse(owner);
   }
 
-  async getNextOwner(projectId: number): Promise<OwnerResponseDto | null> {
-    const owner = await this.prisma.owner.findFirst({
+  async getNextOwner(args?: { projectId?: number, date?: Date}): Promise<OwnerResponseDto | null> {
+    const { projectId } = args || {};
+    const owners = await this.prisma.owner.findMany({
       where: {
         status: 'active',
         ownerProjects: { some: { projectId } },
       },
-      orderBy: { attemptCount: 'asc' },
-      include: { numbers: true, ownerInfo: true },
-    });
-
-    if (!owner) return null;
-
-    const updated = await this.prisma.owner.update({
-      where: { id: owner.id },
-      data: {
-        attemptCount: { increment: 1 },
-        lastDialedAt: new Date(),
+      orderBy: {
+        attemptCount: 'asc',
+        lastDialedAt: 'asc',
       },
       include: { numbers: true, ownerInfo: true },
     });
 
-    return toOwnerResponse(updated);
+    const today = new Date();
+    const todays_owner = owners.filter(o => o.nextDialAt && isSameDay(o.nextDialAt, today));
+    const owner = todays_owner.length > 0 ? todays_owner[0] : owners[0];
+
+    if (!owner) return null;
+
+    return toOwnerResponse(owner);
   }
 
   async assignToProject(ownerId: number, projectName: string): Promise<OwnerResponseDto> {
