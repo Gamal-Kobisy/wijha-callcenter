@@ -111,7 +111,7 @@ describe('CallsController', () => {
       expect(result).not.toBeNull();
       expect(result!.owner.id).toBe(1);
       expect(result!.owner.name).toBe('John Doe');
-      expect(result!.owner.numbers).toHaveLength(1);
+      expect(result!.owner.phones).toHaveLength(1);
       expect(result!.calls).toHaveLength(2);
       expect(result!.calls[0].status).toBe('completed');
     });

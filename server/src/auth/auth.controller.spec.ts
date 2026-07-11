@@ -68,7 +68,7 @@ describe('AuthController', () => {
         email: fullUser.email,
         role: fullUser.role,
         name: fullUser.name,
-        phone_number: fullUser.phoneNumber,
+        phone: fullUser.phoneNumber,
       });
     });
   });

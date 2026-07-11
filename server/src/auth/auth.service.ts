@@ -37,7 +37,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        phone_number: user.phoneNumber,
+        phone: user.phoneNumber,
         role: user.role,
       },
     };
@@ -55,7 +55,7 @@ export class AuthService {
         email: dto.email,
         passwordHash,
         name: dto.name ?? null,
-        phoneNumber: dto.phone_number,
+        phoneNumber: dto.phone,
         role: dto.role ?? 'user', // Set a default role if not provided
       },
     });
@@ -83,6 +83,6 @@ export class AuthService {
   async getMe(user: AuthenticatedUser): Promise<UserResponse | null> {
     const existingUser = await this.prisma.user.findUnique({ where: { id: user.id } });
     if (!existingUser) return null;
-    return { id: existingUser.id, email: existingUser.email, role: existingUser.role, name: existingUser.name, phone_number: existingUser.phoneNumber };
+    return { id: existingUser.id, email: existingUser.email, role: existingUser.role, name: existingUser.name, phone: existingUser.phoneNumber };
   }
 }

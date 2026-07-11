@@ -16,7 +16,7 @@ export class UpdateUserDto {
 
   @IsOptional()
   @IsString()
-  phone_number?: string;
+  phone?: string;
 
   @IsOptional()
   @IsEnum(['admin', 'user'] as const)

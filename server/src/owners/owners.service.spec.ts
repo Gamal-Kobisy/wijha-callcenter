@@ -77,7 +77,7 @@ describe('OwnersService', () => {
       const owner = await service.findById(1);
       expect(owner).not.toBeNull();
       expect(owner!.name).toBe('John Doe');
-      expect(owner!.numbers).toHaveLength(2);
+      expect(owner!.phones).toHaveLength(2);
       expect(owner!.info).toHaveLength(1);
     });
 
@@ -101,11 +101,11 @@ describe('OwnersService', () => {
       const owner = await service.create({
         name: 'Test Owner',
         project_id: 1,
-        numbers: [{ number: '555-9999' }],
+        phones: [{ phone: '555-9999' }],
         info: [{ key: 'city', value: 'NYC' }],
       });
       expect(owner.name).toBe('Test Owner');
-      expect(owner.numbers).toEqual([{ number: '555-9999' }]);
+      expect(owner.phones).toEqual([{ phone: '555-9999' }]);
       expect(owner.info).toEqual([{ key: 'city', value: 'NYC' }]);
     });
 
@@ -114,7 +114,7 @@ describe('OwnersService', () => {
       prisma.owner.create.mockResolvedValue(mockOwner({ id: 3n, name: 'No Status', numbers: [], ownerInfo: [] }));
 
       const owner = await service.create({
-        name: 'No Status', project_id: 1, numbers: [{ number: '555-0000' }],
+        name: 'No Status', project_id: 1, phones: [{ phone: '555-0000' }],
       });
       expect(owner.status).toBe('active');
     });
@@ -134,7 +134,7 @@ describe('OwnersService', () => {
       const result = await service.create({
         name: 'New Guy',
         project_id: 1,
-        numbers: [{ number: '555-9999' }],
+        phones: [{ phone: '555-9999' }],
       });
 
       expect(result.name).toBe('Existing Jane');

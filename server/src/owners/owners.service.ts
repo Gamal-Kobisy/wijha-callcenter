@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateOwnerDto } from './dto/create-owner.dto';
 import type { UpdateOwnerDto } from './dto/update-owner.dto';
-import type { OwnerResponseDto, OwnerNumberResponse, OwnerInfoResponse } from './dto/owner-response.dto';
+import type { OwnerResponseDto, OwnerPhoneResponse, OwnerInfoResponse } from './dto/owner-response.dto';
 import { isSameDay } from 'date-fns';
 
 type OwnerWithRelations = {
@@ -24,7 +24,7 @@ function toOwnerResponse(owner: OwnerWithRelations): OwnerResponseDto {
     attempt_count: owner.attemptCount ?? 0,
     last_dialed_at: owner.lastDialedAt?.toISOString() ?? null,
     next_dial_at: owner.nextDialAt?.toISOString() ?? null,
-    numbers: owner.numbers.map(n => ({ number: n.number })),
+    phones: owner.numbers.map(n => ({ phone: n.number })),
     info: owner.ownerInfo?.map(i => ({ key: i.key, value: i.value })),
   };
 }
@@ -69,9 +69,9 @@ export class OwnersService {
   }
 
   async create(dto: CreateOwnerDto): Promise<OwnerResponseDto> {
-    const numbers = dto.numbers.map(n => n.number);
+    const phoneNumbers = dto.phones.map(n => n.phone);
     const existingNumber = await this.prisma.number.findFirst({
-      where: { number: { in: numbers } },
+      where: { number: { in: phoneNumbers } },
       include: { owner: { include: { numbers: true, ownerInfo: true } } },
     });
     if (existingNumber) {
@@ -84,7 +84,7 @@ export class OwnersService {
         status: dto.status ?? 'active',
         attemptCount: 0,
         numbers: {
-          create: dto.numbers.map(n => ({ number: n.number })),
+          create: dto.phones.map(n => ({ number: n.phone })),
         },
         ownerInfo: dto.info?.length
           ? { create: dto.info.filter(i => i.key != null && i.value != null).map(i => ({ key: i.key!, value: i.value! })) }

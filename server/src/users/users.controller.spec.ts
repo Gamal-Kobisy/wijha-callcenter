@@ -66,7 +66,7 @@ describe('UsersController', () => {
         email: 'test@test.com',
         password: 'password123',
         name: 'Test',
-        phone_number: '555-0000',
+        phone: '555-0000',
         role: 'user',
       });
       expect(result.id).toBe(3);

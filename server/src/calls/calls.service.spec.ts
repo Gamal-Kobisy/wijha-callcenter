@@ -130,7 +130,7 @@ describe('CallsService', () => {
         attempt_count: 2,
         last_dialed_at: null,
         next_dial_at: null,
-        numbers: [{ number: '555-0100' }],
+        phones: [{ phone: '555-0100' }],
         info: [{ key: 'email', value: 'john@example.com' }],
       });
 
@@ -160,7 +160,7 @@ describe('CallsService', () => {
         attempt_count: 0,
         last_dialed_at: null,
         next_dial_at: date.toISOString(),
-        numbers: [],
+        phones: [],
         info: [],
       });
 
