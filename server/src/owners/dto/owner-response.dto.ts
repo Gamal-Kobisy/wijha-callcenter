@@ -1,5 +1,5 @@
-export class OwnerNumberResponse {
-  number!: string;
+export class OwnerPhoneResponse {
+  phone!: string;
 }
 
 export class OwnerInfoResponse {
@@ -14,6 +14,6 @@ export class OwnerResponseDto {
   attempt_count?: number;
   last_dialed_at?: string | null;
   next_dial_at?: string | null;
-  numbers?: OwnerNumberResponse[];
+  phones?: OwnerPhoneResponse[];
   info?: OwnerInfoResponse[];
 }

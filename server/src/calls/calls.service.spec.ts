@@ -60,6 +60,23 @@ describe('CallsService', () => {
       const result = await service.findAll({ status: 'busy' });
       expect(result.data).toHaveLength(0);
     });
+
+    it('should filter by from/to date range', async () => {
+      const from = new Date('2024-01-01');
+      const to = new Date('2024-12-31');
+      prisma.callDetailRecord.findMany.mockResolvedValue([mockCallRecord()]);
+      prisma.callDetailRecord.count.mockResolvedValue(1);
+
+      const result = await service.findAll({ from, to });
+      expect(result.data).toHaveLength(1);
+      expect(prisma.callDetailRecord.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            time: { gte: from, lte: to },
+          }),
+        }),
+      );
+    });
   });
 
   describe('findById', () => {
@@ -101,6 +118,57 @@ describe('CallsService', () => {
       );
       expect(call.duration).toBeNull();
       expect(call.agent_notes).toBeNull();
+    });
+  });
+
+  describe('getNextOwner', () => {
+    it('should return owner with past calls', async () => {
+      jest.spyOn(ownersService, 'getNextOwner').mockResolvedValue({
+        id: 1,
+        name: 'John Doe',
+        status: 'active',
+        attempt_count: 2,
+        last_dialed_at: null,
+        next_dial_at: null,
+        phones: [{ phone: '555-0100' }],
+        info: [{ key: 'email', value: 'john@example.com' }],
+      });
+
+      prisma.callDetailRecord.findMany.mockResolvedValue([
+        mockCallRecord({ id: 1n, ownerId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z') }),
+      ]);
+
+      const result = await service.getNextOwner({ projectId: 1 });
+      expect(result).not.toBeNull();
+      expect(result!.owner.name).toBe('John Doe');
+      expect(result!.calls).toHaveLength(1);
+      expect(result!.calls[0].status).toBe('completed');
+    });
+
+    it('should return null when no owner available', async () => {
+      jest.spyOn(ownersService, 'getNextOwner').mockResolvedValue(null);
+      const result = await service.getNextOwner({ projectId: 1 });
+      expect(result).toBeNull();
+    });
+
+    it('should pass date filter to ownersService', async () => {
+      const date = new Date('2024-06-01');
+      const getNextOwnerSpy = jest.spyOn(ownersService, 'getNextOwner').mockResolvedValue({
+        id: 1,
+        name: 'Scheduled Owner',
+        status: 'active',
+        attempt_count: 0,
+        last_dialed_at: null,
+        next_dial_at: date.toISOString(),
+        phones: [],
+        info: [],
+      });
+
+      prisma.callDetailRecord.findMany.mockResolvedValue([]);
+
+      const result = await service.getNextOwner({ projectId: 1, date });
+      expect(result).not.toBeNull();
+      expect(getNextOwnerSpy).toHaveBeenCalledWith({ projectId: 1, date });
     });
   });
 

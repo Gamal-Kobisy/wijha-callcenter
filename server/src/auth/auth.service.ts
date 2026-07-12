@@ -1,8 +1,8 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
-import { LoginResponseDto } from './dto/login-response.dto';
+import { LoginResponseDto, UserResponse } from './dto/login-response.dto';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
 import { RegisterUserDTO } from './dto/register.dto';
 
@@ -19,6 +19,7 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    console.log(password , user.passwordHash)
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid email or password');
@@ -37,7 +38,7 @@ export class AuthService {
         id: user.id,
         email: user.email,
         name: user.name,
-        phone_number: user.phoneNumber,
+        phone: user.phoneNumber,
         role: user.role,
       },
     };
@@ -55,7 +56,7 @@ export class AuthService {
         email: dto.email,
         passwordHash,
         name: dto.name ?? null,
-        phoneNumber: dto.phone_number,
+        phoneNumber: dto.phone,
         role: dto.role ?? 'user', // Set a default role if not provided
       },
     });
@@ -78,5 +79,11 @@ export class AuthService {
       return { message: "Something went wrong" };
     }
     
+  }
+
+  async getMe(user: AuthenticatedUser): Promise<UserResponse | null> {
+    const existingUser = await this.prisma.user.findUnique({ where: { id: user.id } });
+    if (!existingUser) return null;
+    return { id: existingUser.id, email: existingUser.email, role: existingUser.role, name: existingUser.name, phone: existingUser.phoneNumber };
   }
 }

@@ -1,10 +1,10 @@
 import { IsOptional, IsString, IsNumber } from 'class-validator';
 
 export class NotifyCallingDto {
-  @IsOptional()
   @IsNumber()
-  owner_id?: number;
+  owner_id!: number;
 
+  @IsOptional()
   @IsString()
-  owner_number!: string;
+  owner_number?: string;
 }

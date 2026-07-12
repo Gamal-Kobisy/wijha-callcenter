@@ -4,7 +4,7 @@ import { CallsController } from './calls.controller';
 import { CallsService } from './calls.service';
 import { OwnersService } from '../owners/owners.service';
 import { PrismaService } from '../prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo } from '../prisma/mock-data';
+import { mockOwner, mockNumber, mockOwnerInfo, mockCallRecord } from '../prisma/mock-data';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 
 const recordWithOwner = (overrides: Record<string, unknown> = {}) => ({
@@ -34,15 +34,12 @@ describe('CallsController', () => {
     prisma.callDetailRecord.count.mockResolvedValue(3);
     prisma.callDetailRecord.findUnique.mockResolvedValue(recordWithOwner());
 
-    prisma.owner.findFirst.mockResolvedValue(
+    prisma.owner.findMany.mockResolvedValue([
       mockOwner({
         numbers: [mockNumber({ number: '555-0100' })],
         ownerInfo: [mockOwnerInfo({ key: 'email', value: 'john@example.com' })],
       }),
-    );
-    prisma.owner.update.mockResolvedValue(
-      mockOwner({ attemptCount: 1, lastDialedAt: new Date() }),
-    );
+    ]);
 
     prisma.callDetailRecord.create.mockResolvedValue(recordWithOwner({ id: 4n }));
 
@@ -104,8 +101,25 @@ describe('CallsController', () => {
   });
 
   describe('GET /calls/next', () => {
-    it('should return next owner call', async () => {
+    it('should return next owner with past calls', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([
+        mockCallRecord({ id: 1n, ownerId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z') }),
+        mockCallRecord({ id: 2n, ownerId: 1n, status: 'no_answer', time: new Date('2024-05-02T14:00:00Z') }),
+      ]);
+
       const result = await controller.getNext({ project_id: '1' });
+      expect(result).not.toBeNull();
+      expect(result!.owner.id).toBe(1);
+      expect(result!.owner.name).toBe('John Doe');
+      expect(result!.owner.phones).toHaveLength(1);
+      expect(result!.calls).toHaveLength(2);
+      expect(result!.calls[0].status).toBe('completed');
+    });
+
+    it('should pass date query param to service', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([]);
+
+      const result = await controller.getNext({ project_id: '1', date: '2024-06-01' });
       expect(result).not.toBeNull();
     });
   });
@@ -113,7 +127,7 @@ describe('CallsController', () => {
   describe('POST /calls/calling', () => {
     it('should notify calling', async () => {
       await expect(
-        controller.notifyCalling({ owner_number: '555-0100' }),
+        controller.notifyCalling({ owner_id: 1 }),
       ).resolves.toBeUndefined();
     });
   });

@@ -40,11 +40,11 @@ components:
       type: string
       enum: [active, inactive]
 
-    OwnerNumber:
+    OwnerPhone:
       type: object
-      required: [number]
+      required: [phone]
       properties:
-        number:
+        phone:
           type: string
           example: "+201001234567"
 
@@ -82,10 +82,10 @@ components:
           type: string
           format: date-time
           nullable: true
-        numbers:
+        phones:
           type: array
           items:
-            $ref: "#/components/schemas/OwnerNumber"
+            $ref: "#/components/schemas/OwnerPhone"
         info:
           type: array
           items:
@@ -93,7 +93,7 @@ components:
 
     CreateOwnerRequest:
       type: object
-      required: [numbers]
+      required: [phones]
       properties:
         name:
           type: string
@@ -101,11 +101,11 @@ components:
           type: integer
         status:
           $ref: "#/components/schemas/OwnerStatus"
-        numbers:
+        phones:
           type: array
           minItems: 1
           items:
-            $ref: "#/components/schemas/OwnerNumber"
+            $ref: "#/components/schemas/OwnerPhone"
         info:
           type: array
           items:
@@ -145,7 +145,7 @@ components:
         name:
           type: string
           nullable: true
-        phone_number:
+        phone:
           type: string
           nullable: true
         role:
@@ -266,7 +266,7 @@ components:
 
 paths:
 
-  /auth/login:
+  /login:
     post:
       summary: Agent / admin login
       operationId: login
@@ -295,7 +295,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /auth/register:
+  /register:
     post:
       summary: Register a new user (auto-login)
       operationId: register
@@ -316,7 +316,7 @@ paths:
                   format: password
                 name:
                   type: string
-                phone_number:
+                phone:
                   type: string
                 role:
                   $ref: "#/components/schemas/UserRole"
@@ -330,7 +330,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
 
-  /auth/logout:
+  /logout:
     post:
       summary: Invalidate the current session
       operationId: logout
@@ -349,7 +349,7 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
-  /auth/me:
+  /me:
     get:
       summary: Get the currently authenticated user
       operationId: getMe
@@ -838,7 +838,7 @@ paths:
                   format: password
                 name:
                   type: string
-                phone_number:
+                phone:
                   type: string
                 role:
                   $ref: "#/components/schemas/UserRole"
@@ -898,7 +898,7 @@ paths:
                   format: password
                 name:
                   type: string
-                phone_number:
+                phone:
                   type: string
                 role:
                   $ref: "#/components/schemas/UserRole"

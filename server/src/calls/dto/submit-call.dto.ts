@@ -1,4 +1,4 @@
-import { IsNumber, IsString, IsOptional, IsDateString } from 'class-validator';
+import { IsNumber, IsString, IsOptional, IsDateString, IsDate } from 'class-validator';
 
 export class SubmitCallDto {
   @IsNumber()

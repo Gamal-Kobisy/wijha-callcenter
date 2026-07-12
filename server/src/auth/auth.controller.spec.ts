@@ -1,13 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { mockUser } from '../prisma/mock-data';
 
-jest.mock('bcrypt', () => ({
+jest.mock('bcryptjs', () => ({
   compare: jest.fn(),
 }));
 
@@ -58,10 +58,18 @@ describe('AuthController', () => {
   });
 
   describe('GET /me', () => {
-    it('should return authenticated user', () => {
+    it('should return authenticated user', async () => {
       const user = { id: 1, email: 'agent', role: 'user' as const };
-      const result = controller.getMe(user);
-      expect(result).toEqual(user);
+      const fullUser = { ...user, name: 'Agent', phoneNumber: '1234567890' };
+      prisma.user.findUnique.mockResolvedValue(mockUser({ ...fullUser }));
+      const result = await controller.getMe(user);
+      expect(result).toEqual({
+        id: fullUser.id,
+        email: fullUser.email,
+        role: fullUser.role,
+        name: fullUser.name,
+        phone: fullUser.phoneNumber,
+      });
     });
   });
 });

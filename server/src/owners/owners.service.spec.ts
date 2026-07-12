@@ -45,6 +45,23 @@ describe('OwnersService', () => {
       expect(result.data).toHaveLength(0);
       expect(result.meta.total).toBe(0);
     });
+
+    it('should filter by project_id', async () => {
+      prisma.owner.findMany.mockResolvedValue([
+        mockOwner({ name: 'Project Owner', numbers: [], ownerInfo: [] }),
+      ]);
+      prisma.owner.count.mockResolvedValue(1);
+
+      const result = await service.findAll(1);
+      expect(result.data).toHaveLength(1);
+      expect(prisma.owner.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            ownerProjects: { some: { projectId: 1 } },
+          }),
+        }),
+      );
+    });
   });
 
   describe('findById', () => {
@@ -60,7 +77,7 @@ describe('OwnersService', () => {
       const owner = await service.findById(1);
       expect(owner).not.toBeNull();
       expect(owner!.name).toBe('John Doe');
-      expect(owner!.numbers).toHaveLength(2);
+      expect(owner!.phones).toHaveLength(2);
       expect(owner!.info).toHaveLength(1);
     });
 
@@ -84,11 +101,11 @@ describe('OwnersService', () => {
       const owner = await service.create({
         name: 'Test Owner',
         project_id: 1,
-        numbers: [{ number: '555-9999' }],
+        phones: [{ phone: '555-9999' }],
         info: [{ key: 'city', value: 'NYC' }],
       });
       expect(owner.name).toBe('Test Owner');
-      expect(owner.numbers).toEqual([{ number: '555-9999' }]);
+      expect(owner.phones).toEqual([{ phone: '555-9999' }]);
       expect(owner.info).toEqual([{ key: 'city', value: 'NYC' }]);
     });
 
@@ -97,7 +114,7 @@ describe('OwnersService', () => {
       prisma.owner.create.mockResolvedValue(mockOwner({ id: 3n, name: 'No Status', numbers: [], ownerInfo: [] }));
 
       const owner = await service.create({
-        name: 'No Status', project_id: 1, numbers: [{ number: '555-0000' }],
+        name: 'No Status', project_id: 1, phones: [{ phone: '555-0000' }],
       });
       expect(owner.status).toBe('active');
     });
@@ -117,7 +134,7 @@ describe('OwnersService', () => {
       const result = await service.create({
         name: 'New Guy',
         project_id: 1,
-        numbers: [{ number: '555-9999' }],
+        phones: [{ phone: '555-9999' }],
       });
 
       expect(result.name).toBe('Existing Jane');
@@ -165,14 +182,36 @@ describe('OwnersService', () => {
     });
   });
 
-  describe('getNextOwner', () => {
-    it('should return owner with lowest attempt_count and increment it', async () => {
-      prisma.owner.findFirst.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
-      prisma.owner.update.mockResolvedValue(mockOwner({ name: 'John', attemptCount: 1, lastDialedAt: new Date(), numbers: [], ownerInfo: [] }));
+  describe('remove', () => {
+    it('should delete an existing owner', async () => {
+      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.owner.delete.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
 
-      const next = await service.getNextOwner(1);
+      await service.remove(1);
+      expect(prisma.owner.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+    });
+
+    it('should throw NotFoundException for non-existent id', async () => {
+      prisma.owner.findUnique.mockResolvedValue(null);
+      await expect(service.remove(999)).rejects.toThrow('Owner not found');
+    });
+  });
+
+  describe('getNextOwner', () => {
+    it('should return owner with lowest attempt_count', async () => {
+      prisma.owner.findMany.mockResolvedValue([
+        mockOwner({ name: 'John', numbers: [], ownerInfo: [] }),
+      ]);
+
+      const next = await service.getNextOwner({ projectId: 1 });
       expect(next).not.toBeNull();
-      expect(next!.attempt_count).toBe(1);
+      expect(next!.name).toBe('John');
+    });
+
+    it('should return null when no owner available', async () => {
+      prisma.owner.findMany.mockResolvedValue([]);
+      const next = await service.getNextOwner({ projectId: 1 });
+      expect(next).toBeNull();
     });
   });
 });

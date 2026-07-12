@@ -16,7 +16,7 @@ export class RegisterUserDTO {
 
     @IsPhoneNumber()
     @IsOptional()
-    phone_number?: string | null;
+    phone?: string | null;
 
     @IsEnum(UserRole)
     @IsOptional()
