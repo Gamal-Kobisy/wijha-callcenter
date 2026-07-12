@@ -1,7 +1,7 @@
 import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { LoginResponseDto } from './dto/login-response.dto';
+import { LoginResponseDto, UserResponse } from './dto/login-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
@@ -36,7 +36,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAuthGuard)
-  getMe(@CurrentUser() user: AuthenticatedUser): AuthenticatedUser {
-    return user;
+  async getMe(@CurrentUser() user: AuthenticatedUser): Promise<UserResponse | null> {
+    return await this.authService.getMe(user);
   }
 }

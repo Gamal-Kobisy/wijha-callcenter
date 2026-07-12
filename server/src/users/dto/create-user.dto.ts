@@ -14,7 +14,7 @@ export class CreateUserDto {
 
   @IsOptional()
   @IsString()
-  phone_number?: string;
+  phone?: string;
 
   @IsEnum(['admin', 'user'] as const)
   role!: 'admin' | 'user';

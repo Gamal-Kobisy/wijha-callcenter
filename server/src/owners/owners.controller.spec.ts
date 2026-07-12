@@ -86,12 +86,12 @@ describe('OwnersController', () => {
       const result = await controller.create({
         name: 'New Owner',
         project_id: 1,
-        numbers: [{ number: '555-9999' }],
+        phones: [{ phone: '555-9999' }],
         info: [{ key: 'city', value: 'NYC' }],
       });
 
       expect(result.name).toBe('New Owner');
-      expect(result.numbers).toHaveLength(1);
+      expect(result.phones).toHaveLength(1);
       expect(result.info).toHaveLength(1);
     });
   });
@@ -126,6 +126,16 @@ describe('OwnersController', () => {
       const result = await controller.assignProject(1, { project_name: 'Default Project' });
       expect(result).toHaveProperty('id');
       expect(result.name).toBe('John');
+    });
+  });
+
+  describe('DELETE /owners/:ownerId', () => {
+    it('should delete an owner', async () => {
+      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.owner.delete.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+
+      await expect(controller.remove(1)).resolves.toBeUndefined();
+      expect(prisma.owner.delete).toHaveBeenCalledWith({ where: { id: 1 } });
     });
   });
 });

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { CreateUserDto } from './dto/create-user.dto';
@@ -33,7 +33,7 @@ export class UsersService {
         data: {
           email: dto.email,
           passwordHash,
-          phoneNumber: dto.phone_number ?? '',
+          phoneNumber: dto.phone ?? '',
           name: dto.name ?? null,
           role: dto.role,
         },
@@ -64,7 +64,7 @@ export class UsersService {
         data: {
           ...(dto.email !== undefined ? { email: dto.email } : {}),
           ...(dto.name !== undefined ? { name: dto.name } : {}),
-          ...(dto.phone_number !== undefined ? { phoneNumber: dto.phone_number } : {}),
+          ...(dto.phone !== undefined ? { phoneNumber: dto.phone } : {}),
           ...(dto.role !== undefined ? { role: dto.role } : {}),
           ...(passwordHash !== undefined ? { passwordHash } : {}),
         },

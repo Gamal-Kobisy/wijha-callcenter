@@ -16,6 +16,7 @@ import { NotifyCallingDto } from './dto/notify-calling.dto';
 import { ListCallsQueryDto } from './dto/list-calls-query.dto';
 import { GetNextOwnerQueryDto } from './dto/get-next-owner-query.dto';
 import type { CallResponseDto } from './dto/call-response.dto';
+import type { NextOwnerResponseDto } from './dto/next-owner-response.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
@@ -33,12 +34,16 @@ export class CallsController {
     const ownerId = query.owner_id ? Number(query.owner_id) : undefined;
     const agentId = query.agent_id ? Number(query.agent_id) : undefined;
     const limit = query.limit ? Number(query.limit) : 50;
+    const from = query.from ? new Date(query.from) : undefined;
+    const to = query.to ? new Date(query.to) : undefined;
 
     return this.callsService.findAll({
       owner_id: ownerId,
       agent_id: agentId,
       status: query.status,
       limit,
+      from,
+      to,
     });
   }
 
@@ -52,8 +57,15 @@ export class CallsController {
   }
 
   @Get('next')
-  async getNext(@Query() query: GetNextOwnerQueryDto): Promise<CallResponseDto | null> {
-    return this.callsService.getNextOwner(Number(query.project_id));
+  async getNext(@Query() query?: GetNextOwnerQueryDto): Promise<NextOwnerResponseDto | null> {
+    let date, projectId;
+    if (query?.date) {
+      date = new Date(query.date);
+    }
+    if (query?.project_id) {
+      projectId = Number(query.project_id);
+    }
+    return this.callsService.getNextOwner({ projectId, date });
   }
 
   @Post('calling')

@@ -1,6 +1,6 @@
 import { IsString, IsNumber, IsOptional, ValidateNested, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
-import { OwnerNumberDto } from './owner-number.dto';
+import { OwnerPhoneDto } from './owner-phone.dto';
 import { OwnerInfoDto } from './owner-info.dto';
 
 export class CreateOwnerDto {
@@ -18,8 +18,8 @@ export class CreateOwnerDto {
 
   @ValidateNested({ each: true })
   @ArrayMinSize(1)
-  @Type(() => OwnerNumberDto)
-  numbers!: OwnerNumberDto[];
+  @Type(() => OwnerPhoneDto)
+  phones!: OwnerPhoneDto[];
 
   @IsOptional()
   @ValidateNested({ each: true })

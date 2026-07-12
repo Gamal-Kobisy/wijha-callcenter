@@ -66,7 +66,7 @@ describe('UsersService', () => {
         email: 'newuser@test.com',
         password: 'password123',
         name: 'New User',
-        phone_number: '555-0000',
+        phone: '555-0000',
         role: 'user',
       });
       expect(user.id).toBe(3);

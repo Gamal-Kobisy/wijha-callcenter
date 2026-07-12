@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsNumberString } from 'class-validator';
+import { IsOptional, IsString, IsNumberString, IsDateString } from 'class-validator';
 
 export class ListCallsQueryDto {
   @IsOptional()
@@ -18,12 +18,12 @@ export class ListCallsQueryDto {
   status?: string;
 
   @IsOptional()
-  @IsString()
-  from?: string;
+  @IsDateString()
+  from?: Date;
 
   @IsOptional()
-  @IsString()
-  to?: string;
+  @IsDateString()
+  to?: Date;
 
   @IsOptional()
   @IsNumberString()
