@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef } from "react"
+import {useState, useMemo, useRef, useEffect} from "react"
 import { useParams } from "react-router-dom"
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar } from 'recharts'
 import {
@@ -16,6 +16,7 @@ import { toast, Toaster } from "sonner"
 import AgentReport from "@/components/AgentReport.tsx"
 import html2canvas from "html2canvas"
 import jsPDF from "jspdf"
+import {apiFetch} from "@/lib/api.tsx";
 
 const chartPalette = {
   dial: "#0077BE",
@@ -25,6 +26,16 @@ const chartPalette = {
   miss: "#FB7185",
   neutral: "#94A3B8",
   emerald: "#10B981"
+}
+
+const statusPalette = {
+  // dial: "#0077BE",
+  answered: "#0D9488",
+  busy: "#F59E0B",
+  not_interested: "#000000",
+  failed: "#FB7185",
+  no_answer: "#94A3B8",
+  call_back: "#10B981"
 }
 
 const agentInfo = { name: "Ahmed Tarek", role: "Senior Agent", activeHours: "2h", isOnline: true }
@@ -91,6 +102,7 @@ function hexToRgba(hex: string, alpha: number) {
 
 export default function AgentPerformancePage() {
   const { id } = useParams()
+  const [Agent, setAgent] = useState<any[]>([])
 
   const [dateRange, setDateRange] = useState("Today")
   const [date, setDate] = useState("")
@@ -274,6 +286,53 @@ export default function AgentPerformancePage() {
     }
   }
 
+  const getOverallDateRange = () => {
+    const now = new Date();
+    const past = new Date("2020-01-01");
+
+    return {
+      from: past.toISOString(),
+      to: now.toISOString()
+    };
+  };
+
+  useEffect(() => {
+    loadAgentData()
+  }, [])
+
+  const loadAgentData = async () => {
+    try {
+      // 1. Fetch the Agent's Profile
+      const profileResponse = await apiFetch(`users/${id}`, {
+        method: "GET",
+      })
+      if (!profileResponse.ok) throw new Error("Failed to load agent profile")
+      const profileData = await profileResponse.json()
+
+      // 2. Fetch the Agent's Stats
+      const { from, to } = getOverallDateRange();
+      const statsResponse = await apiFetch(`users/${id}/stats?from=${from}&to=${to}`, {
+        method: "GET",
+      })
+      if (!statsResponse.ok) throw new Error("Failed to load agent stats")
+      const statsData = await statsResponse.json()
+
+      // 3. Combine them into ONE clean object and set the state ONCE
+      const combinedData = {
+        ...profileData,
+        stats: statsData
+      }
+
+      setAgent(combinedData)
+
+      // 4. Log the combined variable to actually see your new data!
+      console.log("Successfully loaded:", combinedData)
+
+    } catch(error: any) {
+      toast.error(error.message)
+    }
+  }
+
   return (
     <>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -285,13 +344,13 @@ export default function AgentPerformancePage() {
             {/* Agent Info */}
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-lg shrink-0">
-                {agentInfo.name.split(" ").map(n => n[0]).join("")}
+                {Agent?.name?.split(" ").map(n => n[0]).join("")}
               </div>
 
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                    {agentInfo.name}
+                    {Agent?.name}
                   </h1>
 
                   <span
@@ -310,7 +369,7 @@ export default function AgentPerformancePage() {
 
                 <div className="flex items-center gap-3 mt-1 flex-wrap">
                   <p className="text-muted-foreground">
-                    {agentInfo.role}
+                    Agent
                   </p>
 
                   <Badge
@@ -346,10 +405,10 @@ export default function AgentPerformancePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { title: "Total Calls", val: filteredLogs.length, icon: Phone, color: "text-emerald-500" },
+              { title: "Total Calls", val: Agent?.stats?.total_calls, icon: Phone, color: "text-emerald-500" },
               { title: "Success Rate", val: "78%", icon: TrendingUp, color: "text-blue-500" },
-              { title: "Avg Duration", val: "105s", icon: Clock, color: "text-amber-500" },
-              { title: "Active Hours", val: "6.5h", icon: Target, color: "text-indigo-500" },
+              { title: "Avg Duration", val: `${Agent?.stats?.avg_duration_seconds}s`, icon: Clock, color: "text-amber-500" },
+              { title: "Active Hours", val: `${Agent?.stats?.total_session_time_seconds/3600}hr`, icon: Target, color: "text-indigo-500" },
             ].map((item, i) => (
               <Card key={i} className="w-full shadow-sm border-slate-100 hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">

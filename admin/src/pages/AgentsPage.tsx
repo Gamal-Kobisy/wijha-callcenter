@@ -449,9 +449,8 @@ export default function AgentsPage() {
                   }}
                 >
                   <option value="All">All Roles</option>
-                  <option value="Agent">Agent</option>
-                  <option value="Supervisor">Supervisor</option>
-                  <option value="Admin">Admin</option>
+                  <option value="User">Agent</option>
+                  <option value="Deactivated">Deactivated</option>
                 </select>
 
                 <DropdownMenu>
@@ -670,7 +669,7 @@ export default function AgentsPage() {
                     required
                   >
                     <option value="Admin">Admin</option>
-                    <option value="User">User</option>
+                    <option value="User">Agent</option>
                   </select>
                 </div>
               </div>
@@ -772,7 +771,7 @@ export default function AgentsPage() {
                   >
                     <option value="" disabled>Select a role</option>
                     <option value="Admin">Admin</option>
-                    <option value="User">User</option>
+                    <option value="User">Agent</option>
                   </select>
                 </div>
               </div>
