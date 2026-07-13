@@ -1,0 +1,54 @@
+name: Feature request / Bug report
+description: Request a feature or report a bug
+title: "[FEATURE/BUG]: "
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Before you submit
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites Checklist
+      description: Ensure you've done the following before submitting
+      options:
+        - label: I have read `server/api.yaml` to understand the existing API
+          required: true
+        - label: I have set up and run Docker Compose (`docker compose up`)
+          required: true
+        - label: I have configured the `.env` files correctly (root `.env` for DB, `server/.env` for backend)
+          required: true
+        - label: I have checked that no existing issue already covers this
+          required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - Feature Request
+        - Bug Report
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What would you like to see added or fixed? Be specific and reference relevant endpoints from `api.yaml` if applicable.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior (for bugs)
