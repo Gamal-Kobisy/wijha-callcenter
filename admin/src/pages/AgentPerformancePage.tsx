@@ -29,37 +29,20 @@ const chartPalette = {
 }
 
 const statusPalette = {
-  // dial: "#0077BE",
+  dial: "#7B00BEFF",
+  closed: "#0077BE",
   answered: "#0D9488",
   busy: "#F59E0B",
   not_interested: "#000000",
   failed: "#FB7185",
   no_answer: "#94A3B8",
-  call_back: "#10B981"
+  callback: "#10B981"
 }
-
-const agentInfo = { name: "Ahmed Tarek", role: "Senior Agent", activeHours: "2h", isOnline: true }
 
 const followUps = [
   { id: 100, owner: "Karim Fathy", number: "+20 111 222 3333", attempts: 5, nextDial: "2026-07-04" },
   { id: 101, owner: "Mostafa Ahmed", number: "+20 100 111 2222", attempts: 3, nextDial: "2026-07-08" },
   { id: 102, owner: "Sarah Mahmoud", number: "+20 122 333 4444", attempts: 1, nextDial: "2026-07-09" },
-]
-
-const calls = [
-  { name: "Answered", value: 450, color: chartPalette.connect },
-  { name: "Voicemail", value: 300, color: chartPalette.neutral },
-  { name: "No Answer", value: 200, color: chartPalette.miss },
-  { name: "Converted", value: 85, color: chartPalette.convert },
-]
-
-const dummyLogs = [
-  { id: 1, date: "2026-07-06", time: "10:30 AM", project: "Project Alpha", status: "Answered", duration: 180, owner: "John Doe", ownerNumber: "+20 101 234 5678", notes: "Interested in renewal" },
-  { id: 2, date: "2026-07-06", time: "02:15 PM", project: "Project Beta", status: "Voicemail", duration: 30, owner: "Jane Smith", ownerNumber: "+20 102 345 6789", notes: "Left message" },
-  { id: 3, date: "2026-07-06", time: "10:30 AM", project: "Project Alpha", status: "Answered", duration: 180, owner: "John Doe", ownerNumber: "+20 101 234 5678", notes: "Interested in renewal" },
-  { id: 4, date: "2026-07-05", time: "02:15 PM", project: "Project Beta", status: "Voicemail", duration: 30, owner: "Jane Smith", ownerNumber: "+20 102 345 6789", notes: "Left message" },
-  { id: 5, date: "2026-07-05", time: "10:30 AM", project: "Project Alpha", status: "Converted", duration: 180, owner: "John Doe", ownerNumber: "+20 101 234 5678", notes: "Interested in renewal" },
-  { id: 6, date: "2026-07-05", time: "02:15 PM", project: "Project Beta", status: "No Answer", duration: 30, owner: "Jane Smith", ownerNumber: "+20 102 345 6789", notes: "Left message" },
 ]
 
 const projectData = [{ name: 'Alpha', calls: 50 }, { name: 'Beta', calls: 30 }, { name: 'Gamma', calls: 40 }]
@@ -70,13 +53,6 @@ const benchmarkData = [
   { metric: "Avg Duration", agent: 68, team: 74 },
   { metric: "Conversion", agent: 85, team: 55 },
   { metric: "Follow-up Rate", agent: 90, team: 68 },
-]
-
-const funnelData = [
-  { stage: "Dialed", value: 620, color: chartPalette.dial },
-  { stage: "Connected", value: 450, color: chartPalette.connect },
-  { stage: "Interested", value: 210, color: chartPalette.interest },
-  { stage: "Converted", value: 85, color: chartPalette.convert },
 ]
 
 const heatmapHours = ["9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm", "5pm", "6pm"]
@@ -102,17 +78,47 @@ function hexToRgba(hex: string, alpha: number) {
 
 export default function AgentPerformancePage() {
   const { id } = useParams()
-  const [Agent, setAgent] = useState<any[]>([])
+  const [Agent, setAgent] = useState<any>({})
 
   const [dateRange, setDateRange] = useState("Today")
   const [date, setDate] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
 
+  // --- SERVER SIDE PAGINATION STATE ---
   const [currentPage, setCurrentPage] = useState(1)
-  const ITEMS_PER_PAGE = 10
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalRecords, setTotalRecords] = useState(0)
 
   const reportRef = useRef<HTMLDivElement>(null)
+
+  const [weeklyChartData, setWeeklyChartData] = useState<any[]>([])
+  const [calls, setCalls] = useState<any[]>([])
+  const [callRecords, setCallRecords] = useState<any[]>([])
+
+  // --- DICTIONARIES FOR RESOLVING IDs TO NAMES ---
+  const [ownerDetails, setOwnerDetails] = useState<Record<string, {name: string, phone: string}>>({})
+  const [projectDetails, setProjectDetails] = useState<Record<string, string>>({})
+
+  // --- REAL DATA KPIs ---
+  const totalCallsDashboard = Agent?.stats?.total_calls || 0;
+  const answeredCalls = Agent?.stats?.answered || 0;
+  const closedCalls = Agent?.stats?.closed || 0;
+
+  const successRate = totalCallsDashboard > 0 ? Math.round((closedCalls / totalCallsDashboard) * 100) : 0;
+  const realConnectRate = totalCallsDashboard > 0 ? Math.round((answeredCalls / totalCallsDashboard) * 100) : 0;
+
+  const overdueCount = followUps.filter(f => new Date(f.nextDial) < new Date("2026-07-06")).length
+  const avgAttemptsToClose = (followUps.reduce((sum, f) => sum + f.attempts, 0) / followUps.length).toFixed(1)
+
+  const funnelData = [
+    { stage: "Dialed", value: totalCallsDashboard, color: statusPalette.dial },
+    { stage: "Answered", value: answeredCalls, color: statusPalette.answered },
+    { stage: "Callback", value: Agent?.stats?.callback || 0, color: statusPalette.callback },
+    { stage: "Closed", value: closedCalls, color: statusPalette.closed },
+  ]
+
+  const [projects , setProjects] = useState<any[]>([])
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.value) {
@@ -128,65 +134,60 @@ export default function AgentPerformancePage() {
     setCurrentPage(1)
   }
 
-  const filteredLogs = useMemo(() => {
-    const today = new Date("2026-07-06")
+  const getStatusColor = (status: string) => {
+    if (!status) return chartPalette.neutral;
+    const formatted = status.toLowerCase().replace(" ", "_") as keyof typeof statusPalette;
 
-    return dummyLogs.filter(log => {
-      const matchesSearch = searchTerm
-        ? log.owner.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          log.ownerNumber.toLowerCase().includes(searchTerm.toLowerCase())
-        : true
+    // If it's a known color, use it!
+    if (statusPalette[formatted]) return statusPalette[formatted];
 
-      if (!matchesSearch) return false
-      if (date) return log.date === date
+    // If it's unknown, generate a consistent pseudo-random color based on the string text
+    // This ensures that "weird_status" always gets the exact same color and never flashes
+    let hash = 0;
+    for (let i = 0; i < formatted.length; i++) {
+      hash = formatted.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return `#${(hash & 0x00FFFFFF).toString(16).padStart(6, '0')}`;
+  }
 
-      const logDate = new Date(log.date)
-      if (isNaN(logDate.getTime())) return false
+  // Frontend search over the currently loaded 10 records AND the fetched dictionary values
+  const displayRecords = callRecords.filter(log => {
+    if (!searchTerm) return true;
+    const term = searchTerm.toLowerCase();
+    const ownerInfo = ownerDetails[log.owner_id] || { name: "", phone: "" };
+    const projectName = projectDetails[log.project_id] || "";
 
-      if (dateRange === "Today") {
-        return log.date === "2026-07-06"
-      } else if (dateRange === "Past Week") {
-        const diffDays = (today.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24)
-        return diffDays >= 0 && diffDays <= 7
-      } else if (dateRange === "Past Month") {
-        const diffDays = (today.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24)
-        return diffDays >= 0 && diffDays <= 30
-      } else if (dateRange === "Past Year") {
-        const diffDays = (today.getTime() - logDate.getTime()) / (1000 * 60 * 60 * 24)
-        return diffDays >= 0 && diffDays <= 365
-      } else {
-        return log.date === dateRange
-      }
-    })
-  }, [date, dateRange, searchTerm])
-
-  const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE) || 1
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
-  const endIndex = startIndex + ITEMS_PER_PAGE
-  const currentLogs = filteredLogs.slice(startIndex, endIndex)
-
-  const connectRate = Math.round((funnelData[1].value / funnelData[0].value) * 100)
-  const overdueCount = followUps.filter(f => new Date(f.nextDial) < new Date("2026-07-06")).length
-  const avgAttemptsToConvert = (followUps.reduce((sum, f) => sum + f.attempts, 0) / followUps.length).toFixed(1)
-  const currentStreak = 12
+    return String(log.owner_id).includes(term) ||
+           (log.agent_notes || "").toLowerCase().includes(term) ||
+           ownerInfo.name.toLowerCase().includes(term) ||
+           ownerInfo.phone.toLowerCase().includes(term) ||
+           projectName.toLowerCase().includes(term);
+  });
 
   const exportToCSV = () => {
-    const headers = ["ID", "Date", "Time", "Project", "Status", "Duration", "Owner", "Phone", "Notes"]
+    // Dynamically match the actual API keys AND fetched dictionaries to the CSV payload
+    const headers = ["ID", "Time", "Project", "Status", "Duration", "Owner", "Owner Phone", "Notes"]
     const csvContent = [
       headers.join(","),
-      ...filteredLogs.map(l => [
-        l.id, `"${l.date}"`, `"${l.time}"`, `"${l.project}"`, `"${l.status}"`, `"${l.duration}s"`, `"${l.owner}"`, `"${l.ownerNumber}"`, `"${l.notes}"`
-      ].join(","))
+      ...callRecords.map(l => {
+        const ownerName = ownerDetails[l.owner_id]?.name || `Owner #${l.owner_id}`;
+        const ownerPhone = ownerDetails[l.owner_id]?.phone || "";
+        const projectName = projectDetails[l.project_id] || `Project #${l.project_id}`;
+
+        return [
+          l.id, `"${l.time}"`, `"${projectName}"`, `"${l.status}"`, `"${l.duration}s"`, `"${ownerName}"`, `"${ownerPhone}"`, `"${l.agent_notes || ''}"`
+        ].join(",")
+      })
     ].join("\n")
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.setAttribute("href", url)
-    a.setAttribute("download", `agent_${id}_export_${new Date().toISOString().split('T')[0]}.csv`)
+    a.setAttribute("download", `agent_${id}_export_page${currentPage}.csv`)
     a.click()
 
-    toast.success("Export Complete")
+    toast.success("Page Export Complete")
   }
 
   const addCanvasAcrossPages = (
@@ -274,7 +275,7 @@ export default function AgentPerformancePage() {
         isFirstSection = false
       }
 
-      pdf.save(`Agent_Report_${agentInfo.name}_${new Date().toISOString().split('T')[0]}.pdf`)
+      pdf.save(`Agent_Report_${Agent.name}_${new Date().toISOString().split('T')[0]}.pdf`)
       toast.dismiss(loadingToast)
       toast.success("Report Saved to Downloads Folder")
     } catch (error) {
@@ -296,20 +297,73 @@ export default function AgentPerformancePage() {
     };
   };
 
+  // EFFECT 1: Fetch heavy dashboard profile and charting data only on first load
   useEffect(() => {
     loadAgentData()
+    loadWeeklyAvgDuration()
   }, [])
+
+  // EFFECT 2: Fetch the paginated table records dynamically anytime a filter or page flips
+  useEffect(() => {
+    loadCallRecords()
+  }, [currentPage, dateRange, date])
+
+  // EFFECT 3: Whenever callRecords updates, check if we need to fetch missing owner or project names
+  useEffect(() => {
+    const fetchMissingDetails = async () => {
+      const uniqueOwnerIds = callRecords.map(r => r.owner_id).filter((id, index, arr) => id && arr.indexOf(id) === index);
+      const uniqueProjectIds = callRecords.map(r => r.project_id).filter((id, index, arr) => id && arr.indexOf(id) === index);
+
+      const missingOwners = uniqueOwnerIds.filter(id => !ownerDetails[id]);
+      const missingProjects = uniqueProjectIds.filter(id => !projectDetails[id]);
+
+      if (missingOwners.length > 0) {
+        const ownerPromises = missingOwners.map(id =>
+          apiFetch(`owners/${id}`, { method: 'GET' }).then(res => res.ok ? res.json() : null)
+        );
+        const ownersData = await Promise.all(ownerPromises);
+
+        const newOwnerDetails = { ...ownerDetails };
+        ownersData.forEach(data => {
+          if (data && data.id) {
+            newOwnerDetails[data.id] = {
+              name: data.name || `Owner #${data.id}`,
+              phone: data.phones?.[0]?.phone || "N/A"
+            };
+          }
+        });
+        setOwnerDetails(newOwnerDetails);
+      }
+
+      if (missingProjects.length > 0) {
+        const projectPromises = missingProjects.map(id =>
+          apiFetch(`projects/${id}`, { method: 'GET' }).then(res => res.ok ? res.json() : null)
+        );
+        const projectsData = await Promise.all(projectPromises);
+
+        const newProjectDetails = { ...projectDetails };
+        projectsData.forEach(data => {
+          if (data && data.id) {
+            newProjectDetails[data.id] = data.name || `Project #${data.id}`;
+          }
+        });
+        setProjectDetails(newProjectDetails);
+      }
+    };
+
+    if (callRecords.length > 0) {
+      fetchMissingDetails();
+    }
+  }, [callRecords])
 
   const loadAgentData = async () => {
     try {
-      // 1. Fetch the Agent's Profile
       const profileResponse = await apiFetch(`users/${id}`, {
         method: "GET",
       })
       if (!profileResponse.ok) throw new Error("Failed to load agent profile")
       const profileData = await profileResponse.json()
 
-      // 2. Fetch the Agent's Stats
       const { from, to } = getOverallDateRange();
       const statsResponse = await apiFetch(`users/${id}/stats?from=${from}&to=${to}`, {
         method: "GET",
@@ -317,19 +371,136 @@ export default function AgentPerformancePage() {
       if (!statsResponse.ok) throw new Error("Failed to load agent stats")
       const statsData = await statsResponse.json()
 
-      // 3. Combine them into ONE clean object and set the state ONCE
       const combinedData = {
         ...profileData,
         stats: statsData
       }
 
+      const keys = ["avg_duration_seconds", "total_calls","total_session_time_seconds"]
+      const copy = {... statsData}
+      keys.forEach((key) => {
+        delete copy[key]
+      })
+
+      let formattedCallsArray = Object.entries(copy)
+        .filter(([_, countValue]) => Number(countValue) > 0) // Explicitly filter out zero-values so Recharts doesn't fail silently
+        .map(([statusKey, countValue]) => ({
+          name: statusKey,
+          value: Number(countValue), // Convert string numbers to strict Number types for the PieChart
+          color: getStatusColor(statusKey) // Will grab the fixed colors, or assign a random one for new ones!
+      }))
+
+      if (formattedCallsArray.length === 0) {
+        formattedCallsArray = [
+          { name: "no_data_yet", value: 1, color: "#f1f5f9" } // Light grey placeholder
+        ]
+      }
+      console.log(combinedData)
+      setCalls(formattedCallsArray)
       setAgent(combinedData)
 
-      // 4. Log the combined variable to actually see your new data!
-      console.log("Successfully loaded:", combinedData)
 
     } catch(error: any) {
       toast.error(error.message)
+    }
+  }
+
+  const loadWeeklyAvgDuration = async () => {
+    try{
+        const weekRanges = Array.from({ length: 7 }).map((_, index) => {
+        const daysAgo = 6 - index;
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() - daysAgo);
+
+        const fromDate = new Date(targetDate);
+        fromDate.setHours(0, 0, 0, 0);
+
+        const toDate = new Date(targetDate);
+        toDate.setHours(23, 59, 59, 999);
+
+        return {
+          dayLabel: targetDate.toLocaleDateString('en-US', { weekday: 'short' }),
+          from: fromDate.toISOString(),
+          to: toDate.toISOString()
+        };
+      });
+
+      const weeklyData = await Promise.all(
+        weekRanges.map(async (range) => {
+          const localizedDate = range.to.split('T')[0]
+          try {
+            const response = await apiFetch(`users/${id}/stats?from=${range.from}&to=${range.to}`, {
+              method: "GET",
+            });
+
+            if (!response.ok) {
+              return { date: localizedDate, avgDuration: 0 };
+            }
+
+            const data = await response.json();
+            return {
+              day: localizedDate,
+              avgDuration: data.avg_duration_seconds || 0,
+            };
+
+          } catch (err) {
+            return { date: localizedDate, avgDuration: 0 };
+          }
+        })
+
+      );
+      setWeeklyChartData(weeklyData)
+    }catch(error: any) {
+      toast.error(error.message)
+    }
+  }
+
+  // THE NEW SERVER-SIDE FETCH FUNCTION
+  const loadCallRecords = async () => {
+    const now = new Date();
+    let fromDate = new Date(now);
+    let toDate = new Date(now);
+
+    if (date) {
+      fromDate = new Date(date);
+      fromDate.setHours(0, 0, 0, 0);
+      toDate = new Date(date);
+      toDate.setHours(23, 59, 59, 999);
+    } else if (dateRange === "Today") {
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (dateRange === "Past Week") {
+      fromDate.setDate(now.getDate() - 7);
+    } else if (dateRange === "Past Month") {
+      fromDate.setMonth(now.getMonth() - 1);
+    } else if (dateRange === "Past Year") {
+      fromDate.setFullYear(now.getFullYear() - 1);
+    }
+
+    try {
+      const response = await apiFetch(`calls?agent_id=${id}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=10`, {
+        method: "GET",
+      })
+
+      if (!response.ok) {
+        setCallRecords([])
+        setTotalPages(1)
+        setTotalRecords(0)
+        return
+      }
+
+      const jsonResponse = await response.json();
+
+      if (jsonResponse && Array.isArray(jsonResponse.data)) {
+         setCallRecords(jsonResponse.data)
+         const total = jsonResponse.meta?.total || 0;
+         setTotalRecords(total)
+         setTotalPages(Math.ceil(total / 10) || 1)
+      } else {
+         setCallRecords([])
+      }
+    } catch(error: any) {
+      toast.error("Failed to load call records")
+      setCallRecords([])
     }
   }
 
@@ -344,7 +515,7 @@ export default function AgentPerformancePage() {
             {/* Agent Info */}
             <div className="flex items-center gap-3">
               <div className="h-12 w-12 rounded-full bg-primary/10 text-primary flex items-center justify-center font-semibold text-lg shrink-0">
-                {Agent?.name?.split(" ").map(n => n[0]).join("")}
+                {(Agent?.name || "").split(" ").map((n: string) => n[0]).join("")}
               </div>
 
               <div>
@@ -356,14 +527,14 @@ export default function AgentPerformancePage() {
                   <span
                     className="h-2.5 w-2.5 rounded-full shrink-0"
                     style={{
-                      backgroundColor: agentInfo.isOnline
+                      backgroundColor: Agent.isOnline
                         ? chartPalette.emerald
                         : "#cbd5e1",
-                      boxShadow: agentInfo.isOnline
+                      boxShadow: Agent.isOnline
                         ? `0 0 6px ${hexToRgba(chartPalette.emerald, 0.6)}`
                         : "none",
                     }}
-                    title={agentInfo.isOnline ? "Online" : "Offline"}
+                    title={Agent.isOnline ? "Online" : "Offline"}
                   />
                 </div>
 
@@ -376,7 +547,7 @@ export default function AgentPerformancePage() {
                     className="px-3 py-1 text-white border-none"
                     style={{ backgroundColor: chartPalette.emerald }}
                   >
-                    {agentInfo.activeHours} Active Today
+                    {Agent?.activeHours} Active Today
                   </Badge>
                 </div>
               </div>
@@ -405,10 +576,10 @@ export default function AgentPerformancePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
-              { title: "Total Calls", val: Agent?.stats?.total_calls, icon: Phone, color: "text-emerald-500" },
-              { title: "Success Rate", val: "78%", icon: TrendingUp, color: "text-blue-500" },
-              { title: "Avg Duration", val: `${Agent?.stats?.avg_duration_seconds}s`, icon: Clock, color: "text-amber-500" },
-              { title: "Active Hours", val: `${Agent?.stats?.total_session_time_seconds/3600}hr`, icon: Target, color: "text-indigo-500" },
+              { title: "Total Calls", val: totalCallsDashboard, icon: Phone, color: "text-emerald-500" },
+              { title: "Success Rate", val: `${successRate}%`, icon: TrendingUp, color: "text-blue-500" },
+              { title: "Avg Duration", val: `${Agent?.stats?.avg_duration_seconds || 0}s`, icon: Clock, color: "text-amber-500" },
+              { title: "Active Hours", val: `${(Agent?.stats?.total_session_time_seconds || 0)/3600}hr`, icon: Target, color: "text-indigo-500" },
             ].map((item, i) => (
               <Card key={i} className="w-full shadow-sm border-slate-100 hover:shadow-md transition-shadow">
                 <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
@@ -423,12 +594,11 @@ export default function AgentPerformancePage() {
           </div>
           <div className="flex flex-wrap justify-center gap-4 w-full">
             {[
-              { title: "Connect Rate", val: "73%", icon: Wifi, color: "text-teal-500" },
-              { title: "Avg Attempts / Convert", val: "3.0", icon: Repeat, color: "text-violet-500" },
-              { title: "Overdue Follow-ups", val: 1, icon: AlertTriangle, color: "text-slate-400" },
+              { title: "Connect Rate", val: `${realConnectRate}%`, icon: Wifi, color: "text-teal-500" },
+              { title: "Avg Attempts / Close", val: avgAttemptsToClose, icon: Repeat, color: "text-violet-500" },
+              { title: "Overdue Follow-ups", val: overdueCount, icon: AlertTriangle, color: "text-slate-400" },
             ].map((item, i) => {
-              // @ts-ignore
-              const isUrgent = item.title === "Overdue Follow-ups" && item.val > 0;
+              const isUrgent = item.title === "Overdue Follow-ups" && Number(item.val) > 0;
 
               return (
                 <Card key={i} className={`w-full sm:w-[240px] shadow-sm border-slate-100 hover:shadow-md transition-shadow ${isUrgent ? 'bg-red-50' : 'background-color: hsl(var(--card))'}`}>
@@ -450,32 +620,31 @@ export default function AgentPerformancePage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
-            <Card className="md:col-span-2 lg:col-span-2 shadow-sm border-slate-100">
+            <Card className="md:col-span-2 lg:col-span-2 shadow-sm border-slate-100 flex flex-col">
               <CardHeader>
                 <CardTitle className="text-[hsl(var(--tertiary))] text-lg">Call Trends</CardTitle>
                 <CardDescription>Daily call durations tracking.</CardDescription>
               </CardHeader>
-              <CardContent className="h-64">
+              <CardContent className="flex-1 min-h-[320px] w-full pb-4">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={dummyLogs} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <LineChart data={weeklyChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(226, 232, 240, 0.5)" />
-                    <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={9} tickLine={false} axisLine={false} />
+                    <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={9} tickLine={false} axisLine={false} />
                     <YAxis stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
                     <Tooltip contentStyle={{ backgroundColor: "white", borderRadius: "8px", border: "1px solid #e2e8f0" }} />
-                    <Legend verticalAlign="top" height={36} />
-                    <Line type="monotone" dataKey="duration" name="Duration (sec)" stroke={chartPalette.dial} strokeWidth={2.5} dot={{ r: 3, fill: chartPalette.dial }} />
+                    <Legend verticalAlign="bottom" height={36} />
+                    <Line type="monotone" dataKey="avgDuration" name="Duration (sec)" stroke={chartPalette.dial} strokeWidth={2.5} dot={{ r: 3, fill: chartPalette.dial }} />
                   </LineChart>
                 </ResponsiveContainer>
               </CardContent>
             </Card>
 
-            <Card className="md:col-span-2 lg:col-span-1 shadow-sm border-slate-100">
+            <Card className="md:col-span-2 lg:col-span-1 shadow-sm border-slate-100 flex flex-col">
               <CardHeader>
                 <CardTitle className="text-[hsl(var(--tertiary))] text-lg">Call Outcomes</CardTitle>
                 <CardDescription>Distribution of connection statuses.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <div className="h-[260px] w-full flex flex-col items-center justify-center">
+              <CardContent className="flex-1 min-h-[320px] flex flex-col items-center justify-center w-full pb-4">
                   <ResponsiveContainer width="100%" height="100%">
                     <PieChart>
                       <Pie
@@ -505,8 +674,8 @@ export default function AgentPerformancePage() {
                                     className="w-2 h-2 rounded-full shrink-0"
                                     style={{ backgroundColor: entry.color }}
                                   />
-                                  <span className="text-xs font-medium text-slate-600">
-                                    {entry.value}
+                                  <span className="text-xs font-medium text-slate-600 capitalize">
+                                    {String(entry.value || entry.payload?.name || "").replace("_", " ")}
                                   </span>
                                 </div>
                               ))}
@@ -516,7 +685,6 @@ export default function AgentPerformancePage() {
                       />
                     </PieChart>
                   </ResponsiveContainer>
-                </div>
               </CardContent>
             </Card>
           </div>
@@ -534,7 +702,7 @@ export default function AgentPerformancePage() {
                       <PolarGrid stroke="#e2e8f0" />
                       <PolarAngleAxis dataKey="metric" tick={{ fontSize: 11, fill: "hsl(var(--muted-foreground))" }} />
                       <PolarRadiusAxis tick={false} axisLine={false} domain={[0, 100]} />
-                      <Radar name={agentInfo.name} dataKey="agent" stroke={chartPalette.dial} fill={chartPalette.dial} fillOpacity={0.35} />
+                      <Radar name={Agent.name || "Agent"} dataKey="agent" stroke={chartPalette.dial} fill={chartPalette.dial} fillOpacity={0.35} />
                       <Radar name="Team Avg" dataKey="team" stroke={chartPalette.convert} fill={chartPalette.convert} fillOpacity={0.2} />
                       <Legend />
                       <Tooltip contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid #e2e8f0" }} />
@@ -599,7 +767,7 @@ export default function AgentPerformancePage() {
                 {funnelData.map((stage, i) => {
                   const widthPct = 100 - i * 12
                   const prevValue = i > 0 ? funnelData[i - 1].value : stage.value
-                  const dropOffPct = i > 0 ? Math.round((1 - stage.value / prevValue) * 100) : 0
+                  const dropOffPct = i > 0 && prevValue > 0 ? Math.round((1 - stage.value / prevValue) * 100) : 0
                   return (
                     <div key={stage.stage} className="flex-1 flex flex-col items-center relative">
                       <div
@@ -685,7 +853,7 @@ export default function AgentPerformancePage() {
             </Card>
           </div>
 
-          <Card className="shadow-sm border-slate-100">
+          <Card className="shadow-sm border-slate-100 mt-6">
             <CardHeader className="flex flex-col gap-5 pb-6">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
                 <div>
@@ -694,13 +862,10 @@ export default function AgentPerformancePage() {
                 </div>
                 <div className="w-full md:w-auto flex justify-end">
                   <Input
-                    placeholder="Search owner number..."
+                    placeholder="Search by owner name or number..."
                     className="w-full md:w-[250px] h-9"
                     value={searchTerm}
-                    onChange={(e) => {
-                      setSearchTerm(e.target.value)
-                      setCurrentPage(1)
-                    }}
+                    onChange={(e) => setSearchTerm(e.target.value)}
                   />
                 </div>
               </div>
@@ -750,33 +915,41 @@ export default function AgentPerformancePage() {
                       <TableHead>Project</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Duration</TableHead>
-                      <TableHead>Owner</TableHead>
+                      <TableHead>Client</TableHead>
                       <TableHead className="pr-4 sm:pr-6">Notes</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {currentLogs.length > 0 ? currentLogs.map(log => (
+                    {displayRecords.length > 0 ? displayRecords.map(log => {
+                      const dateObj = log.time ? new Date(log.time) : new Date();
+
+                      return(
                       <TableRow key={log.id} className="hover:bg-slate-50/55">
-                        <TableCell className="pl-4 sm:pl-6 font-medium whitespace-nowrap">{log.date}</TableCell>
-                        <TableCell className="whitespace-nowrap text-slate-500">{log.time}</TableCell>
-                        <TableCell className="whitespace-nowrap font-semibold text-slate-700">{log.project}</TableCell>
+                        <TableCell className="pl-4 sm:pl-6 font-medium whitespace-nowrap">
+                          {dateObj.toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap text-slate-500">
+                          {dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap font-semibold text-slate-700">
+                           {log.project_id ? (projectDetails[log.project_id] || `Project #${log.project_id}`) : "-"}
+                        </TableCell>
                         <TableCell>
                           <Badge
-                            className="border-none text-white text-xs font-semibold py-0.5"
-                            style={{ backgroundColor: log.status === 'Answered' ? chartPalette.connect : log.status === "Voicemail" ? chartPalette.neutral : log.status === "Converted" ? chartPalette.convert : chartPalette.miss }}
+                            className="border-none text-white text-xs font-semibold py-0.5 capitalize"
+                            style={{backgroundColor: getStatusColor(log.status)}}
                           >
-                            {log.status}
+                            {(log.status || "Unknown").replace("_", " ")}
                           </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap font-mono text-xs">{log.duration}s</TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <span className="font-semibold text-slate-800">{log.owner}</span>
+                          <span className="font-semibold text-slate-800">{ownerDetails[log.owner_id]?.name || `Owner #${log.owner_id}`}</span>
                           <br/>
-                          <span className="text-xs text-muted-foreground">{log.ownerNumber}</span>
-                        </TableCell>
-                        <TableCell className="max-w-xs truncate pr-4 sm:pr-6 text-slate-600">{log.notes}</TableCell>
+                          <span className="text-xs text-muted-foreground">{ownerDetails[log.owner_id]?.phone || ""}</span>                        </TableCell>
+                        <TableCell className="max-w-xs truncate pr-4 sm:pr-6 text-slate-600">{log.agent_notes || "—"}</TableCell>
                       </TableRow>
-                    )) : (
+                    )}) : (
                       <TableRow>
                         <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                           No calls found matching your search.
@@ -790,14 +963,14 @@ export default function AgentPerformancePage() {
 
             <CardFooter className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 border-t border-border p-4 sm:p-6">
               <div className="text-sm text-muted-foreground text-center sm:text-left w-full sm:w-auto">
-                Showing <strong>{filteredLogs.length === 0 ? 0 : startIndex + 1}</strong> to <strong>{Math.min(endIndex, filteredLogs.length)}</strong> of <strong>{filteredLogs.length}</strong> calls
+                Showing <strong>{totalRecords === 0 ? 0 : ((currentPage - 1) * 10) + 1}</strong> to <strong>{Math.min(currentPage * 10, totalRecords)}</strong> of <strong>{totalRecords}</strong> calls
               </div>
               <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  disabled={currentPage === 1}
+                  disabled={currentPage <= 1}
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 >
                   <ChevronLeft className="h-4 w-4 sm:mr-1" />
@@ -822,27 +995,26 @@ export default function AgentPerformancePage() {
         </main>
       </div>
 
-      {/* This is where the invisible render target lives.
-      */}
+      {/* This is where the invisible render target lives. */}
       <div
         style={{ position: "fixed", left: "-9999px", top: "0px" }}
         aria-hidden="true"
       >
         <div ref={reportRef}>
           <AgentReport data={{
-              agentInfo,
+              agentInfo: Agent,
               kpis: {
-                  totalCalls: filteredLogs.length,
-                  answered: filteredLogs.filter(l => l.status === "Answered").length,
-                  voicemail: filteredLogs.filter(l => l.status === "Voicemail").length,
-                  converted: filteredLogs.filter(l => l.status === "Converted").length,
+                  totalCalls: totalRecords, // Using server-side total
+                  answered: callRecords.filter(l => l.status === "answered").length, // Evaluates the current page for PDF
+                  voicemail: callRecords.filter(l => l.status === "no_answer").length,
+                  converted: callRecords.filter(l => l.status === "closed").length,
                   avgDuration: "105s",
-                  connectRate,
-                  avgAttemptsToConvert,
+                  connectRate: realConnectRate,
+                  avgAttemptsToConvert: avgAttemptsToClose,
                   overdueCount,
-                  currentStreak,
+                  currentStreak: 12
               },
-              logs: filteredLogs,
+              logs: callRecords, // Pass raw API data to your PDF agent report
               statusData: calls,
               projectData,
               benchmarkData,
