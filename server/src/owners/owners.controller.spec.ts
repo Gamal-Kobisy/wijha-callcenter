@@ -12,6 +12,7 @@ describe('OwnersController', () => {
 
   beforeEach(async () => {
     prisma = mockDeep<PrismaService>();
+    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
     prisma.owner.findMany.mockResolvedValue([
       mockOwner({
         name: 'John Doe',
@@ -93,6 +94,30 @@ describe('OwnersController', () => {
       expect(result.name).toBe('New Owner');
       expect(result.phones).toHaveLength(1);
       expect(result.info).toHaveLength(1);
+    });
+  });
+
+  describe('POST /owners/bulk', () => {
+    it('should create multiple owners', async () => {
+      prisma.number.findFirst.mockResolvedValue(null);
+      prisma.owner.create
+        .mockResolvedValueOnce(
+          mockOwner({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], ownerInfo: [] }),
+        )
+        .mockResolvedValueOnce(
+          mockOwner({ id: 4n, name: 'Bob', numbers: [mockNumber({ number: '555-2222' })], ownerInfo: [] }),
+        );
+
+      const result = await controller.createBulk({
+        owners: [
+          { name: 'Alice', phones: [{ phone: '555-1111' }], project_id: 1 },
+          { name: 'Bob', phones: [{ phone: '555-2222' }], project_id: 1 },
+        ],
+      });
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe('Alice');
+      expect(result[1].name).toBe('Bob');
     });
   });
 

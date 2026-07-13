@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { CreateOwnerDto } from './dto/create-owner.dto';
 import type { UpdateOwnerDto } from './dto/update-owner.dto';
-import type { OwnerResponseDto, OwnerPhoneResponse, OwnerInfoResponse } from './dto/owner-response.dto';
+import type { OwnerResponseDto } from './dto/owner-response.dto';
 import type { StatusCountDto } from '@/calls/dto/status-count.dto';
 import { isSameDay } from 'date-fns';
 
@@ -70,16 +70,81 @@ export class OwnersService {
   }
 
   async create(dto: CreateOwnerDto): Promise<OwnerResponseDto> {
+    return this.upsertOwner(this.prisma, dto);
+  }
+
+  async createBulk(dtos: CreateOwnerDto[]): Promise<OwnerResponseDto[]> {
+    return this.prisma.$transaction(async (tx) => {
+      const results: OwnerResponseDto[] = [];
+      for (const dto of dtos) {
+        results.push(await this.upsertOwner(tx, dto));
+      }
+      return results;
+    });
+  }
+
+  private async upsertOwner(client: any, dto: CreateOwnerDto): Promise<OwnerResponseDto> {
     const phoneNumbers = dto.phones.map(n => n.phone);
-    const existingNumber = await this.prisma.number.findFirst({
+    const existingNumber = await client.number.findFirst({
       where: { number: { in: phoneNumbers } },
       include: { owner: { include: { numbers: true, ownerInfo: true } } },
     });
+
     if (existingNumber) {
-      return toOwnerResponse(existingNumber.owner);
+      const owner = existingNumber.owner;
+      const existingPhoneValues = owner.numbers.map((n: { number: string }) => n.number);
+      const newNumbers = phoneNumbers.filter(n => !existingPhoneValues.includes(n));
+      const existingInfoKeys = (owner.ownerInfo ?? []).map((i: { key: string }) => i.key);
+      const newInfo = (dto.info ?? []).filter(
+        i => i.key != null && i.value != null && !existingInfoKeys.includes(i.key!),
+      );
+
+      const mergedName =
+        dto.name !== undefined
+          ? !owner.name || dto.name.length > owner.name.length
+            ? dto.name
+            : undefined
+          : undefined;
+
+      const updated = await client.owner.update({
+        where: { id: owner.id },
+        data: {
+          ...(mergedName !== undefined ? { name: mergedName } : {}),
+          ...(dto.status !== undefined ? { status: dto.status } : {}),
+          ...(newNumbers.length > 0
+            ? { numbers: { create: newNumbers.map(n => ({ number: n })) } }
+            : {}),
+          ...(newInfo.length > 0
+            ? {
+                ownerInfo: {
+                  create: newInfo.map(i => ({ key: i.key!, value: i.value! })),
+                },
+              }
+            : {}),
+          ...(dto.project_id
+            ? {
+                ownerProjects: {
+                  upsert: {
+                    where: {
+                      ownerId_projectId: {
+                        ownerId: owner.id,
+                        projectId: dto.project_id,
+                      },
+                    },
+                    create: { projectId: dto.project_id },
+                    update: {},
+                  },
+                },
+              }
+            : {}),
+        },
+        include: { numbers: true, ownerInfo: true },
+      });
+
+      return toOwnerResponse(updated);
     }
 
-    const owner = await this.prisma.owner.create({
+    const created = await client.owner.create({
       data: {
         name: dto.name,
         status: dto.status ?? 'active',
@@ -88,14 +153,20 @@ export class OwnersService {
           create: dto.phones.map(n => ({ number: n.phone })),
         },
         ownerInfo: dto.info?.length
-          ? { create: dto.info.filter(i => i.key != null && i.value != null).map(i => ({ key: i.key!, value: i.value! })) }
+          ? {
+              create: dto.info
+                .filter(i => i.key != null && i.value != null)
+                .map(i => ({ key: i.key!, value: i.value! })),
+            }
           : undefined,
-        ownerProjects: dto.project_id ? { create: { projectId: dto.project_id } } : undefined,
+        ownerProjects: dto.project_id
+          ? { create: { projectId: dto.project_id } }
+          : undefined,
       },
       include: { numbers: true, ownerInfo: true },
     });
 
-    return toOwnerResponse(owner);
+    return toOwnerResponse(created);
   }
 
   async update(id: number, dto: UpdateOwnerDto): Promise<OwnerResponseDto> {
