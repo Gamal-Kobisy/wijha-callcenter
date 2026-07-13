@@ -15,11 +15,13 @@ import { SubmitCallDto } from './dto/submit-call.dto';
 import { NotifyCallingDto } from './dto/notify-calling.dto';
 import { ListCallsQueryDto } from './dto/list-calls-query.dto';
 import { GetNextOwnerQueryDto } from './dto/get-next-owner-query.dto';
+import { GetStatusesQueryDto } from './dto/get-statuses-query.dto';
 import type { CallResponseDto } from './dto/call-response.dto';
 import type { NextOwnerResponseDto } from './dto/next-owner-response.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
+import type { StatusCountDto } from './dto/status-count.dto';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '@/common/interfaces/authenticated-user.interface';
 
 @Controller('calls')
 @UseGuards(JwtAuthGuard)
@@ -66,6 +68,13 @@ export class CallsController {
       projectId = Number(query.project_id);
     }
     return this.callsService.getNextOwner({ projectId, date });
+  }
+
+  @Get('statuses')
+  async getStatuses(@Query() query: GetStatusesQueryDto): Promise<StatusCountDto[]> {
+    const from = query.from ? new Date(query.from) : undefined;
+    const to = query.to ? new Date(query.to) : undefined;
+    return this.callsService.getStatusCounts(from, to);
   }
 
   @Post('calling')

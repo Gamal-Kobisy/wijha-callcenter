@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockUser } from '../prisma/mock-data';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockUser } from '@/prisma/mock-data';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 describe('UsersController', () => {
   let controller: UsersController;

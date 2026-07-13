@@ -3,8 +3,8 @@ import { JwtService } from '@nestjs/jwt';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import * as bcrypt from 'bcryptjs';
 import { AuthService } from './auth.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockUser } from '../prisma/mock-data';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockUser } from '@/prisma/mock-data';
 
 jest.mock('bcryptjs', () => ({
   compare: jest.fn(),

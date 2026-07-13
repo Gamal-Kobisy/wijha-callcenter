@@ -2,10 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { CallsController } from './calls.controller';
 import { CallsService } from './calls.service';
-import { OwnersService } from '../owners/owners.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo, mockCallRecord } from '../prisma/mock-data';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OwnersService } from '@/owners/owners.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockOwner, mockNumber, mockOwnerInfo, mockCallRecord } from '@/prisma/mock-data';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 const recordWithOwner = (overrides: Record<string, unknown> = {}) => ({
   id: 1n,
@@ -121,6 +121,39 @@ describe('CallsController', () => {
 
       const result = await controller.getNext({ project_id: '1', date: '2024-06-01' });
       expect(result).not.toBeNull();
+    });
+  });
+
+  describe('GET /calls/statuses', () => {
+    it('should return status counts', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([
+        { status: 'completed' } as any,
+        { status: 'no_answer' } as any,
+      ]);
+      (prisma.callDetailRecord.groupBy as jest.Mock).mockResolvedValue([
+        { status: 'completed', _count: 3 },
+        { status: 'no_answer', _count: 1 },
+      ]);
+
+      const result = await controller.getStatuses({});
+      expect(result).toEqual([
+        { status: 'completed', count: 3 },
+        { status: 'no_answer', count: 1 },
+      ]);
+    });
+
+    it('should pass from/to query params', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([
+        { status: 'completed' } as any,
+      ]);
+      (prisma.callDetailRecord.groupBy as jest.Mock).mockResolvedValue([
+        { status: 'completed', _count: 2 },
+      ]);
+
+      const result = await controller.getStatuses({ from: '2024-01-01T00:00:00Z', to: '2024-12-31T23:59:59Z' });
+      expect(result).toHaveLength(1);
+      expect(result[0].status).toBe('completed');
+      expect(result[0].count).toBe(2);
     });
   });
 

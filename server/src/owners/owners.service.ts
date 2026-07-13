@@ -1,8 +1,9 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import type { CreateOwnerDto } from './dto/create-owner.dto';
 import type { UpdateOwnerDto } from './dto/update-owner.dto';
 import type { OwnerResponseDto, OwnerPhoneResponse, OwnerInfoResponse } from './dto/owner-response.dto';
+import type { StatusCountDto } from '@/calls/dto/status-count.dto';
 import { isSameDay } from 'date-fns';
 
 type OwnerWithRelations = {
@@ -136,6 +137,16 @@ export class OwnersService {
     if (!owner) return null;
 
     return toOwnerResponse(owner);
+  }
+
+  async getStatusCounts(): Promise<StatusCountDto[]> {
+    return this.prisma.$queryRaw<StatusCountDto[]>`
+      SELECT LOWER(TRIM(status)) as status, COUNT(*)::int as count
+      FROM owner
+      WHERE status IS NOT NULL
+      GROUP BY LOWER(TRIM(status))
+      ORDER BY status
+    `;
   }
 
   async assignToProject(ownerId: number, projectName: string): Promise<OwnerResponseDto> {

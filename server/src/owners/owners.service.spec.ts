@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { OwnersService } from './owners.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '../prisma/mock-data';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '@/prisma/mock-data';
 
 describe('OwnersService', () => {
   let service: OwnersService;
@@ -194,6 +194,27 @@ describe('OwnersService', () => {
     it('should throw NotFoundException for non-existent id', async () => {
       prisma.owner.findUnique.mockResolvedValue(null);
       await expect(service.remove(999)).rejects.toThrow('Owner not found');
+    });
+  });
+
+  describe('getStatusCounts', () => {
+    it('should return distinct normalized statuses with counts', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([
+        { status: 'active', count: 5 },
+        { status: 'inactive', count: 3 },
+      ]);
+
+      const result = await service.getStatusCounts();
+      expect(result).toEqual([
+        { status: 'active', count: 5 },
+        { status: 'inactive', count: 3 },
+      ]);
+    });
+
+    it('should return empty array when no owners exist', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+      const result = await service.getStatusCounts();
+      expect(result).toEqual([]);
     });
   });
 
