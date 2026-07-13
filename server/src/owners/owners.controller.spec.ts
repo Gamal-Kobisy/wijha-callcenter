@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { OwnersController } from './owners.controller';
 import { OwnersService } from './owners.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '../prisma/mock-data';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '@/prisma/mock-data';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 describe('OwnersController', () => {
   let controller: OwnersController;

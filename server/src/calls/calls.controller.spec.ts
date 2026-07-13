@@ -2,10 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { CallsController } from './calls.controller';
 import { CallsService } from './calls.service';
-import { OwnersService } from '../owners/owners.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo, mockCallRecord } from '../prisma/mock-data';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OwnersService } from '@/owners/owners.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockOwner, mockNumber, mockOwnerInfo, mockCallRecord } from '@/prisma/mock-data';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 const recordWithOwner = (overrides: Record<string, unknown> = {}) => ({
   id: 1n,

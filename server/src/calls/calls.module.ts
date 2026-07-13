@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { CallsController } from './calls.controller';
 import { CallsService } from './calls.service';
-import { OwnersModule } from '../owners/owners.module';
+import { OwnersModule } from '@/owners/owners.module';
 
 @Module({
   imports: [OwnersModule],

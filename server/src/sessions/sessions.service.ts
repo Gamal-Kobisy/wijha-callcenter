@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import type { CreateSessionDto } from './dto/create-session.dto';
 import type { SessionResponseDto } from './dto/session-response.dto';
 

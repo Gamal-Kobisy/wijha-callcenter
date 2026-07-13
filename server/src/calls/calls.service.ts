@@ -1,11 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
-import type { SubmitCallDto } from './dto/submit-call.dto';
-import type { NotifyCallingDto } from './dto/notify-calling.dto';
-import type { CallResponseDto } from './dto/call-response.dto';
-import type { NextOwnerResponseDto } from './dto/next-owner-response.dto';
-import type { StatusCountDto } from './dto/status-count.dto';
-import { OwnersService } from '../owners/owners.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import type { SubmitCallDto } from '@/calls/dto/submit-call.dto';
+import type { NotifyCallingDto } from '@/calls/dto/notify-calling.dto';
+import type { CallResponseDto } from '@/calls/dto/call-response.dto';
+import type { NextOwnerResponseDto } from '@/calls/dto/next-owner-response.dto';
+import type { StatusCountDto } from '@/calls/dto/status-count.dto';
+import { OwnersService } from '@/owners/owners.service';
 
 @Injectable()
 export class CallsService {

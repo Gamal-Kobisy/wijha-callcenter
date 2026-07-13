@@ -18,7 +18,7 @@ import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
 import { ListOwnersQueryDto } from './dto/list-owners-query.dto';
 import type { OwnerResponseDto } from './dto/owner-response.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 @Controller('owners')
 @UseGuards(JwtAuthGuard)

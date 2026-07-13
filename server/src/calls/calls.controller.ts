@@ -19,9 +19,9 @@ import { GetStatusesQueryDto } from './dto/get-statuses-query.dto';
 import type { CallResponseDto } from './dto/call-response.dto';
 import type { NextOwnerResponseDto } from './dto/next-owner-response.dto';
 import type { StatusCountDto } from './dto/status-count.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '@/common/interfaces/authenticated-user.interface';
 
 @Controller('calls')
 @UseGuards(JwtAuthGuard)

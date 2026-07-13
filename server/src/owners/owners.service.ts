@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import type { CreateOwnerDto } from './dto/create-owner.dto';
 import type { UpdateOwnerDto } from './dto/update-owner.dto';
 import type { OwnerResponseDto, OwnerPhoneResponse, OwnerInfoResponse } from './dto/owner-response.dto';

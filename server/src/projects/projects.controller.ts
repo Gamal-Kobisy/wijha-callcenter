@@ -1,7 +1,7 @@
 import { Controller, Get, Param, UseGuards, ParseIntPipe } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import type { ProjectResponseDto } from './dto/project-response.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 @Controller('projects')
 @UseGuards(JwtAuthGuard)
