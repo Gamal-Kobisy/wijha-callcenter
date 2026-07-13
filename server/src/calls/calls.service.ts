@@ -4,6 +4,7 @@ import type { SubmitCallDto } from './dto/submit-call.dto';
 import type { NotifyCallingDto } from './dto/notify-calling.dto';
 import type { CallResponseDto } from './dto/call-response.dto';
 import type { NextOwnerResponseDto } from './dto/next-owner-response.dto';
+import type { StatusCountDto } from './dto/status-count.dto';
 import { OwnersService } from '../owners/owners.service';
 
 @Injectable()
@@ -114,6 +115,40 @@ export class CallsService {
         agent_notes: c.agentNotes,
       })),
     };
+  }
+
+  async getStatusCounts(from?: Date, to?: Date): Promise<StatusCountDto[]> {
+    const timeFilter: any = {};
+    if (from) timeFilter.gte = from;
+    if (to) timeFilter.lte = to;
+
+    const allStatuses = await this.prisma.callDetailRecord.findMany({
+      where: { status: { not: null } },
+      distinct: ['status'],
+      select: { status: true },
+    });
+
+    const statusSet = new Set<string>();
+    for (const r of allStatuses) {
+      statusSet.add(r.status!.trim().toLowerCase());
+    }
+
+    const counts = await this.prisma.callDetailRecord.groupBy({
+      by: ['status'],
+      _count: true,
+      where: {
+        status: { not: null },
+        ...(Object.keys(timeFilter).length ? { time: timeFilter } : {}),
+      },
+    });
+
+    const countMap = new Map<string, number>();
+    for (const c of counts) {
+      const key = c.status!.trim().toLowerCase();
+      countMap.set(key, (countMap.get(key) ?? 0) + c._count);
+    }
+
+    return [...statusSet].sort().map(status => ({ status, count: countMap.get(status) ?? 0 }));
   }
 
   async notifyCalling(dto: NotifyCallingDto): Promise<void> {

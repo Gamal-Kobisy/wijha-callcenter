@@ -224,6 +224,17 @@ components:
             limit:
               type: integer
 
+    StatusCount:
+      type: object
+      required: [status, count]
+      properties:
+        status:
+          type: string
+          example: "completed"
+        count:
+          type: integer
+          example: 42
+
     Error:
       type: object
       required: [code, message]
@@ -729,6 +740,36 @@ paths:
                 $ref: "#/components/schemas/CallDetailRecord"
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /calls/statuses:
+    get:
+      summary: Get call status counts with optional time filtering
+      operationId: getCallStatuses
+      tags: [calls]
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Start of time window (ISO 8601)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: End of time window (ISO 8601)
+      responses:
+        "200":
+          description: List of statuses with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatusCount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /sessions:
     get:
