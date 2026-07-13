@@ -98,13 +98,45 @@ export default function AgentsPage() {
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.value) {
       setDateRange(e.target.value)
-      loadCalls(e.target.value)
+      loadCalls(e.target.value,agents)
     }
   }
 
   const handlePresetSelect = (preset: string) => {
     setDateRange(preset)
-    loadCalls(preset)
+    loadCalls(preset,agents)
+  }
+
+  // --- DATE RANGE CALCULATOR ---
+  const getDateRangeIso = (dateValue: string) => {
+    const now = new Date()
+    let fromDate = new Date(now)
+    let toDate = new Date(now)
+
+    if (dateValue === "Today") {
+      // From exactly midnight today, to right now
+      fromDate.setHours(0, 0, 0, 0)
+    } else if (dateValue === "Past Week") {
+      // From exactly 7 days ago, to right now
+      fromDate.setDate(now.getDate() - 7)
+    } else if (dateValue === "Past Month") {
+      // From exactly 1 month ago, to right now
+      fromDate.setMonth(now.getMonth() - 1)
+    } else if (dateValue === "Past Year") {
+      // From exactly 1 year ago, to right now
+      fromDate.setFullYear(now.getFullYear() - 1)
+    } else {
+      // Specific Calendar Date: From 00:00:00 to 23:59:59 of that specific day
+      fromDate = new Date(dateValue)
+      fromDate.setHours(0, 0, 0, 0)
+      toDate = new Date(dateValue)
+      toDate.setHours(23, 59, 59, 999)
+    }
+
+    return {
+      from: fromDate.toISOString(),
+      to: toDate.toISOString()
+    }
   }
 
   // --- GLOBAL VALIDATION LOGIC ---
@@ -179,33 +211,42 @@ export default function AgentsPage() {
     }
   }
 
-  const loadCalls = async (selectedDate: string, freshAgents?: any[]) => {
+  const loadCalls = async (selectedDate: string, currentAgents: any[]) => {
+    // If there are no agents yet, don't try to fetch calls for them
+    if (!currentAgents || currentAgents.length === 0) return
+
     try {
-      // NOTE: Ensure this matches the endpoint your backend expects!
-      const response = await apiFetch(`calls-summary?date=${selectedDate}`, {
-        method: "GET",
-      })
+      // 1. Get the exact ISO strings for the API
+      const { from, to } = getDateRangeIso(selectedDate)
 
-      if (!response.ok) {
-        throw new Error("Failed to load calls.")
-      }
+      // 2. Fetch all agent stats at the exact same time using Promise.all
+      const updatedAgents = await Promise.all(
+        currentAgents.map(async (agent) => {
+          try {
+            const response = await apiFetch(`users/${agent.id}/stats?from=${from}&to=${to}`, {
+              method: "GET",
+            })
 
-      const callsData = await response.json()
+            if (response.ok) {
+              const statsData = await response.json()
+              // Merge the API's 'total_calls' into our agent object
+              return { ...agent, calls: statsData.total_calls || 0 }
+            }
 
-      setAgents(prevAgents => {
-        const targetAgents = freshAgents || prevAgents
+            // If this specific agent's call fails (like the 404 you documented), default to 0
+            return { ...agent, calls: 0 }
 
-        return targetAgents.map(agent => {
-          // Adjust 'userId' and 'count' below based on your backend response structure
-          const agentCallRecord = callsData.find((c: any) => c.userId === agent.id)
-          return {
-            ...agent,
-            calls: agentCallRecord ? agentCallRecord.count : 0
+          } catch (err) {
+            return { ...agent, calls: 0 }
           }
         })
-      })
+      )
+
+      // 3. Update the React state with the finished data!
+      setAgents(updatedAgents)
+
     } catch (error: any) {
-      console.error(error.message)
+      toast.error("Failed to aggregate call records.")
     }
   }
 
