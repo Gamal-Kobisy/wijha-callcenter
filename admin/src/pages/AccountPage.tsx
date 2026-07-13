@@ -48,11 +48,11 @@ export default function AccountPage() {
     }
 
     // Check email using Regex
-    // const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-    // if (!emailRegex.test(formData.email)) {
-    //   toast.error("Please enter a valid email address")
-    //   return false
-    // }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(formData.email)) {
+      toast.error("Please enter a valid email address")
+      return false
+    }
 
     // Check phone number (Allows optional +, spaces, dashes, and 8-15 digits)
     const phoneRegex = /^\d{11}$/
@@ -64,6 +64,7 @@ export default function AccountPage() {
     return true
   }
 
+  // --- HANDLE AVATAR PHOTO CHANGE ---
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
@@ -80,6 +81,7 @@ export default function AccountPage() {
     }
   }
 
+  // --- SAVE NEW DATA ---
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
 
