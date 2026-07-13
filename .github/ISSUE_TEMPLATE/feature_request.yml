@@ -1,7 +1,9 @@
 name: Feature request / Bug report
 description: Request a feature or report a bug
 title: "[FEATURE/BUG]: "
-labels: []
+labels: 
+  - bug
+  - feature
 body:
   - type: markdown
     attributes:
