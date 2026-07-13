@@ -14,11 +14,13 @@ import {
 } from '@nestjs/common';
 import { OwnersService } from './owners.service';
 import { CreateOwnerDto } from './dto/create-owner.dto';
+import { BulkCreateOwnersDto } from './dto/bulk-create-owners.dto';
 import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
 import { ListOwnersQueryDto } from './dto/list-owners-query.dto';
 import type { OwnerResponseDto } from './dto/owner-response.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import type { StatusCountDto } from '@/calls/dto/status-count.dto';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 @Controller('owners')
 @UseGuards(JwtAuthGuard)
@@ -40,6 +42,17 @@ export class OwnersController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateOwnerDto): Promise<OwnerResponseDto> {
     return this.ownersService.create(dto);
+  }
+
+  @Post('bulk')
+  @HttpCode(HttpStatus.CREATED)
+  async createBulk(@Body() dto: BulkCreateOwnersDto): Promise<OwnerResponseDto[]> {
+    return this.ownersService.createBulk(dto.owners);
+  }
+
+  @Get('statuses')
+  async getStatuses(): Promise<StatusCountDto[]> {
+    return this.ownersService.getStatusCounts();
   }
 
   @Post(':ownerId/projects')

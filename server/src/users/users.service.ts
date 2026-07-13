@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcryptjs';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import type { CreateUserDto } from './dto/create-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
 import type { UserResponseDto } from './dto/user-response.dto';
@@ -89,6 +89,41 @@ export class UsersService {
       }
       throw err;
     }
+  }
+
+  async createBulk(dtos: CreateUserDto[]): Promise<UserResponseDto[]> {
+    const emails = dtos.map(d => d.email);
+
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.user.findMany({
+        where: { email: { in: emails } },
+        select: { email: true },
+      });
+
+      if (existing.length > 0) {
+        throw new ConflictException(
+          `Duplicate emails: ${existing.map(e => e.email).join(', ')}`,
+        );
+      }
+
+      const users = await Promise.all(
+        dtos.map(async (dto) => {
+          const passwordHash = await bcrypt.hash(dto.password, 10);
+          return tx.user.create({
+            data: {
+              email: dto.email,
+              passwordHash,
+              phoneNumber: dto.phone ?? '',
+              name: dto.name ?? null,
+              role: dto.role,
+            },
+            omit: { passwordHash: true },
+          });
+        }),
+      );
+
+      return users as unknown as UserResponseDto[];
+    });
   }
 
   async getStats(userId: number, _from?: string, _to?: string): Promise<UserStatsDto | null> {

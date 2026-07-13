@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { ProjectsService } from './projects.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockProject } from '../prisma/mock-data';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockProject } from '@/prisma/mock-data';
 
 describe('ProjectsService', () => {
   let service: ProjectsService;

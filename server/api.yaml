@@ -111,6 +111,16 @@ components:
           items:
             $ref: "#/components/schemas/OwnerInfoEntry"
 
+    BulkCreateOwnersRequest:
+      type: object
+      required: [owners]
+      properties:
+        owners:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/CreateOwnerRequest"
+
     Project:
       type: object
       required: [id, name]
@@ -133,6 +143,29 @@ components:
           example: "eyJhbGci..."
         user:
           $ref: "#/components/schemas/User"
+
+    BulkCreateUsersRequest:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [email, password, role]
+            properties:
+              email:
+                type: string
+              password:
+                type: string
+                format: password
+              name:
+                type: string
+              phone:
+                type: string
+              role:
+                $ref: "#/components/schemas/UserRole"
 
     User:
       type: object
@@ -223,6 +256,17 @@ components:
               type: integer
             limit:
               type: integer
+
+    StatusCount:
+      type: object
+      required: [status, count]
+      properties:
+        status:
+          type: string
+          example: "completed"
+        count:
+          type: integer
+          example: 42
 
     Error:
       type: object
@@ -457,6 +501,29 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
 
+  /owners/bulk:
+    post:
+      summary: Bulk create or merge owners
+      operationId: bulkCreateOwners
+      tags: [owners]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCreateOwnersRequest"
+      responses:
+        "201":
+          description: Owners created or updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Owner"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
   /owners/{ownerId}:
     get:
       summary: Get a single owner with numbers and info
@@ -529,6 +596,23 @@ paths:
           description: Owner deleted
         "404":
           $ref: "#/components/responses/NotFound"
+
+  /owners/statuses:
+    get:
+      summary: Get distinct owner statuses with counts
+      operationId: getOwnerStatuses
+      tags: [owners]
+      responses:
+        "200":
+          description: List of statuses with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatusCount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 
   /owners/{ownerId}/projects:
     post:
@@ -730,6 +814,36 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /calls/statuses:
+    get:
+      summary: Get call status counts with optional time filtering
+      operationId: getCallStatuses
+      tags: [calls]
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Start of time window (ISO 8601)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: End of time window (ISO 8601)
+      responses:
+        "200":
+          description: List of statuses with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatusCount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /sessions:
     get:
       summary: List session logs for the current agent
@@ -851,6 +965,37 @@ paths:
                 $ref: "#/components/schemas/User"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /users/bulk:
+    post:
+      summary: Bulk create users (admin only)
+      operationId: bulkCreateUsers
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCreateUsersRequest"
+      responses:
+        "201":
+          description: Users created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Duplicate emails found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "422":
           $ref: "#/components/responses/ValidationError"
 

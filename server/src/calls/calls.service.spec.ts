@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { CallsService } from './calls.service';
-import { OwnersService } from '../owners/owners.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockCallRecord, mockOwner } from '../prisma/mock-data';
+import { OwnersService } from '@/owners/owners.service';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockCallRecord, mockOwner } from '@/prisma/mock-data';
 
 describe('CallsService', () => {
   let service: CallsService;
@@ -169,6 +169,64 @@ describe('CallsService', () => {
       const result = await service.getNextOwner({ projectId: 1, date });
       expect(result).not.toBeNull();
       expect(getNextOwnerSpy).toHaveBeenCalledWith({ projectId: 1, date });
+    });
+  });
+
+  describe('getStatusCounts', () => {
+    it('should return distinct normalized statuses with counts', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([
+        { status: 'completed' } as any,
+        { status: 'no_answer' } as any,
+        { status: ' busy ' } as any,
+        { status: 'COMPLETED' } as any,
+      ]);
+      (prisma.callDetailRecord.groupBy as jest.Mock).mockResolvedValue([
+        { status: 'completed', _count: 5 },
+        { status: 'no_answer', _count: 3 },
+        { status: ' busy ', _count: 2 },
+        { status: 'COMPLETED', _count: 1 },
+      ]);
+
+      const result = await service.getStatusCounts();
+      expect(result).toEqual([
+        { status: 'busy', count: 2 },
+        { status: 'completed', count: 6 },
+        { status: 'no_answer', count: 3 },
+      ]);
+    });
+
+    it('should filter counts by time range', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([
+        { status: 'completed' } as any,
+        { status: 'no_answer' } as any,
+      ]);
+      (prisma.callDetailRecord.groupBy as jest.Mock).mockResolvedValue([
+        { status: 'completed', _count: 2 },
+      ]);
+
+      const from = new Date('2024-01-01');
+      const to = new Date('2024-12-31');
+      const result = await service.getStatusCounts(from, to);
+
+      expect(result).toEqual([
+        { status: 'completed', count: 2 },
+        { status: 'no_answer', count: 0 },
+      ]);
+      expect(prisma.callDetailRecord.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            time: { gte: from, lte: to },
+          }),
+        }),
+      );
+    });
+
+    it('should return empty array when no records exist', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([] as any);
+      (prisma.callDetailRecord.groupBy as jest.Mock).mockResolvedValue([]);
+
+      const result = await service.getStatusCounts();
+      expect(result).toEqual([]);
     });
   });
 

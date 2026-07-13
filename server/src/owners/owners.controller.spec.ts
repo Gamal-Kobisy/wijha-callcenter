@@ -2,9 +2,9 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { OwnersController } from './owners.controller';
 import { OwnersService } from './owners.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '../prisma/mock-data';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '@/prisma/mock-data';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 describe('OwnersController', () => {
   let controller: OwnersController;
@@ -12,6 +12,7 @@ describe('OwnersController', () => {
 
   beforeEach(async () => {
     prisma = mockDeep<PrismaService>();
+    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
     prisma.owner.findMany.mockResolvedValue([
       mockOwner({
         name: 'John Doe',
@@ -96,6 +97,30 @@ describe('OwnersController', () => {
     });
   });
 
+  describe('POST /owners/bulk', () => {
+    it('should create multiple owners', async () => {
+      prisma.number.findFirst.mockResolvedValue(null);
+      prisma.owner.create
+        .mockResolvedValueOnce(
+          mockOwner({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], ownerInfo: [] }),
+        )
+        .mockResolvedValueOnce(
+          mockOwner({ id: 4n, name: 'Bob', numbers: [mockNumber({ number: '555-2222' })], ownerInfo: [] }),
+        );
+
+      const result = await controller.createBulk({
+        owners: [
+          { name: 'Alice', phones: [{ phone: '555-1111' }], project_id: 1 },
+          { name: 'Bob', phones: [{ phone: '555-2222' }], project_id: 1 },
+        ],
+      });
+
+      expect(result).toHaveLength(2);
+      expect(result[0].name).toBe('Alice');
+      expect(result[1].name).toBe('Bob');
+    });
+  });
+
   describe('GET /owners/:ownerId', () => {
     it('should return owner by id', async () => {
       const result = await controller.findOne(1);
@@ -126,6 +151,21 @@ describe('OwnersController', () => {
       const result = await controller.assignProject(1, { project_name: 'Default Project' });
       expect(result).toHaveProperty('id');
       expect(result.name).toBe('John');
+    });
+  });
+
+  describe('GET /owners/statuses', () => {
+    it('should return status counts', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([
+        { status: 'active', count: 3 },
+        { status: 'inactive', count: 1 },
+      ]);
+
+      const result = await controller.getStatuses();
+      expect(result).toEqual([
+        { status: 'active', count: 3 },
+        { status: 'inactive', count: 1 },
+      ]);
     });
   });
 

@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { UsersService } from './users.service';
-import { PrismaService } from '../prisma/prisma.service';
-import { mockUser, mockCallRecord, mockSession } from '../prisma/mock-data';
+import { PrismaService } from '@/prisma/prisma.service';
+import { mockUser, mockCallRecord, mockSession } from '@/prisma/mock-data';
 
 describe('UsersService', () => {
   let service: UsersService;
@@ -10,6 +10,7 @@ describe('UsersService', () => {
 
   beforeEach(async () => {
     prisma = mockDeep<PrismaService>();
+    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
@@ -82,6 +83,56 @@ describe('UsersService', () => {
       await expect(
         service.create({ email: 'agent', password: 'password123', role: 'user' }),
       ).rejects.toThrow('Email already exists');
+    });
+  });
+
+  describe('createBulk', () => {
+    it('should create multiple users', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.user.create
+        .mockResolvedValueOnce(
+          mockUser({ id: 3, email: 'alice@test.com', name: 'Alice' }),
+        )
+        .mockResolvedValueOnce(
+          mockUser({ id: 4, email: 'bob@test.com', name: 'Bob' }),
+        );
+
+      const users = await service.createBulk([
+        { email: 'alice@test.com', password: 'pass123', name: 'Alice', role: 'user' },
+        { email: 'bob@test.com', password: 'pass456', name: 'Bob', role: 'user' },
+      ]);
+
+      expect(users).toHaveLength(2);
+      expect(users[0].email).toBe('alice@test.com');
+      expect(users[1].email).toBe('bob@test.com');
+    });
+
+    it('should throw ConflictException when any email is duplicate', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { email: 'alice@test.com' } as any,
+      ]);
+
+      await expect(
+        service.createBulk([
+          { email: 'alice@test.com', password: 'pass123', name: 'Alice', role: 'user' },
+          { email: 'bob@test.com', password: 'pass456', name: 'Bob', role: 'user' },
+        ]),
+      ).rejects.toThrow('Duplicate emails: alice@test.com');
+    });
+
+    it('should not create any users when duplicate email exists', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { email: 'alice@test.com' } as any,
+      ]);
+
+      await expect(
+        service.createBulk([
+          { email: 'alice@test.com', password: 'pass123', name: 'Alice', role: 'user' },
+          { email: 'bob@test.com', password: 'pass456', name: 'Bob', role: 'user' },
+        ]),
+      ).rejects.toThrow('Duplicate emails');
+
+      expect(prisma.user.create).not.toHaveBeenCalled();
     });
   });
 

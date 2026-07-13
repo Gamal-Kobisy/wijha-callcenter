@@ -2,9 +2,9 @@ import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@n
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { LoginResponseDto, UserResponse } from './dto/login-response.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../common/interfaces/authenticated-user.interface';
+import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { CurrentUser } from '@/common/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '@/common/interfaces/authenticated-user.interface';
 import { RegisterUserDTO } from './dto/register.dto';
 
 @Controller()
