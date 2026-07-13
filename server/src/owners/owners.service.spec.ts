@@ -197,6 +197,27 @@ describe('OwnersService', () => {
     });
   });
 
+  describe('getStatusCounts', () => {
+    it('should return distinct normalized statuses with counts', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([
+        { status: 'active', count: 5 },
+        { status: 'inactive', count: 3 },
+      ]);
+
+      const result = await service.getStatusCounts();
+      expect(result).toEqual([
+        { status: 'active', count: 5 },
+        { status: 'inactive', count: 3 },
+      ]);
+    });
+
+    it('should return empty array when no owners exist', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([]);
+      const result = await service.getStatusCounts();
+      expect(result).toEqual([]);
+    });
+  });
+
   describe('getNextOwner', () => {
     it('should return owner with lowest attempt_count', async () => {
       prisma.owner.findMany.mockResolvedValue([

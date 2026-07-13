@@ -6,8 +6,8 @@
 
 ## 🛠️ Stack & Environment
 * **Language**: TypeScript with ESM
-* **Framework**: Next.js App Router
-* **Database**: PostgreSQL via Prisma
+* **Framework**: NextJS
+* **Database**: PostgreSQL via Prisma and SQL if needed
 
 ## 📐 Coding Standards
 * **Patterns**: Prefer clean code with well known patterns of NestJS with TS

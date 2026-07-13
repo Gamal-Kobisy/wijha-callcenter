@@ -18,6 +18,7 @@ import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
 import { ListOwnersQueryDto } from './dto/list-owners-query.dto';
 import type { OwnerResponseDto } from './dto/owner-response.dto';
+import type { StatusCountDto } from '@/calls/dto/status-count.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 @Controller('owners')
@@ -40,6 +41,11 @@ export class OwnersController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateOwnerDto): Promise<OwnerResponseDto> {
     return this.ownersService.create(dto);
+  }
+
+  @Get('statuses')
+  async getStatuses(): Promise<StatusCountDto[]> {
+    return this.ownersService.getStatusCounts();
   }
 
   @Post(':ownerId/projects')

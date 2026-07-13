@@ -129,6 +129,21 @@ describe('OwnersController', () => {
     });
   });
 
+  describe('GET /owners/statuses', () => {
+    it('should return status counts', async () => {
+      (prisma.$queryRaw as jest.Mock).mockResolvedValue([
+        { status: 'active', count: 3 },
+        { status: 'inactive', count: 1 },
+      ]);
+
+      const result = await controller.getStatuses();
+      expect(result).toEqual([
+        { status: 'active', count: 3 },
+        { status: 'inactive', count: 1 },
+      ]);
+    });
+  });
+
   describe('DELETE /owners/:ownerId', () => {
     it('should delete an owner', async () => {
       prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));

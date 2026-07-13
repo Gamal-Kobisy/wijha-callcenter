@@ -541,6 +541,23 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /owners/statuses:
+    get:
+      summary: Get distinct owner statuses with counts
+      operationId: getOwnerStatuses
+      tags: [owners]
+      responses:
+        "200":
+          description: List of statuses with counts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StatusCount"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
   /owners/{ownerId}/projects:
     post:
       summary: Assign an owner to a project by project name
