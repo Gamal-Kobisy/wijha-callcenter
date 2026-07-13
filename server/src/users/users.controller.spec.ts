@@ -12,6 +12,7 @@ describe('UsersController', () => {
 
   beforeEach(async () => {
     prisma = mockDeep<PrismaService>();
+    prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
     prisma.user.findMany.mockResolvedValue([
       mockUser({ id: 1, email: 'agent', name: 'Agent Smith', phoneNumber: '123-456-7890' }),
       mockUser({ id: 2, email: 'admin', name: 'Admin User', role: 'admin', phoneNumber: '' }),
@@ -71,6 +72,30 @@ describe('UsersController', () => {
       });
       expect(result.id).toBe(3);
       expect(result.email).toBe('test@test.com');
+    });
+  });
+
+  describe('POST /users/bulk', () => {
+    it('should create multiple users', async () => {
+      prisma.user.findMany.mockResolvedValue([]);
+      prisma.user.create
+        .mockResolvedValueOnce(
+          mockUser({ id: 3, email: 'alice@test.com', name: 'Alice' }),
+        )
+        .mockResolvedValueOnce(
+          mockUser({ id: 4, email: 'bob@test.com', name: 'Bob' }),
+        );
+
+      const result = await controller.createBulk({
+        users: [
+          { email: 'alice@test.com', password: 'pass123', name: 'Alice', role: 'user' },
+          { email: 'bob@test.com', password: 'pass456', name: 'Bob', role: 'user' },
+        ],
+      });
+
+      expect(result).toHaveLength(2);
+      expect(result[0].email).toBe('alice@test.com');
+      expect(result[1].email).toBe('bob@test.com');
     });
   });
 

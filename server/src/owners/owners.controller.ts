@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { OwnersService } from './owners.service';
 import { CreateOwnerDto } from './dto/create-owner.dto';
+import { BulkCreateOwnersDto } from './dto/bulk-create-owners.dto';
 import { UpdateOwnerDto } from './dto/update-owner.dto';
 import { AssignProjectDto } from './dto/assign-project.dto';
 import { ListOwnersQueryDto } from './dto/list-owners-query.dto';
@@ -41,6 +42,12 @@ export class OwnersController {
   @HttpCode(HttpStatus.CREATED)
   async create(@Body() dto: CreateOwnerDto): Promise<OwnerResponseDto> {
     return this.ownersService.create(dto);
+  }
+
+  @Post('bulk')
+  @HttpCode(HttpStatus.CREATED)
+  async createBulk(@Body() dto: BulkCreateOwnersDto): Promise<OwnerResponseDto[]> {
+    return this.ownersService.createBulk(dto.owners);
   }
 
   @Get('statuses')

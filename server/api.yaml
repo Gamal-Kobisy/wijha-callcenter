@@ -111,6 +111,16 @@ components:
           items:
             $ref: "#/components/schemas/OwnerInfoEntry"
 
+    BulkCreateOwnersRequest:
+      type: object
+      required: [owners]
+      properties:
+        owners:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/CreateOwnerRequest"
+
     Project:
       type: object
       required: [id, name]
@@ -133,6 +143,29 @@ components:
           example: "eyJhbGci..."
         user:
           $ref: "#/components/schemas/User"
+
+    BulkCreateUsersRequest:
+      type: object
+      required: [users]
+      properties:
+        users:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required: [email, password, role]
+            properties:
+              email:
+                type: string
+              password:
+                type: string
+                format: password
+              name:
+                type: string
+              phone:
+                type: string
+              role:
+                $ref: "#/components/schemas/UserRole"
 
     User:
       type: object
@@ -465,6 +498,29 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Owner"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /owners/bulk:
+    post:
+      summary: Bulk create or merge owners
+      operationId: bulkCreateOwners
+      tags: [owners]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCreateOwnersRequest"
+      responses:
+        "201":
+          description: Owners created or updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Owner"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -909,6 +965,37 @@ paths:
                 $ref: "#/components/schemas/User"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+  /users/bulk:
+    post:
+      summary: Bulk create users (admin only)
+      operationId: bulkCreateUsers
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BulkCreateUsersRequest"
+      responses:
+        "201":
+          description: Users created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          description: Duplicate emails found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
         "422":
           $ref: "#/components/responses/ValidationError"
 
