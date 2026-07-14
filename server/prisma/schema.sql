@@ -102,6 +102,18 @@ CREATE TABLE IF NOT EXISTS "user_log" (
 );
 
 -- ============================================================
+-- Table: user_session
+-- ============================================================
+CREATE TABLE IF NOT EXISTS "user_session" (
+    "agent_id"   INTEGER   NOT NULL,
+    "first_beat" TIMESTAMP NOT NULL,
+    "last_beat"  TIMESTAMP NOT NULL,
+    PRIMARY KEY ("agent_id", "first_beat"),
+    CONSTRAINT "user_session_agent_id_fkey" FOREIGN KEY ("agent_id")
+        REFERENCES "user" ("id")
+);
+
+-- ============================================================
 -- Table: project_call_detail_record
 -- ============================================================
 CREATE TABLE IF NOT EXISTS "project_call_detail_record" (

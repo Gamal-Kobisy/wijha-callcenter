@@ -37,9 +37,21 @@ model User {
   jwtToken     String?  @map("jwt_token") @db.Text
 
   userLogs          UserLog[]
+  userSessions      UserSession[]
   callDetailRecords CallDetailRecord[]
 
   @@map("user")
+}
+
+model UserSession {
+  agentId   Int      @map("agent_id")
+  firstBeat DateTime @map("first_beat")
+  lastBeat  DateTime @map("last_beat")
+
+  agent User @relation(fields: [agentId], references: [id])
+
+  @@id([agentId, firstBeat])
+  @@map("user_session")
 }
 
 model UserLog {

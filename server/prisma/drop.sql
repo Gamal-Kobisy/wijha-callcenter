@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS "user_session" CASCADE;
 DROP TABLE IF EXISTS "project_call_detail_record" CASCADE;
 DROP TABLE IF EXISTS "call_detail_record" CASCADE;
 DROP TABLE IF EXISTS "user_log" CASCADE;

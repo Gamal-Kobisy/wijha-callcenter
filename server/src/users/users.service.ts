@@ -106,23 +106,23 @@ export class UsersService {
         );
       }
 
-      const users = await Promise.all(
-        dtos.map(async (dto) => {
-          const passwordHash = await bcrypt.hash(dto.password, 10);
-          return tx.user.create({
-            data: {
-              email: dto.email,
-              passwordHash,
-              phoneNumber: dto.phone ?? '',
-              name: dto.name ?? null,
-              role: dto.role,
-            },
-            omit: { passwordHash: true },
-          });
-        }),
-      );
+      const users: UserResponseDto[] = [];
+      for (const dto of dtos) {
+        const passwordHash = await bcrypt.hash(dto.password, 10);
+        const user = await tx.user.create({
+          data: {
+            email: dto.email,
+            passwordHash,
+            phoneNumber: dto.phone ?? '',
+            name: dto.name ?? null,
+            role: dto.role,
+          },
+          omit: { passwordHash: true },
+        });
+        users.push(user as unknown as UserResponseDto);
+      }
 
-      return users as unknown as UserResponseDto[];
+      return users;
     });
   }
 

@@ -107,6 +107,19 @@ export function mockProject(overrides?: Partial<{
   };
 }
 
+export function mockUserSession(overrides?: Partial<{
+  agentId: number;
+  firstBeat: Date;
+  lastBeat: Date;
+}>) {
+  return {
+    agentId: 1,
+    firstBeat: new Date('2024-06-01T09:00:00Z'),
+    lastBeat: new Date('2024-06-01T09:30:00Z'),
+    ...overrides,
+  };
+}
+
 export function mockSession(overrides?: Partial<{
   id: bigint;
   agentId: number | null;
