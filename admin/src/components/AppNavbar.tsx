@@ -20,9 +20,9 @@ interface AppNavbarProps {
 }
 
 export default function AppNavbar({
-  link1Name = "Reports",
-  link2Name = "Clients",
-  link3Name = "Agents",
+  link1Name = "Dashboard",
+  link2Name = "Agents",
+  link3Name = "Clients",
 }: AppNavbarProps) {
   const location = useLocation()
   const navigate = useNavigate()

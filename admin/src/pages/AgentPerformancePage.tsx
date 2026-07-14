@@ -39,35 +39,6 @@ const statusPalette = {
   callback: "#10B981"
 }
 
-const followUps = [
-  { id: 100, owner: "Karim Fathy", number: "+20 111 222 3333", attempts: 5, nextDial: "2026-07-04" },
-  { id: 101, owner: "Mostafa Ahmed", number: "+20 100 111 2222", attempts: 3, nextDial: "2026-07-08" },
-  { id: 102, owner: "Sarah Mahmoud", number: "+20 122 333 4444", attempts: 1, nextDial: "2026-07-09" },
-]
-
-const projectData = [{ name: 'Alpha', calls: 50 }, { name: 'Beta', calls: 30 }, { name: 'Gamma', calls: 40 }]
-
-const benchmarkData = [
-  { metric: "Calls Made", agent: 82, team: 65 },
-  { metric: "Connect Rate", agent: 78, team: 60 },
-  { metric: "Avg Duration", agent: 68, team: 74 },
-  { metric: "Conversion", agent: 85, team: 55 },
-  { metric: "Follow-up Rate", agent: 90, team: 68 },
-]
-
-const heatmapHours = ["9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm", "5pm", "6pm"]
-const heatmapDays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-const heatmapData = [
-  [4, 8, 12, 6, 3, 9, 14, 11, 7, 2],
-  [5, 9, 13, 7, 4, 10, 15, 12, 8, 3],
-  [6, 10, 14, 8, 5, 11, 16, 13, 9, 4],
-  [5, 9, 13, 7, 4, 10, 15, 12, 8, 3],
-  [7, 11, 15, 9, 6, 12, 17, 10, 6, 2],
-  [2, 4, 6, 3, 2, 4, 5, 3, 2, 1],
-  [1, 2, 3, 1, 1, 2, 3, 2, 1, 0],
-]
-const heatmapMax = Math.max(...heatmapData.flat())
-
 function hexToRgba(hex: string, alpha: number) {
   const clean = hex.replace("#", "")
   const r = parseInt(clean.substring(0, 2), 16)
@@ -76,7 +47,10 @@ function hexToRgba(hex: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`
 }
 
+const heatmapHours = ["9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm", "5pm", "6pm"]
+
 export default function AgentPerformancePage() {
+  // --- INITIALIZATION ---
   const { id } = useParams()
   const [Agent, setAgent] = useState<any>({})
 
@@ -84,14 +58,14 @@ export default function AgentPerformancePage() {
   const [date, setDate] = useState("")
   const [searchTerm, setSearchTerm] = useState("")
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false)
+  const reportRef = useRef<HTMLDivElement>(null)
 
   // --- SERVER SIDE PAGINATION STATE ---
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalRecords, setTotalRecords] = useState(0)
 
-  const reportRef = useRef<HTMLDivElement>(null)
-
+  // --- CALL TRENDS ---
   const [weeklyChartData, setWeeklyChartData] = useState<any[]>([])
   const [calls, setCalls] = useState<any[]>([])
   const [callRecords, setCallRecords] = useState<any[]>([])
@@ -99,18 +73,27 @@ export default function AgentPerformancePage() {
   // --- DICTIONARIES FOR RESOLVING IDs TO NAMES ---
   const [ownerDetails, setOwnerDetails] = useState<Record<string, {name: string, phone: string}>>({})
   const [projectDetails, setProjectDetails] = useState<Record<string, string>>({})
+  const [followUps, setFollowUps] = useState<any[]>([])
 
   // --- REAL DATA KPIs ---
   const totalCallsDashboard = Agent?.stats?.total_calls || 0;
   const answeredCalls = Agent?.stats?.answered || 0;
   const closedCalls = Agent?.stats?.closed || 0;
-
   const successRate = totalCallsDashboard > 0 ? Math.round((closedCalls / totalCallsDashboard) * 100) : 0;
   const realConnectRate = totalCallsDashboard > 0 ? Math.round((answeredCalls / totalCallsDashboard) * 100) : 0;
 
-  const overdueCount = followUps.filter(f => new Date(f.nextDial) < new Date("2026-07-06")).length
-  const avgAttemptsToClose = (followUps.reduce((sum, f) => sum + f.attempts, 0) / followUps.length).toFixed(1)
+  const today = new Date();
+  today.setHours(0,0,0,0);
 
+  // Checks the scheduled callback date against today's date
+  const overdueCount = followUps.filter(f => new Date(f.nextDial) < today).length
+
+  // Safely calculates attempts without crashing if the array is empty
+  const avgAttemptsToClose = closedCalls > 0
+    ? (totalCallsDashboard / closedCalls).toFixed(1)
+    : "0.0";
+
+  // --- CONVERSION FUNNEL DATA ---
   const funnelData = [
     { stage: "Dialed", value: totalCallsDashboard, color: statusPalette.dial },
     { stage: "Answered", value: answeredCalls, color: statusPalette.answered },
@@ -118,8 +101,47 @@ export default function AgentPerformancePage() {
     { stage: "Closed", value: closedCalls, color: statusPalette.closed },
   ]
 
+  // --- REAL-TIME CALLING WINDOW STATES ---
+  const [heatmapDays, setHeatmapDays] = useState<string[]>(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+  const [heatmapData, setHeatmapData] = useState<number[][]>(Array.from({ length: 7 }, () => Array(10).fill(0)))
+  const heatmapMax = useMemo(() => {
+    const flat = heatmapData.flat();
+    const maxVal = Math.max(...flat);
+    return maxVal > 0 ? maxVal : 1; // Prevents division by 0 if there are no calls
+  }, [heatmapData]);
+
+
+  // --- TEAM DATA ---
+  const [teamStats, setTeamStats] = useState<any>(null)
+  const benchmarkData = useMemo(() => {
+    if (!Agent?.stats || !teamStats) return [];
+
+    // Agent Specific Metrics
+    const aTotal = Agent.stats.total_calls || 0;
+    const aConnectRate = aTotal > 0 ? Math.round((Agent.stats.answered / aTotal) * 100) : 0;
+    const aConversion = aTotal > 0 ? Math.round((Agent.stats.closed / aTotal) * 100) : 0;
+    const aCallbackRate = aTotal > 0 ? Math.round((Agent.stats.callback / aTotal) * 100) : 0;
+
+    // Team Average Metrics
+    const tTotalAvg = teamStats.activeMembers > 0 ? Math.round(teamStats.totalCalls / teamStats.activeMembers) : 0;
+    const tConnectRate = teamStats.totalCalls > 0 ? Math.round((teamStats.answered / teamStats.totalCalls) * 100) : 0;
+    const tConversion = teamStats.totalCalls > 0 ? Math.round((teamStats.closed / teamStats.totalCalls) * 100) : 0;
+    const tCallbackRate = teamStats.totalCalls > 0 ? Math.round((teamStats.callbacks / teamStats.totalCalls) * 100) : 0;
+
+    return [
+      { metric: "Calls Made", agent: aTotal, team: tTotalAvg },
+      { metric: "Connect Rate", agent: aConnectRate, team: tConnectRate },
+      { metric: "Avg Duration", agent: Agent.stats.avg_duration_seconds || 0, team: teamStats.averageDuration },
+      { metric: "Closes", agent: aConversion, team: tConversion },
+      { metric: "Callback Rate", agent: aCallbackRate, team: tCallbackRate },
+    ];
+  }, [Agent, teamStats]);
+
+  // --- PROJECTS ---
   const [projects , setProjects] = useState<any[]>([])
 
+
+  // --- HELPER FUNCTIONS ---
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.value) {
       setDate(e.target.value)
@@ -164,32 +186,108 @@ export default function AgentPerformancePage() {
            projectName.toLowerCase().includes(term);
   });
 
-  const exportToCSV = () => {
-    // Dynamically match the actual API keys AND fetched dictionaries to the CSV payload
-    const headers = ["ID", "Time", "Project", "Status", "Duration", "Owner", "Owner Phone", "Notes"]
-    const csvContent = [
-      headers.join(","),
-      ...callRecords.map(l => {
-        const ownerName = ownerDetails[l.owner_id]?.name || `Owner #${l.owner_id}`;
-        const ownerPhone = ownerDetails[l.owner_id]?.phone || "";
-        const projectName = projectDetails[l.project_id] || `Project #${l.project_id}`;
+  // --- CSV EXPORT ---
+  const exportToCSV = async () => {
+    const loadingToast = toast.loading("Fetching all records for export...");
 
-        return [
-          l.id, `"${l.time}"`, `"${projectName}"`, `"${l.status}"`, `"${l.duration}s"`, `"${ownerName}"`, `"${ownerPhone}"`, `"${l.agent_notes || ''}"`
-        ].join(",")
-      })
-    ].join("\n")
+    // 1. Re-calculate the current active date filters
+    const now = new Date();
+    let fromDate = new Date(now);
+    let toDate = new Date(now);
 
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.setAttribute("href", url)
-    a.setAttribute("download", `agent_${id}_export_page${currentPage}.csv`)
-    a.click()
+    if (date) {
+      fromDate = new Date(date);
+      fromDate.setHours(0, 0, 0, 0);
+      toDate = new Date(date);
+      toDate.setHours(23, 59, 59, 999);
+    } else if (dateRange === "Today") {
+      fromDate.setHours(0, 0, 0, 0);
+    } else if (dateRange === "Past Week") {
+      fromDate.setDate(now.getDate() - 7);
+    } else if (dateRange === "Past Month") {
+      fromDate.setMonth(now.getMonth() - 1);
+    } else if (dateRange === "Past Year") {
+      fromDate.setFullYear(now.getFullYear() - 1);
+    }
 
-    toast.success("Page Export Complete")
+    try {
+      // 2. Fetch up to 10,000 records at once just for the export
+      const response = await apiFetch(`calls?agent_id=${id}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=10000`, {
+        method: "GET",
+      });
+
+      if (!response.ok) throw new Error("Failed to fetch export data");
+      const jsonResponse = await response.json();
+      const allCalls = jsonResponse.data || [];
+
+      if (allCalls.length === 0) {
+        toast.dismiss(loadingToast);
+        toast.info("No records found to export.");
+        return;
+      }
+
+      // 3. Fetch any missing Owner/Project names for this massive list
+      const uniqueOwnerIds = allCalls.map((r: any) => r.owner_id).filter((id: any, index: number, arr: any[]) => id && arr.indexOf(id) === index);
+      const missingOwners = uniqueOwnerIds.filter((id: any) => !ownerDetails[id]);
+
+      const tempOwnerMap = { ...ownerDetails };
+
+      if (missingOwners.length > 0) {
+        const ownerPromises = missingOwners.map((ownerId: any) =>
+          apiFetch(`owners/${ownerId}`, { method: 'GET' }).then(res => res.ok ? res.json() : null)
+        );
+        const ownersData = await Promise.all(ownerPromises);
+
+        ownersData.forEach(owner => {
+          if (owner && owner.id) {
+            tempOwnerMap[owner.id] = {
+              name: owner.name || `Owner #${owner.id}`,
+              phone: owner.phones && owner.phones.length > 0 ? owner.phones.map((p: any) => p.phone).join(", ") : "N/A"
+            };
+          }
+        });
+      }
+
+      // 4. Construct the CSV using the massive array, not the paginated state
+      const headers = ["ID", "Time", "Project", "Status", "Duration", "Owner", "Owner Phone", "Notes"];
+      const csvContent = [
+        headers.join(","),
+        ...allCalls.map((l: any) => {
+          const ownerName = tempOwnerMap[l.owner_id]?.name || `Owner #${l.owner_id}`;
+          const ownerPhone = tempOwnerMap[l.owner_id]?.phone || "";
+          const projectName = projectDetails[l.project_id] || `Project #${l.project_id}`;
+
+          return [
+            l.id,
+            `"${l.time}"`,
+            `"${projectName}"`,
+            `"${l.status}"`,
+            `"${l.duration || 0}s"`,
+            `"${ownerName}"`,
+            `"${ownerPhone}"`,
+            `"${l.agent_notes || ''}"`
+          ].join(",");
+        })
+      ].join("\n");
+
+      // 5. Trigger the Download
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.setAttribute("href", url);
+      a.setAttribute("download", `agent_${id}_export_ALL_${dateRange.replace(" ", "_")}.csv`);
+      a.click();
+
+      toast.dismiss(loadingToast);
+      toast.success(`Successfully exported ${allCalls.length} records!`);
+
+    } catch (error) {
+      toast.dismiss(loadingToast);
+      toast.error("Failed to generate export file.");
+    }
   }
 
+  // --- REPORT MAKING ---
   const addCanvasAcrossPages = (
     pdf: jsPDF,
     canvas: HTMLCanvasElement,
@@ -242,6 +340,7 @@ export default function AgentPerformancePage() {
     return cursorY
   }
 
+  // --- REPORT DOWNLOAD ---
   const handleDownloadPDF = async () => {
     if (!reportRef.current) return
     setIsGeneratingPDF(true)
@@ -287,9 +386,10 @@ export default function AgentPerformancePage() {
     }
   }
 
+  // --- FOR OVERALL STATS ---
   const getOverallDateRange = () => {
     const now = new Date();
-    const past = new Date("2020-01-01");
+    const past = new Date("2020-01-01"); // ANY DATE BEFORE THE MAKING OF THE APPLICATION
 
     return {
       from: past.toISOString(),
@@ -301,6 +401,10 @@ export default function AgentPerformancePage() {
   useEffect(() => {
     loadAgentData()
     loadWeeklyAvgDuration()
+    loadTeamData()
+    loadCallPerProject()
+    loadFollowUps()
+    loadCallingWindows()
   }, [])
 
   // EFFECT 2: Fetch the paginated table records dynamically anytime a filter or page flips
@@ -356,6 +460,7 @@ export default function AgentPerformancePage() {
     }
   }, [callRecords])
 
+  // --- API CALLS FOR LOADING ALL THE DATA ---
   const loadAgentData = async () => {
     try {
       const profileResponse = await apiFetch(`users/${id}`, {
@@ -371,9 +476,27 @@ export default function AgentPerformancePage() {
       if (!statsResponse.ok) throw new Error("Failed to load agent stats")
       const statsData = await statsResponse.json()
 
-      const combinedData = {
+      const preCombinedData = {
         ...profileData,
         stats: statsData
+      }
+      let now = new Date();
+      let start = new Date(now);
+      start.setHours(0, 0, 0, 0)
+      const startIsoString = start.toISOString()
+      const nowISOString = now.toISOString()
+
+
+      const workHoursResponse = await apiFetch(`users/${id}/stats?from=${startIsoString}&to=${nowISOString}`, {
+        method: "GET",
+      })
+
+      if(!workHoursResponse.ok) throw new Error("Failed to load agent workHours")
+
+      const workHours = await workHoursResponse.json()
+      const combinedData = {
+        ...preCombinedData,
+        workHoursToday: workHours.total_session_time_seconds/3600
       }
 
       const keys = ["avg_duration_seconds", "total_calls","total_session_time_seconds"]
@@ -395,10 +518,8 @@ export default function AgentPerformancePage() {
           { name: "no_data_yet", value: 1, color: "#f1f5f9" } // Light grey placeholder
         ]
       }
-      console.log(combinedData)
       setCalls(formattedCallsArray)
       setAgent(combinedData)
-
 
     } catch(error: any) {
       toast.error(error.message)
@@ -455,7 +576,6 @@ export default function AgentPerformancePage() {
     }
   }
 
-  // THE NEW SERVER-SIDE FETCH FUNCTION
   const loadCallRecords = async () => {
     const now = new Date();
     let fromDate = new Date(now);
@@ -504,6 +624,239 @@ export default function AgentPerformancePage() {
     }
   }
 
+  const loadTeamData = async () => {
+    try {
+      const teamResponse = await apiFetch("users?role=user", {
+        method: "GET",
+      });
+
+      if (!teamResponse.ok) {
+        throw new Error("Failed to load team data");
+      }
+
+      const teamData = await teamResponse.json();
+
+      const activeTeamIDs = teamData
+        .filter((user: any) => String(user.id) !== String(id))
+        .map((user: any) => user.id);
+
+      if (activeTeamIDs.length === 0) return;
+
+      const { from, to } = getOverallDateRange();
+
+      const teamPromises = activeTeamIDs.map((teamID: number) =>
+        apiFetch(`users/${teamID}/stats?from=${from}&to=${to}`, { method: "GET" })
+          .then(res => res.ok ? res.json() : null)
+      );
+
+      // Fire all network requests in parallel
+      const allTeamStats = await Promise.all(teamPromises);
+
+      // Initialize our calculation buckets
+      let sumTotalCalls = 0;
+      let sumAnswered = 0;
+      let sumCallbacks = 0;
+      let sumClosed = 0;
+      let sumAvgDuration = 0;
+      let validDurationAgents = 0;
+
+      // Loop through the results and tally everything up
+      allTeamStats.forEach(stats => {
+        if (stats) {
+          sumTotalCalls += stats.total_calls || 0;
+          sumAnswered += stats.answered || 0;
+          sumCallbacks += stats.callback || 0;
+          sumClosed += stats.closed || 0;
+
+          // For duration, we calculate the average of the team's averages
+          if (stats.avg_duration_seconds > 0) {
+            sumAvgDuration += stats.avg_duration_seconds;
+            validDurationAgents += 1;
+          }
+        }
+      });
+
+      const teamAverageDuration = validDurationAgents > 0
+        ? Math.round(sumAvgDuration / validDurationAgents)
+        : 0;
+
+      setTeamStats({
+      totalCalls: sumTotalCalls,
+      answered: sumAnswered,
+      callbacks: sumCallbacks,
+      closed: sumClosed,
+      averageDuration: teamAverageDuration,
+      activeMembers: activeTeamIDs.length
+      });
+
+    } catch (error: any) {
+      toast.error(error.message);
+    }
+  }
+
+  const loadCallPerProject = async () => {
+    // 1. Grab the exact same date window you use for your other tables
+    const {from, to} = getOverallDateRange();
+
+    try {
+      // 2. Fetch the master list of all projects
+      const projectsResponse = await apiFetch("projects", {
+        method: "GET",
+      });
+
+      if (!projectsResponse.ok) {
+        throw new Error("Failed to load projects");
+      }
+
+      const allProjects = await projectsResponse.json();
+
+      // 3. Fire a parallel, lightweight API request for EACH project using limit=1
+      const projectPromises = allProjects.map(async (project: any) => {
+        const res = await apiFetch(`calls?agent_id=${id}&project_id=${project.id}&from=${from}&to=${to}&limit=1`, {
+          method: "GET"
+        });
+
+        if (!res.ok) return { name: project.name, calls: 0 };
+
+        const json = await res.json();
+
+        return {
+          name: project.name,
+          calls: json.meta?.total || 0
+        };
+      });
+
+      const rawProjectData = await Promise.all(projectPromises);
+
+      // 4. Filter out any projects that have 0 calls so the Bar Chart stays clean
+      const activeProjectsData = rawProjectData.filter(p => p.calls > 0);
+
+      setProjects(activeProjectsData);
+
+    } catch(error: any) {
+      toast.error(error.message);
+    }
+  }
+
+  const loadFollowUps = async () => {
+    try {
+      // 1. Fetch the most recent calls with the 'callback' status for this agent
+      const response = await apiFetch(`calls?agent_id=${id}&status=callback&limit=1000`, {
+        method: "GET",
+      })
+
+      if (!response.ok) throw new Error("Failed to load follow-ups")
+
+      const json = await response.json()
+
+      if (json && Array.isArray(json.data) && json.data.length > 0) {
+
+        // 2. Safely grab unique owner IDs
+        const uniqueOwnerIds = json.data
+          .map((c: any) => c.owner_id)
+          .filter((id: any, index: number, arr: any[]) => id && arr.indexOf(id) === index);
+
+        // 3. Fetch missing owner names and phone numbers in parallel
+        const ownerPromises = uniqueOwnerIds.map((ownerId: any) =>
+          apiFetch(`owners/${ownerId}`, { method: 'GET' }).then(res => res.ok ? res.json() : null)
+        );
+        const ownersData = await Promise.all(ownerPromises);
+
+        // 4. Map them into a fast dictionary
+        const ownerMap: Record<string, {name: string, phone: string}> = {};
+        ownersData.forEach(owner => {
+          if (owner && owner.id) {
+            ownerMap[owner.id] = {
+              name: owner.name || `Owner #${owner.id}`,
+              phone: owner.phones && owner.phones.length > 0
+                ? owner.phones.map((p: any) => p.phone).join(" ")
+                : "N/A"
+            };
+          }
+        });
+
+        // 5. Format the data to perfectly match the UI structure
+        const formattedFollowUps = json.data.map((call: any) => {
+           const callDate = new Date(call.time);
+           // Let's assume the callback was scheduled for 1 day after the call happened
+           callDate.setDate(callDate.getDate() + 1);
+
+           return {
+             id: call.id,
+             owner: ownerMap[call.owner_id]?.name || `Owner #${call.owner_id}`,
+             number: ownerMap[call.owner_id]?.phone || "N/A",
+             attempts: 1, // Without a historical count API, we default to 1 attempt
+             nextDial: callDate.toISOString().split("T")[0]
+           }
+        });
+
+        setFollowUps(formattedFollowUps);
+      } else {
+        setFollowUps([]);
+      }
+    } catch(error: any) {
+      toast.error("Failed to load follow-ups");
+      setFollowUps([]);
+    }
+  }
+
+  const loadCallingWindows = async () => {
+    try {
+      const now = new Date();
+      const toDate = new Date(now);
+      const fromDate = new Date(now);
+      fromDate.setDate(now.getDate() - 6);
+      fromDate.setHours(0, 0, 0, 0);
+
+      // Generate localized date representations and index targets
+      const tempDaysList: string[] = [];
+      const dateObjects: Date[] = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(now);
+        d.setDate(now.getDate() - i);
+        dateObjects.push(d);
+        tempDaysList.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
+      }
+
+      const res = await apiFetch(`calls?agent_id=${id}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=5000`, {
+        method: "GET"
+      });
+
+      if (!res.ok) throw new Error("Failed to load calling window stats");
+      const json = await res.json();
+
+      const grid = Array.from({ length: 7 }, () => Array(10).fill(0));
+
+      if (json && Array.isArray(json.data)) {
+        json.data.forEach((call: any) => {
+          const callDate = new Date(call.time);
+          const callDateStr = callDate.toDateString();
+
+          const dayIndex = dateObjects.findIndex(d => d.toDateString() === callDateStr);
+          if (dayIndex !== -1) {
+            const localHour = callDate.getHours();
+            let hourIndex = 0;
+
+            // Boundary Condition Math:
+            if (localHour < 9) {
+              hourIndex = 0; // Pre-9am added to 9am
+            } else if (localHour > 18) {
+              hourIndex = 9; // Post-6pm added to 6pm
+            } else {
+              hourIndex = localHour - 9; // 9am => 0, 10am => 1, etc.
+            }
+            grid[dayIndex][hourIndex]++;
+          }
+        });
+      }
+
+      setHeatmapDays(tempDaysList);
+      setHeatmapData(grid);
+    } catch (error: any) {
+      toast.error("Failed to calculate calling windows");
+    }
+  };
+
   return (
     <>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -547,7 +900,7 @@ export default function AgentPerformancePage() {
                     className="px-3 py-1 text-white border-none"
                     style={{ backgroundColor: chartPalette.emerald }}
                   >
-                    {Agent?.activeHours} Active Today
+                    {(Agent?.workHoursToday || 0).toFixed(1)} hr Active Today
                   </Badge>
                 </div>
               </div>
@@ -595,7 +948,7 @@ export default function AgentPerformancePage() {
           <div className="flex flex-wrap justify-center gap-4 w-full">
             {[
               { title: "Connect Rate", val: `${realConnectRate}%`, icon: Wifi, color: "text-teal-500" },
-              { title: "Avg Attempts / Close", val: avgAttemptsToClose, icon: Repeat, color: "text-violet-500" },
+              { title: "Avg Calls / Close", val: avgAttemptsToClose, icon: Repeat, color: "text-violet-500" },
               { title: "Overdue Follow-ups", val: overdueCount, icon: AlertTriangle, color: "text-slate-400" },
             ].map((item, i) => {
               const isUrgent = item.title === "Overdue Follow-ups" && Number(item.val) > 0;
@@ -795,7 +1148,7 @@ export default function AgentPerformancePage() {
               </CardHeader>
               <CardContent className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={projectData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <BarChart data={projects} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                     <XAxis
                       dataKey="name"
                       stroke="hsl(var(--muted-foreground))"
@@ -858,11 +1211,11 @@ export default function AgentPerformancePage() {
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full">
                 <div>
                   <CardTitle className="text-[hsl(var(--tertiary))] text-xl">Call Detail Records</CardTitle>
-                  <CardDescription>Search logs by owner name or phone number.</CardDescription>
+                  <CardDescription>Search logs by client name or phone number.</CardDescription>
                 </div>
                 <div className="w-full md:w-auto flex justify-end">
                   <Input
-                    placeholder="Search by owner name or number..."
+                    placeholder="Search by client name or number..."
                     className="w-full md:w-[250px] h-9"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -880,10 +1233,10 @@ export default function AgentPerformancePage() {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="start" className="bg-background border-border shadow-md">
-                      <DropdownMenuItem onClick={() => handlePresetDateChange("Today")}>Today</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handlePresetDateChange("Past Week")}>Past Week</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handlePresetDateChange("Past Month")}>Past Month</DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handlePresetDateChange("Past Year")}>Past Year</DropdownMenuItem>
+                      <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetDateChange("Today")}>Today</DropdownMenuItem>
+                      <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetDateChange("Past Week")}>Past Week</DropdownMenuItem>
+                      <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetDateChange("Past Month")}>Past Month</DropdownMenuItem>
+                      <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetDateChange("Past Year")}>Past Year</DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
@@ -995,7 +1348,7 @@ export default function AgentPerformancePage() {
         </main>
       </div>
 
-      {/* This is where the invisible render target lives. */}
+      {/* Invisible PDF Render Target */}
       <div
         style={{ position: "fixed", left: "-9999px", top: "0px" }}
         aria-hidden="true"
@@ -1004,19 +1357,17 @@ export default function AgentPerformancePage() {
           <AgentReport data={{
               agentInfo: Agent,
               kpis: {
-                  totalCalls: totalRecords, // Using server-side total
-                  answered: callRecords.filter(l => l.status === "answered").length, // Evaluates the current page for PDF
-                  voicemail: callRecords.filter(l => l.status === "no_answer").length,
-                  converted: callRecords.filter(l => l.status === "closed").length,
-                  avgDuration: "105s",
+                  totalCalls: totalCallsDashboard,
+                  successRate: successRate,
+                  avgDuration: `${Agent?.stats?.avg_duration_seconds || 0}s`,
+                  activeHours: `${(Agent?.workHoursToday || 0).toFixed(1)}hr`,
                   connectRate: realConnectRate,
-                  avgAttemptsToConvert: avgAttemptsToClose,
-                  overdueCount,
-                  currentStreak: 12
+                  avgAttemptsToClose: avgAttemptsToClose,
+                  overdueCount: overdueCount
               },
-              logs: callRecords, // Pass raw API data to your PDF agent report
+              trendData: weeklyChartData,
               statusData: calls,
-              projectData,
+              projectData: projects,
               benchmarkData,
               funnelData,
               heatmapHours,

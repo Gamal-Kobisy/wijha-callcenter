@@ -59,9 +59,15 @@ export default function AgentsPage() {
   const [dateRange, setDateRange] = useState("Today")
 
   // --- CALCULATE TOTAL CALLS ---
-  const totalCalls = agents.reduce((accumulator, currentItem) => {
-    return (accumulator + (currentItem.calls || 0));
-  }, 0);
+  const totalCalls = agents
+    .filter(agent => agent.role?.toLowerCase() !== "deactivated")
+    .reduce((accumulator, currentItem) => {
+      return accumulator + (currentItem.calls || 0);
+    }, 0);
+
+  const displayDateRange = dateRange.includes("-")
+    ? new Date(dateRange).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    : dateRange;
 
   // --- SEARCH & FILTER STATE ---
   const [searchTerm, setSearchTerm] = useState("")
@@ -183,28 +189,35 @@ export default function AgentsPage() {
 
   // --- DATA LOADING ---
   useEffect(() => {
-    loadAgents()
+    loadAllAgents()
   }, [])
 
-  const loadAgents = async () => {
+  const loadAllAgents = async () => {
     try {
-      const response = await apiFetch("users?role=user", {
-        method: "GET",
-      })
+      // deactivatedRes
+      const [activeRes] = await Promise.all([
+        apiFetch("users?role=user", { method: "GET" }),
+        // apiFetch("users?role=deactivated", { method: "GET" })
+      ]);
 
-      if (!response.ok) {
-        throw new Error("Failed to load agents.")
-      }
-      const data = await response.json()
+      // if (!activeRes.ok || !deactivatedRes.ok) {
+      //   throw new Error("Failed to load agents.")
+      // }
 
-      const mappedData = data.map((agent: any) => ({
+      const activeData = await activeRes.json()
+      // const deactivatedData = await deactivatedRes.json()
+
+      // Merge both arrays into one master list ...deactivatedData
+      const combinedData = [...activeData];
+
+      const mappedData = combinedData.map((agent: any) => ({
         ...agent,
         phone: agent.phoneNumber || agent.phone || "",
         calls: 0
       }))
 
       setAgents(mappedData)
-      loadCalls("Today", mappedData)
+      loadCalls(dateRange, mappedData)
 
     } catch (error: any) {
       toast.error(error.message)
@@ -274,7 +287,7 @@ export default function AgentsPage() {
         description: `${data.name}'s details have been saved successfully.`,
       })
 
-      loadAgents()
+      loadAllAgents()
 
     } catch (error) {
       console.error("Error updating agent:", error)
@@ -318,7 +331,7 @@ export default function AgentsPage() {
         description: `${agentData.name} has been added to the system.`,
       })
 
-      loadAgents()
+      loadAllAgents()
 
     } catch (error) {
       console.error("Error adding agent:", error)
@@ -348,7 +361,7 @@ export default function AgentsPage() {
         description: "The agent has been successfully deactivated.",
       })
 
-      loadAgents()
+      loadAllAgents()
     } catch (error) {
       console.error("Error deleting agent:", error)
       toast.error("Deactivation Failed", {
@@ -360,7 +373,7 @@ export default function AgentsPage() {
   return (
     <>
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <AppNavbar link1Name="Dashboard" link2Name="Reports" link3Name="Clients" />
+      <AppNavbar />
 
       <main className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-7xl mx-auto w-full">
 
@@ -374,7 +387,7 @@ export default function AgentsPage() {
             <CardContent>
               <div className="text-2xl font-bold">{agents.length}</div>
               <p className="text-xs text-muted-foreground">
-                +1 joined in last month
+                {agents.filter(a => a.role?.toLowerCase() !== "deactivated").length} active accounts
               </p>
             </CardContent>
           </Card>
@@ -389,14 +402,14 @@ export default function AgentsPage() {
                 {agents.filter(a => a.isOnline).length}
               </div>
               <p className="text-xs text-muted-foreground">
-                +2 active in last hour
+                {agents.filter(a => a.role?.toLowerCase() !== "deactivated" && !a.isOnline).length} currently offline
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Total Calls</CardTitle>
+              <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Total Calls ({displayDateRange})</CardTitle>
               <Phone className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -461,10 +474,10 @@ export default function AgentsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="bg-background border-border shadow-md">
-                    <DropdownMenuItem onClick={() => handlePresetSelect("Today")}>Today</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handlePresetSelect("Past Week")}>Past Week</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handlePresetSelect("Past Month")}>Past Month</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => handlePresetSelect("Past Year")}>Past Year</DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetSelect("Today")}>Today</DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetSelect("Past Week")}>Past Week</DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetSelect("Past Month")}>Past Month</DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetSelect("Past Year")}>Past Year</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -535,7 +548,9 @@ export default function AgentsPage() {
                                 : "text-muted-foreground"
                             }`}
                           >
-                            {agent.role || "User"}
+                            {agent.role?.toLowerCase() === "user" ? "Agent" :
+                             agent.role?.toLowerCase() === "deactivated" ? "Deactivated" :
+                             agent.role ? agent.role.charAt(0).toUpperCase() + agent.role.slice(1).toLowerCase() : "Agent"}
                           </Badge>
                         </TableCell>
                         <TableCell className="whitespace-nowrap">{agent.calls || 0}</TableCell>
@@ -769,9 +784,7 @@ export default function AgentsPage() {
                     className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     required
                   >
-                    <option value="" disabled>Select a role</option>
-                    <option value="Admin">Admin</option>
-                    <option value="User">Agent</option>
+                    <option value="User" disabled>Agent</option>
                   </select>
                 </div>
               </div>
