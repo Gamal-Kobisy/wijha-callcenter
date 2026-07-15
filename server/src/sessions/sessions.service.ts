@@ -3,6 +3,7 @@ import { PrismaService } from '@/prisma/prisma.service';
 import type { CreateSessionDto } from './dto/create-session.dto';
 import type { SessionResponseDto } from './dto/session-response.dto';
 import type { AuthenticatedUser } from '@/common/interfaces/authenticated-user.interface';
+import { ACTIVE_TIMEOUT_MS } from './config';
 
 @Injectable()
 export class SessionsService {
@@ -44,10 +45,24 @@ export class SessionsService {
       orderBy: { firstBeat: 'desc' },
     });
 
+    const agentIds = [...new Set(sessions.map(s => s.agentId))];
+    let activeSessions: { agentId: number; firstBeat: Date }[] = [];
+    if (agentIds.length > 0) {
+      activeSessions = await this.prisma.activeSession.findMany({
+        where: { agentId: { in: agentIds } },
+      });
+    }
+    const activeMap = new Map<string, boolean>();
+    for (const a of activeSessions) {
+      activeMap.set(`${a.agentId}:${a.firstBeat.getTime()}`, true);
+    }
+
     return sessions.map(s => ({
       agent_id: s.agentId,
       first_beat: s.firstBeat.toISOString(),
       last_beat: s.lastBeat.toISOString(),
+      is_active: activeMap.has(`${s.agentId}:${s.firstBeat.getTime()}`),
+      duration: s.duration,
     }));
   }
 
@@ -75,6 +90,11 @@ export class SessionsService {
           last,
         );
 
+        const active = await tx.activeSession.findUnique({ where: { agentId } });
+        const wasActive = active && overlapping.some(
+          s => s.firstBeat.getTime() === active.firstBeat.getTime(),
+        );
+
         await tx.userSession.deleteMany({
           where: {
             agentId,
@@ -82,64 +102,91 @@ export class SessionsService {
           },
         });
 
+        const duration = Math.round((mergedLast.getTime() - mergedFirst.getTime()) / 1000);
         await tx.userSession.create({
-          data: { agentId, firstBeat: mergedFirst, lastBeat: mergedLast },
+          data: { agentId, firstBeat: mergedFirst, lastBeat: mergedLast, duration },
         });
+
+        if (wasActive) {
+          await tx.activeSession.upsert({
+            where: { agentId },
+            create: { agentId, firstBeat: mergedFirst },
+            update: { firstBeat: mergedFirst },
+          });
+        }
 
         return {
           agent_id: agentId,
           first_beat: mergedFirst.toISOString(),
           last_beat: mergedLast.toISOString(),
+          is_active: !!wasActive,
+          duration,
         };
       }
 
+      const duration = Math.round((last.getTime() - first.getTime()) / 1000);
       await tx.userSession.create({
-        data: { agentId, firstBeat: first, lastBeat: last },
+        data: { agentId, firstBeat: first, lastBeat: last, duration },
       });
 
       return {
         agent_id: agentId,
         first_beat: first.toISOString(),
         last_beat: last.toISOString(),
+        is_active: false,
+        duration,
       };
     });
   }
 
   async beat(agentId: number): Promise<SessionResponseDto> {
-    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const cutoff = new Date(Date.now() - ACTIVE_TIMEOUT_MS);
     const existing = await this.prisma.userSession.findFirst({
       where: {
         agentId,
-        lastBeat: { gte: fiveMinAgo },
+        lastBeat: { gte: cutoff },
       },
       orderBy: { lastBeat: 'desc' },
     });
 
     if (existing) {
       const now = new Date();
+      const duration = Math.round((now.getTime() - existing.firstBeat.getTime()) / 1000);
       const updated = await this.prisma.userSession.update({
         where: {
           agentId_firstBeat: { agentId, firstBeat: existing.firstBeat },
         },
-        data: { lastBeat: now },
+        data: { lastBeat: now, duration },
       });
 
       return {
         agent_id: updated.agentId,
         first_beat: updated.firstBeat.toISOString(),
         last_beat: updated.lastBeat.toISOString(),
+        is_active: true,
+        duration: updated.duration,
       };
     }
 
     const now = new Date();
-    const created = await this.prisma.userSession.create({
-      data: { agentId, firstBeat: now, lastBeat: now },
+    const created = await this.prisma.$transaction(async (tx) => {
+      const s = await tx.userSession.create({
+        data: { agentId, firstBeat: now, lastBeat: now, duration: 0 },
+      });
+      await tx.activeSession.upsert({
+        where: { agentId },
+        create: { agentId, firstBeat: now },
+        update: { firstBeat: now },
+      });
+      return s;
     });
 
     return {
       agent_id: created.agentId,
       first_beat: created.firstBeat.toISOString(),
       last_beat: created.lastBeat.toISOString(),
+      is_active: true,
+      duration: 0,
     };
   }
 }

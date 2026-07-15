@@ -1,7 +1,7 @@
+DROP TABLE IF EXISTS "active_session" CASCADE;
 DROP TABLE IF EXISTS "user_session" CASCADE;
 DROP TABLE IF EXISTS "project_call_detail_record" CASCADE;
 DROP TABLE IF EXISTS "call_detail_record" CASCADE;
-DROP TABLE IF EXISTS "user_log" CASCADE;
 DROP TABLE IF EXISTS "numbers" CASCADE;
 DROP TABLE IF EXISTS "owner_info" CASCADE;
 DROP TABLE IF EXISTS "owner_project" CASCADE;

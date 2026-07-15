@@ -36,7 +36,6 @@ model User {
   otpExpiry    DateTime? @map("otp_expiry")
   jwtToken     String?  @map("jwt_token") @db.Text
 
-  userLogs          UserLog[]
   userSessions      UserSession[]
   callDetailRecords CallDetailRecord[]
 
@@ -47,23 +46,23 @@ model UserSession {
   agentId   Int      @map("agent_id")
   firstBeat DateTime @map("first_beat")
   lastBeat  DateTime @map("last_beat")
+  duration  Int      @default(0) @map("duration")
 
-  agent User @relation(fields: [agentId], references: [id])
+  agent          User             @relation(fields: [agentId], references: [id])
+  activeSessions ActiveSession[]
 
   @@id([agentId, firstBeat])
   @@map("user_session")
 }
 
-model UserLog {
-  id        BigInt   @id @default(autoincrement())
-  agentId   Int?     @map("agent_id")
-  startTime DateTime @default(now()) @map("start_time")
-  duration  Int?
-  isActive  Boolean? @map("is_active")
+model ActiveSession {
+  agentId   Int      @map("agent_id")
+  firstBeat DateTime @map("first_beat")
 
-  agent User? @relation(fields: [agentId], references: [id])
+  session UserSession @relation(fields: [agentId, firstBeat], references: [agentId, firstBeat], onDelete: Cascade)
 
-  @@map("user_log")
+  @@id([agentId])
+  @@map("active_session")
 }
 
 model Owner {

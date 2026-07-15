@@ -89,28 +89,29 @@ CREATE TABLE IF NOT EXISTS "call_detail_record" (
 );
 
 -- ============================================================
--- Table: user_log
--- ============================================================
-CREATE TABLE IF NOT EXISTS "user_log" (
-    "id"         BIGSERIAL PRIMARY KEY,
-    "agent_id"   INTEGER,
-    "start_time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "duration"   INTEGER,
-    "is_active"  BOOLEAN,
-    CONSTRAINT "user_log_agent_id_fkey" FOREIGN KEY ("agent_id")
-        REFERENCES "user" ("id")
-);
-
--- ============================================================
 -- Table: user_session
 -- ============================================================
 CREATE TABLE IF NOT EXISTS "user_session" (
     "agent_id"   INTEGER   NOT NULL,
     "first_beat" TIMESTAMP NOT NULL,
     "last_beat"  TIMESTAMP NOT NULL,
+    "duration"   INTEGER   NOT NULL DEFAULT 0,
     PRIMARY KEY ("agent_id", "first_beat"),
     CONSTRAINT "user_session_agent_id_fkey" FOREIGN KEY ("agent_id")
         REFERENCES "user" ("id")
+);
+
+-- ============================================================
+-- Table: active_session
+-- ============================================================
+CREATE TABLE IF NOT EXISTS "active_session" (
+    "agent_id"   INTEGER   NOT NULL,
+    "first_beat" TIMESTAMP NOT NULL,
+    PRIMARY KEY ("agent_id"),
+    CONSTRAINT "active_session_agent_id_fkey" FOREIGN KEY ("agent_id")
+        REFERENCES "user" ("id"),
+    CONSTRAINT "active_session_fk" FOREIGN KEY ("agent_id", "first_beat")
+        REFERENCES "user_session" ("agent_id", "first_beat") ON DELETE CASCADE
 );
 
 -- ============================================================

@@ -6,10 +6,12 @@ import type { CreateUserDto } from './dto/create-user.dto';
 import type { UpdateUserDto } from './dto/update-user.dto';
 import type { UserResponseDto } from './dto/user-response.dto';
 import type { UserStatsDto } from './dto/user-stats.dto';
+import { CallsService } from '@/calls/calls.service';
+import { SessionsService } from '@/sessions/sessions.service';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private sessionService: SessionsService) {}
 
   async findAll(role?: 'admin' | 'user'): Promise<UserResponseDto[]> {
     return this.prisma.user.findMany({
@@ -148,10 +150,11 @@ export class UsersService {
     const totalDuration = calls.reduce((sum, c) => sum + (c.duration ?? 0), 0);
     const avg_duration_seconds = total_calls > 0 ? Math.round(totalDuration / total_calls) : 0;
 
-    const sessions = await this.prisma.userLog.findMany({
-      where: { agentId: userId },
-    });
-    const total_session_time_seconds = sessions.reduce((sum, s) => sum + (s.duration ?? 0), 0);
+    const sessions = await this.sessionService.findAll(
+      { user_id: String(userId), from: _from, to: _to },
+      { id: userId, email: user.email, role: user.role },
+    );
+    const total_session_time_seconds = sessions.reduce((sum, s) => sum + (new Date(s.last_beat).getTime() - new Date(s.first_beat).getTime())/1000, 0);
 
     return {
       total_calls,

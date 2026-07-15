@@ -3,15 +3,19 @@ import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { PrismaService } from '@/prisma/prisma.service';
+import { SessionsService } from '@/sessions/sessions.service';
 import { mockUser } from '@/prisma/mock-data';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 describe('UsersController', () => {
   let controller: UsersController;
   let prisma: DeepMockProxy<PrismaService>;
+  let sessionsService: DeepMockProxy<SessionsService>;
 
   beforeEach(async () => {
     prisma = mockDeep<PrismaService>();
+    sessionsService = mockDeep<SessionsService>();
+    sessionsService.findAll.mockResolvedValue([]);
     prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
     prisma.user.findMany.mockResolvedValue([
       mockUser({ id: 1, email: 'agent', name: 'Agent Smith', phoneNumber: '123-456-7890' }),
@@ -25,13 +29,13 @@ describe('UsersController', () => {
     prisma.user.delete.mockResolvedValue(mockUser({ id: 1, email: 'agent', name: 'Deleted' }));
     prisma.callDetailRecord.count.mockResolvedValue(0);
     prisma.callDetailRecord.findMany.mockResolvedValue([]);
-    prisma.userLog.findMany.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [UsersController],
       providers: [
         UsersService,
         { provide: PrismaService, useValue: prisma },
+        { provide: SessionsService, useValue: sessionsService },
       ],
     })
       .overrideGuard(JwtAuthGuard)

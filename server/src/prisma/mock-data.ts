@@ -111,28 +111,13 @@ export function mockUserSession(overrides?: Partial<{
   agentId: number;
   firstBeat: Date;
   lastBeat: Date;
+  duration: number;
 }>) {
   return {
     agentId: 1,
     firstBeat: new Date('2024-06-01T09:00:00Z'),
     lastBeat: new Date('2024-06-01T09:30:00Z'),
-    ...overrides,
-  };
-}
-
-export function mockSession(overrides?: Partial<{
-  id: bigint;
-  agentId: number | null;
-  startTime: Date;
-  duration: number | null;
-  isActive: boolean | null;
-}>) {
-  return {
-    id: 1n,
-    agentId: 1,
-    startTime: new Date('2024-01-15T09:00:00Z'),
-    duration: 14400,
-    isActive: false,
+    duration: 1800,
     ...overrides,
   };
 }

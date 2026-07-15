@@ -222,7 +222,7 @@ components:
 
     SessionResponse:
       type: object
-      required: [agent_id, first_beat, last_beat]
+      required: [agent_id, first_beat, last_beat, is_active, duration]
       properties:
         agent_id:
           type: integer
@@ -232,6 +232,10 @@ components:
         last_beat:
           type: string
           format: date-time
+        is_active:
+          type: boolean
+        duration:
+          type: integer
 
     PaginatedOwners:
       type: object
