@@ -687,6 +687,11 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
         - name: limit
           in: query
           schema:

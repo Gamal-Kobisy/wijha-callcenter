@@ -7,6 +7,7 @@ import type { CallResponseDto } from '@/calls/dto/call-response.dto';
 import type { NextOwnerResponseDto } from '@/calls/dto/next-owner-response.dto';
 import type { StatusCountDto } from '@/calls/dto/status-count.dto';
 import { OwnersService } from '@/owners/owners.service';
+import { DEFAULT_PAGE_LIMIT } from './config';
 
 const callWithProjects = Prisma.validator<Prisma.CallDetailRecordDefaultArgs>()({
   include: {
@@ -49,6 +50,7 @@ export class CallsService {
     owner_id?: number;
     agent_id?: number;
     status?: string;
+    page?: number;
     limit?: number;
     from?: Date;
     to?: Date;
@@ -64,17 +66,24 @@ export class CallsService {
       where.owner = { ownerProjects: { some: { projectId: filters.project_id } } };
     }
 
-    const limit = filters.limit ?? 50;
+    const page = filters.page ?? 1;
+    const limit = filters.limit ?? DEFAULT_PAGE_LIMIT;
     const include = callWithProjects.include;
 
     const [calls, total] = await Promise.all([
-      this.prisma.callDetailRecord.findMany({ where, take: limit, orderBy: { time: 'desc' }, include }),
+      this.prisma.callDetailRecord.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { time: 'desc' },
+        include,
+      }),
       this.prisma.callDetailRecord.count({ where }),
     ]);
 
     return {
       data: calls.map(c => this.toCallResponse(c)),
-      meta: { total, page: 1, limit },
+      meta: { total, page, limit },
     };
   }
 
