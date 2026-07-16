@@ -38,6 +38,7 @@ export class CallsController {
     const limit = query.limit ? Number(query.limit) : 50;
     const from = query.from ? new Date(query.from) : undefined;
     const to = query.to ? new Date(query.to) : undefined;
+    const projectId = query.project_id ? Number(query.project_id) : undefined;
 
     return this.callsService.findAll({
       owner_id: ownerId,
@@ -46,6 +47,7 @@ export class CallsController {
       limit,
       from,
       to,
+      project_id: projectId,
     });
   }
 

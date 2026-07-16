@@ -8,4 +8,4 @@ COPY . .
 RUN npx prisma generate
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma generate && npx prisma db push && npx prisma db execute --file ./prisma/seed.sql && npm run start:dev"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma db push --force-reset && npx prisma db execute --file ./prisma/seed.sql && npm run start:dev"]

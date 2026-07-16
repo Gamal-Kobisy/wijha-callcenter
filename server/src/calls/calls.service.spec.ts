@@ -5,6 +5,15 @@ import { OwnersService } from '@/owners/owners.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { mockCallRecord, mockOwner } from '@/prisma/mock-data';
 
+const withProjects = (overrides: Record<string, unknown> = {}) => ({
+  owner: {
+    ownerProjects: [
+      { project: { id: 1, name: 'Default Project' } },
+    ],
+  },
+  ...overrides,
+});
+
 describe('CallsService', () => {
   let service: CallsService;
   let prisma: DeepMockProxy<PrismaService>;
@@ -32,19 +41,20 @@ describe('CallsService', () => {
   describe('findAll', () => {
     it('should return all calls', async () => {
       prisma.callDetailRecord.findMany.mockResolvedValue([
-        mockCallRecord({ duration: 120 }),
-        mockCallRecord({ id: 2n, status: 'no_answer', duration: null }),
+        mockCallRecord({ duration: 120, ...withProjects() }),
+        mockCallRecord({ id: 2n, status: 'no_answer', duration: null, ...withProjects() }),
       ]);
       prisma.callDetailRecord.count.mockResolvedValue(2);
 
       const result = await service.findAll({});
       expect(result.data).toHaveLength(2);
       expect(result.meta.total).toBe(2);
+      expect(result.data[0].projects).toEqual([{ id: 1, name: 'Default Project' }]);
     });
 
     it('should filter by owner_id', async () => {
       prisma.callDetailRecord.findMany.mockResolvedValue([
-        mockCallRecord(),
+        mockCallRecord({ ...withProjects() }),
       ]);
       prisma.callDetailRecord.count.mockResolvedValue(1);
 
@@ -64,7 +74,7 @@ describe('CallsService', () => {
     it('should filter by from/to date range', async () => {
       const from = new Date('2024-01-01');
       const to = new Date('2024-12-31');
-      prisma.callDetailRecord.findMany.mockResolvedValue([mockCallRecord()]);
+      prisma.callDetailRecord.findMany.mockResolvedValue([mockCallRecord({ ...withProjects() })]);
       prisma.callDetailRecord.count.mockResolvedValue(1);
 
       const result = await service.findAll({ from, to });
@@ -77,14 +87,30 @@ describe('CallsService', () => {
         }),
       );
     });
+
+    it('should filter by project_id through owner projects', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([mockCallRecord({ ...withProjects() })]);
+      prisma.callDetailRecord.count.mockResolvedValue(1);
+
+      const result = await service.findAll({ project_id: 1 });
+      expect(result.data).toHaveLength(1);
+      expect(prisma.callDetailRecord.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            owner: { ownerProjects: { some: { projectId: 1 } } },
+          }),
+        }),
+      );
+    });
   });
 
   describe('findById', () => {
     it('should return call by id', async () => {
-      prisma.callDetailRecord.findUnique.mockResolvedValue(mockCallRecord());
+      prisma.callDetailRecord.findUnique.mockResolvedValue(mockCallRecord({ ...withProjects() }));
       const call = await service.findById(1);
       expect(call).not.toBeNull();
       expect(call!.status).toBe('completed');
+      expect(call!.projects).toEqual([{ id: 1, name: 'Default Project' }]);
     });
 
     it('should return null for non-existent id', async () => {
@@ -105,6 +131,7 @@ describe('CallsService', () => {
       );
       expect(call.status).toBe('busy');
       expect(call.agent_id).toBe(1);
+      expect(call.projects).toEqual([]);
     });
 
     it('should handle optional fields', async () => {
@@ -118,6 +145,7 @@ describe('CallsService', () => {
       );
       expect(call.duration).toBeNull();
       expect(call.agent_notes).toBeNull();
+      expect(call.projects).toEqual([]);
     });
   });
 
@@ -135,7 +163,7 @@ describe('CallsService', () => {
       });
 
       prisma.callDetailRecord.findMany.mockResolvedValue([
-        mockCallRecord({ id: 1n, ownerId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z') }),
+        mockCallRecord({ id: 1n, ownerId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z'), ...withProjects() }),
       ]);
 
       const result = await service.getNextOwner({ projectId: 1 });
@@ -143,6 +171,7 @@ describe('CallsService', () => {
       expect(result!.owner.name).toBe('John Doe');
       expect(result!.calls).toHaveLength(1);
       expect(result!.calls[0].status).toBe('completed');
+      expect(result!.calls[0].projects).toEqual([{ id: 1, name: 'Default Project' }]);
     });
 
     it('should return null when no owner available', async () => {

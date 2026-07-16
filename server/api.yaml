@@ -180,6 +180,15 @@ components:
         role:
           type: string
 
+    ProjectRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
     CallDetailRecord:
       type: object
       required: [id, owner_id, agent_id, status, time]
@@ -204,6 +213,10 @@ components:
         agent_notes:
           type: string
           nullable: true
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectRef"
 
     NextOwnerResponse:
       type: object
