@@ -1,8 +1,9 @@
-import { Users, Phone, Clock, ListTodo } from "lucide-react"
+import {Users, Phone, Clock, ListTodo, ChevronRight, ChevronLeft} from "lucide-react"
 import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
@@ -30,6 +31,8 @@ import {
   Legend
 } from "recharts"
 import AppNavbar from "@/components/AppNavbar.tsx";
+import {useState} from "react";
+import { Button } from "@/components/ui/button"
 
 // --- DUMMY DATA ---
 const callVolumeData = [
@@ -46,7 +49,7 @@ const callStatusData = [
   { name: "Answered", value: 450, color: "hsl(var(--primary))" },
   { name: "Voicemail", value: 300, color: "hsl(var(--muted-foreground))" },
   { name: "No Answer", value: 200, color: "hsl(var(--destructive))" },
-  { name: "Converted", value: 85, color: "#10b981" },
+  { name: "Closed", value: 85, color: "#10b981" },
 ]
 
 const projectData = [
@@ -57,7 +60,17 @@ const projectData = [
 ]
 
 const recentCalls = [
-  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Converted", duration: "04:12", time: "15:42" },
+  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Closed", duration: "04:12", time: "15:42" },
+  { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", status: "Voicemail", duration: "00:45", time: "15:40" },
+  { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", status: "Answered", duration: "02:30", time: "15:38" },
+  { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", status: "No Answer", duration: "00:00", time: "15:35" },
+  { id: "1033", agent: "Ahmed Tarek", number: "+20 155 777 8899", status: "Answered", duration: "06:15", time: "15:30" },
+  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Closed", duration: "04:12", time: "15:42" },
+  { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", status: "Voicemail", duration: "00:45", time: "15:40" },
+  { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", status: "Answered", duration: "02:30", time: "15:38" },
+  { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", status: "No Answer", duration: "00:00", time: "15:35" },
+  { id: "1033", agent: "Ahmed Tarek", number: "+20 155 777 8899", status: "Answered", duration: "06:15", time: "15:30" },
+  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Closed", duration: "04:12", time: "15:42" },
   { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", status: "Voicemail", duration: "00:45", time: "15:40" },
   { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", status: "Answered", duration: "02:30", time: "15:38" },
   { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", status: "No Answer", duration: "00:00", time: "15:35" },
@@ -65,6 +78,14 @@ const recentCalls = [
 ]
 
 export default function DashboardPage() {
+  const [currentPage, setCurrentPage] = useState(1)
+  const ITEMS_PER_PAGE = 10
+  const totalPages = Math.ceil(recentCalls.length / ITEMS_PER_PAGE) || 1
+
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
+  const endIndex = startIndex + ITEMS_PER_PAGE
+  const currentCalls = recentCalls.slice(startIndex, endIndex)
+
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
 
@@ -88,7 +109,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Total Calls Today</CardTitle>
-            <Phone className="h-4 w-4 text-muted-foreground" />
+            <Phone className="h-4 w-4 text-green-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">1,035</div>
@@ -101,7 +122,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Avg Talk Time</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
+            <Clock className="h-4 w-4 text-orange-400" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">03:15</div>
@@ -114,7 +135,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Pending Follow-ups</CardTitle>
-            <ListTodo className="h-4 w-4 text-muted-foreground" />
+            <ListTodo className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">142</div>
@@ -234,7 +255,7 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Additional Visualization: Database Health / Penetration */}
+        {/* Additional Visualization: Leads Statuses */}
         <Card className="col-span-1 md:col-span-2 lg:col-span-3">
           <CardHeader>
             <CardTitle className="text-[hsl(var(--tertiary))]">Leads Report</CardTitle>
@@ -275,48 +296,91 @@ export default function DashboardPage() {
       </div>
 
       {/* --- SECTION 3: DATA TABLE --- */}
-      <Card>
+      <Card className="flex flex-col">
         <CardHeader>
           <CardTitle className="text-[hsl(var(--tertiary))]">Recent Call Records</CardTitle>
           <CardDescription>
             Live feed of the latest calls made today.
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Time</TableHead>
-                <TableHead>Agent</TableHead>
-                <TableHead>Number</TableHead>
-                <TableHead>Duration</TableHead>
-                <TableHead className="text-right">Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentCalls.map((call) => (
-                <TableRow key={call.id}>
-                  <TableCell className="font-medium">{call.time}</TableCell>
-                  <TableCell>{call.agent}</TableCell>
-                  <TableCell>{call.number}</TableCell>
-                  <TableCell>{call.duration}</TableCell>
-                  <TableCell className="text-right">
-                    <Badge
-                      variant={
-                        call.status === "Converted" ? "default" :
-                        call.status === "Answered" ? "secondary" :
-                        call.status === "No Answer" ? "destructive" : "outline"
-                      }
-                      className={call.status === "Converted" ? "bg-emerald-500 hover:bg-emerald-600" : ""}
-                    >
-                      {call.status}
-                    </Badge>
-                  </TableCell>
+
+        <CardContent className="p-0">
+          <div className="block w-full overflow-x-auto">
+            <Table className="min-w-[800px] w-full">
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="pl-4 sm:pl-6">Time</TableHead>
+                  <TableHead>Agent</TableHead>
+                  <TableHead>Number</TableHead>
+                  <TableHead>Duration</TableHead>
+                  <TableHead className="text-right pr-4 sm:pr-6">Status</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {currentCalls.length > 0 ? (
+                  currentCalls.map((call) => (
+                    <TableRow key={call.id}>
+                      <TableCell className="font-medium whitespace-nowrap pl-4 sm:pl-6">{call.time}</TableCell>
+                      <TableCell className="whitespace-nowrap">{call.agent}</TableCell>
+                      <TableCell className="whitespace-nowrap">{call.number}</TableCell>
+                      <TableCell className="whitespace-nowrap">{call.duration}</TableCell>
+                      <TableCell className="text-right pr-4 sm:pr-6">
+                        <Badge
+                          variant={
+                            call.status === "Closed" ? "default" :
+                            call.status === "Answered" ? "secondary" :
+                            call.status === "No Answer" ? "destructive" : "outline"
+                          }
+                          className={call.status === "Closed" ? "bg-emerald-500 hover:bg-emerald-600" : ""}
+                        >
+                          {call.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                      No recent calls found.
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
+
+        {/* Paging Footer */}
+        <CardFooter className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 border-t border-border p-4 sm:p-6">
+          <div className="text-sm text-muted-foreground text-center sm:text-left w-full sm:w-auto">
+            Showing <strong>{recentCalls.length === 0 ? 0 : startIndex + 1}</strong> to <strong>{Math.min(endIndex, recentCalls.length)}</strong> of <strong>{recentCalls.length}</strong> calls
+          </div>
+          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            >
+              <ChevronLeft className="h-4 w-4 sm:mr-1" />
+              <span className="hidden sm:inline">Previous</span>
+            </Button>
+            <div className="text-sm font-medium px-2 whitespace-nowrap">
+              Page {currentPage} of {totalPages}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={currentPage >= totalPages}
+              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+            >
+              <span className="hidden sm:inline">Next</span>
+              <ChevronRight className="h-4 w-4 sm:ml-1" />
+            </Button>
+          </div>
+        </CardFooter>
       </Card>
 
     </div>

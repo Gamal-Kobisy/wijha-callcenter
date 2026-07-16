@@ -1,17 +1,26 @@
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   // Automatically grab the token
-  const token = localStorage.getItem("userToken");
+  const token = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
+  const expiry = localStorage.getItem("tokenExpiry");
+
+  if (expiry && new Date().getTime() > parseInt(expiry)) {
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = "/login";
+  }
+
+  const isFormData = options.body instanceof FormData;
 
   // Merge the standard headers with any custom ones you pass in
   const headers = {
-    "Content-Type": "application/json",
+    ...(isFormData ? {} : { "Content-Type": "application/json" }),
     ...(token ? { "Authorization": `Bearer ${token}` } : {}),
     ...options.headers,
   };
 
   // Make the actual request
-  const response = await fetch(`https://api.wijhawest.com${endpoint}`, {
+  const response = await fetch(`http://localhost:3000/api/v1/${endpoint}`, {
     ...options,
     headers,
   });

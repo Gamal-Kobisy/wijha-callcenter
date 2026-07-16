@@ -1,5 +1,5 @@
 import { Menu, BarChart3, Target, Headset, BadgeCheck, LogOut, LayoutDashboard } from "lucide-react"
-import { Link, useLocation } from "react-router-dom"
+import {Link, useLocation, useNavigate,} from "react-router-dom"
 import Logo from "@/components/Logo"
 import NavbarUserButton from "@/components/NavbarUserButton.tsx"
 import {
@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 // @ts-ignore
 import avatar from "../assets/avatar.jpg"
+import { useAuth } from "@/contexts/AuthContext"
 
 interface AppNavbarProps {
   link1Name?: string
@@ -19,23 +20,28 @@ interface AppNavbarProps {
 }
 
 export default function AppNavbar({
-  link1Name = "Reports",
-  link2Name = "Leads",
-  link3Name = "Agents",
+  link1Name = "Dashboard",
+  link2Name = "Agents",
+  link3Name = "Clients",
 }: AppNavbarProps) {
   const location = useLocation()
+  const navigate = useNavigate()
   const isActive = (path: string) => location.pathname === path
+
+  const { user, logout } = useAuth()
 
   // Helper to map icons to specific link names
   const getIcon = (name: string) => {
     switch (name.toLowerCase()) {
       case "dashboard": return <LayoutDashboard className="size-5 shrink-0" />
       case "reports": return <BarChart3 className="size-5 shrink-0" />
-      case "leads": return <Target className="size-5 shrink-0" />
+      case "clients": return <Target className="size-5 shrink-0" />
       case "agents": return <Headset className="size-5 shrink-0" />
       default: return <BarChart3 className="size-5 shrink-0" />
     }
   }
+
+
 
   const NavLink = ({ name }: { name: string }) => (
     <Link
@@ -58,7 +64,12 @@ export default function AppNavbar({
     </DropdownMenuItem>
   )
 
+  const handleAccountNavigation = async () => {
+    navigate('/account')
+  }
+
   return (
+  <>
     <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-border bg-background px-4 sm:px-6">
       <div className="flex items-center shrink-0 w-auto lg:w-64">
         <Logo />
@@ -72,7 +83,13 @@ export default function AppNavbar({
 
       <div className="flex items-center justify-end shrink-0 gap-2 sm:gap-4 w-auto lg:w-64">
         <div className="hidden md:block w-40 sm:w-auto lg:w-full">
-          <NavbarUserButton name="Youssef Elkhatib" email="admin@wijhawest.com" avatarSrc={avatar} />
+          <NavbarUserButton
+            name={user?.name || "Loading..."}
+            email={user?.email || ""}
+            avatarSrc={avatar}
+            onAccountClick={handleAccountNavigation}
+            onLogout={logout}
+          />
         </div>
 
         <div className="md:hidden">
@@ -98,10 +115,11 @@ export default function AppNavbar({
 
               <DropdownMenuSeparator className="my-2 bg-border" />
 
-              <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-primary focus:text-primary-foreground p-3">
+              <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-primary focus:text-primary-foreground p-3" onClick={handleAccountNavigation} >
                 <BadgeCheck className="mr-3 size-5" /> Account
               </DropdownMenuItem>
-              <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-primary focus:text-primary-foreground p-3">
+
+              <DropdownMenuItem className="cursor-pointer transition-colors focus:bg-primary focus:text-primary-foreground p-3" onClick={logout}>
                 <LogOut className="mr-3 size-5" /> Log out
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -109,5 +127,6 @@ export default function AppNavbar({
         </div>
       </div>
     </header>
+  </>
   )
 }
