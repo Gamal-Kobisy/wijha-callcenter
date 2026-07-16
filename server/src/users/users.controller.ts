@@ -66,7 +66,7 @@ export class UsersController {
     return this.usersService.update(userId, dto);
   }
 
-  @Delete(':userId/deactivate')
+  @Patch(':userId/deactivate')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @HttpCode(HttpStatus.OK)
