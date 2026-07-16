@@ -111,14 +111,14 @@ const initialClients = [
     id: "1003",
     name: "Nour El-Din",
     primaryNumber: "+20 122 444 5555",
-    status: "Converted",
+    status: "Closed",
     attemptCount: 5,
     lastDialedAt: "2026-07-05 16:00",
     nextDialAt: null,
     assignedAgent: "Omar Hassan",
     projects: ["Cold Outreach B2B"],
     info: [{ key: "Industry", value: "Manufacturing" }],
-    history: [{ id: 3, time: "2026-07-05 16:00", status: "Converted", duration: 420, agent: "Omar Hassan", notes: "Closed the deal." }]
+    history: [{ id: 3, time: "2026-07-05 16:00", status: "Closed", duration: 420, agent: "Omar Hassan", notes: "Closed the deal." }]
   },
   {
     id: "1004",
@@ -161,7 +161,7 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case 'New': return 'bg-blue-100 text-blue-800 border-blue-200'
     case 'Interested': return 'bg-amber-100 text-amber-800 border-amber-200'
-    case 'Converted': return 'bg-emerald-100 text-emerald-800 border-emerald-200'
+    case 'Closed': return 'bg-emerald-100 text-emerald-800 border-emerald-200'
     case 'Do Not Call': return 'bg-rose-100 text-rose-800 border-rose-200'
     case 'Voicemail': return 'bg-slate-100 text-slate-800 border-slate-200'
     default: return 'bg-gray-100 text-gray-800 border-gray-200'
@@ -205,7 +205,7 @@ export default function ClientsPage() {
 
   // --- DYNAMIC CHART DATA ---
   const statusDistribution = useMemo(() => {
-    const counts = { 'New': 0, 'Interested': 0, 'Voicemail': 0, 'Converted': 0, 'Do Not Call': 0, 'Other': 0 };
+    const counts = { 'New': 0, 'Interested': 0, 'Voicemail': 0, 'Closed': 0, 'Do Not Call': 0, 'Other': 0 };
     clients.forEach(l => {
       // @ts-ignore
       if (counts[l.status] !== undefined) counts[l.status]++;
@@ -215,7 +215,7 @@ export default function ClientsPage() {
       { name: 'New', value: counts['New'] || 0, color: chartPalette.dial },
       { name: 'Interested', value: counts['Interested'] || 0, color: chartPalette.interest },
       { name: 'Voicemail', value: counts['Voicemail'] || 0, color: chartPalette.neutral },
-      { name: 'Converted', value: counts['Converted'] || 0, color: chartPalette.convert },
+      { name: 'Closed', value: counts['Closed'] || 0, color: chartPalette.convert },
       { name: 'Do Not Call', value: counts['Do Not Call'] || 0, color: chartPalette.miss },
     ].filter(item => item.value > 0);
   }, [clients])
@@ -430,7 +430,7 @@ export default function ClientsPage() {
   return (
     <>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <AppNavbar link1Name="Dashboard" link2Name="Reports" link3Name="Agents" />
+        <AppNavbar />
 
         <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
 
@@ -467,12 +467,12 @@ export default function ClientsPage() {
             </Card>
             <Card className="shadow-sm border-slate-100">
               <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-                <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Converted</CardTitle>
+                <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Closed</CardTitle>
                 <PhoneCall className="h-4 w-4 text-emerald-500" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-slate-800">
-                  {clients.filter(l => l.status === "Converted").length}
+                  {clients.filter(l => l.status === "Closed").length}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">Dynamic from table</p>
               </CardContent>
@@ -599,7 +599,7 @@ export default function ClientsPage() {
                     <option value="New">New</option>
                     <option value="Interested">Interested</option>
                     <option value="Voicemail">Voicemail</option>
-                    <option value="Converted">Converted</option>
+                    <option value="Closed">Closed</option>
                     <option value="Do Not Call">Do Not Call</option>
                   </select>
                 </div>
@@ -748,7 +748,7 @@ export default function ClientsPage() {
                     <option value="New">New</option>
                     <option value="Interested">Interested</option>
                     <option value="Voicemail">Voicemail</option>
-                    <option value="Converted">Converted</option>
+                    <option value="Closed">Closed</option>
                     <option value="Do Not Call">Do Not Call</option>
                   </select>
                 </div>

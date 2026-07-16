@@ -49,7 +49,7 @@ const callStatusData = [
   { name: "Answered", value: 450, color: "hsl(var(--primary))" },
   { name: "Voicemail", value: 300, color: "hsl(var(--muted-foreground))" },
   { name: "No Answer", value: 200, color: "hsl(var(--destructive))" },
-  { name: "Converted", value: 85, color: "#10b981" },
+  { name: "Closed", value: 85, color: "#10b981" },
 ]
 
 const projectData = [
@@ -60,17 +60,17 @@ const projectData = [
 ]
 
 const recentCalls = [
-  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Converted", duration: "04:12", time: "15:42" },
+  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Closed", duration: "04:12", time: "15:42" },
   { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", status: "Voicemail", duration: "00:45", time: "15:40" },
   { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", status: "Answered", duration: "02:30", time: "15:38" },
   { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", status: "No Answer", duration: "00:00", time: "15:35" },
   { id: "1033", agent: "Ahmed Tarek", number: "+20 155 777 8899", status: "Answered", duration: "06:15", time: "15:30" },
-  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Converted", duration: "04:12", time: "15:42" },
+  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Closed", duration: "04:12", time: "15:42" },
   { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", status: "Voicemail", duration: "00:45", time: "15:40" },
   { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", status: "Answered", duration: "02:30", time: "15:38" },
   { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", status: "No Answer", duration: "00:00", time: "15:35" },
   { id: "1033", agent: "Ahmed Tarek", number: "+20 155 777 8899", status: "Answered", duration: "06:15", time: "15:30" },
-  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Converted", duration: "04:12", time: "15:42" },
+  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Closed", duration: "04:12", time: "15:42" },
   { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", status: "Voicemail", duration: "00:45", time: "15:40" },
   { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", status: "Answered", duration: "02:30", time: "15:38" },
   { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", status: "No Answer", duration: "00:00", time: "15:35" },
@@ -79,7 +79,7 @@ const recentCalls = [
 
 export default function DashboardPage() {
   const [currentPage, setCurrentPage] = useState(1)
-  const ITEMS_PER_PAGE = 10 // Adjust this number if you want fewer rows per page
+  const ITEMS_PER_PAGE = 10
   const totalPages = Math.ceil(recentCalls.length / ITEMS_PER_PAGE) || 1
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
@@ -327,11 +327,11 @@ export default function DashboardPage() {
                       <TableCell className="text-right pr-4 sm:pr-6">
                         <Badge
                           variant={
-                            call.status === "Converted" ? "default" :
+                            call.status === "Closed" ? "default" :
                             call.status === "Answered" ? "secondary" :
                             call.status === "No Answer" ? "destructive" : "outline"
                           }
-                          className={call.status === "Converted" ? "bg-emerald-500 hover:bg-emerald-600" : ""}
+                          className={call.status === "Closed" ? "bg-emerald-500 hover:bg-emerald-600" : ""}
                         >
                           {call.status}
                         </Badge>

@@ -21,7 +21,7 @@ export function LoginForm({
   const [password, setPassword] = useState("")
   const [rememberMe, setRememberMe] = useState(false)
 
-
+  // --- SUBMIT LOGIC ---
   const handleSubmit = async (e: React.SyntheticEvent) => {
     e.preventDefault()
 

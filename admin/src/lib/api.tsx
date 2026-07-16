@@ -20,7 +20,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   };
 
   // Make the actual request
-  const response = await fetch(`http://192.168.100.152:3000/api/v1/${endpoint}`, {
+  const response = await fetch(`http://localhost:3000/api/v1/${endpoint}`, {
     ...options,
     headers,
   });

@@ -1,4 +1,4 @@
-import { useState } from "react"
+import {useEffect, useState} from "react"
 import AppNavbar from "@/components/AppNavbar.tsx"
 import {
   Card,
@@ -49,37 +49,25 @@ import { apiFetch } from "@/lib/api.tsx"
 import PasswordRequirements, { checkPasswordValidity } from "@/components/PasswordRequirements"
 
 import { toast, Toaster } from "sonner"
-import {useNavigate} from "react-router-dom";
-
-// --- INITIAL DUMMY DATA ---
-const initialAgents = [
-  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", role: "Agent", isOnline: true, email: "ahmed@wijhawest.com", calls: 45 },
-  { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", role: "Agent", isOnline: false, email: "sarah@wijhawest.com", calls: 12 },
-  { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", role: "Supervisor", isOnline: true, email: "omar@wijhawest.com", calls: 28 },
-  { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", role: "Agent", isOnline: false, email: "nour@wijhawest.com", calls: 0 },
-  { id: "1033", agent: "Youssef Emad", number: "+20 155 777 8899", role: "Agent", isOnline: true, email: "youssef@wijhawest.com", calls: 34 },
-  { id: "1034", agent: "Khaled Saied", number: "+20 109 888 7766", role: "Admin", isOnline: true, email: "khaled@wijhawest.com", calls: 41 },
-  { id: "1035", agent: "Mariam Safwat", number: "+20 120 444 3322", role: "Agent", isOnline: false, email: "mariam@wijhawest.com", calls: 5 },
-  { id: "1036", agent: "Ahmed Tarek 2", number: "+20 100 123 4567", role: "Agent", isOnline: true, email: "ahmed2@wijhawest.com", calls: 45 },
-  { id: "1037", agent: "Sarah Kamel 2", number: "+20 111 987 6543", role: "Agent", isOnline: false, email: "sarah2@wijhawest.com", calls: 12 },
-  { id: "1038", agent: "Omar Hassan 2", number: "+20 122 345 6789", role: "Supervisor", isOnline: true, email: "omar2@wijhawest.com", calls: 28 },
-  { id: "1039", agent: "Nour Ali 2", number: "+20 100 555 1234", role: "Agent", isOnline: false, email: "nour2@wijhawest.com", calls: 0 },
-  { id: "1040", agent: "Youssef Emad 2", number: "+20 155 777 8899", role: "Agent", isOnline: true, email: "youssef2@wijhawest.com", calls: 34 },
-  { id: "1041", agent: "Khaled Saied 2", number: "+20 109 888 7766", role: "Admin", isOnline: true, email: "khaled2@wijhawest.com", calls: 41 },
-  { id: "1042", agent: "Mariam Safwat 2", number: "+20 120 444 3322", role: "Agent", isOnline: false, email: "mariam2@wijhawest.com", calls: 5 },
-  { id: "1043", agent: "Ahmed Tarek 3", number: "+20 100 123 4567", role: "Agent", isOnline: true, email: "ahmed3@wijhawest.com", calls: 45 },
-  { id: "1044", agent: "Sarah Kamel 3", number: "+20 111 987 6543", role: "Agent", isOnline: false, email: "sarah3@wijhawest.com", calls: 12 },
-  { id: "1045", agent: "Omar Hassan 3", number: "+20 122 345 6789", role: "Supervisor", isOnline: true, email: "omar3@wijhawest.com", calls: 28 },
-  { id: "1046", agent: "Nour Ali 3", number: "+20 100 555 1234", role: "Agent", isOnline: false, email: "nour3@wijhawest.com", calls: 0 },
-  { id: "1047", agent: "Youssef Emad 3", number: "+20 155 777 8899", role: "Agent", isOnline: true, email: "youssef3@wijhawest.com", calls: 34 },
-  { id: "1048", agent: "Khaled Saied 3", number: "+20 109 888 7766", role: "Admin", isOnline: true, email: "khaled3@wijhawest.com", calls: 41 },
-  { id: "1049", agent: "Mariam Safwat 3", number: "+20 120 444 3322", role: "Agent", isOnline: false, email: "mariam3@wijhawest.com", calls: 5 },
-]
+import {useNavigate} from "react-router-dom"
 
 export default function AgentsPage() {
+
+  // --- INITIALIZATION ---
   const navigate = useNavigate()
-  const [agents] = useState(initialAgents)
+  const [agents, setAgents] = useState<any[]>([])
   const [dateRange, setDateRange] = useState("Today")
+
+  // --- CALCULATE TOTAL CALLS ---
+  const totalCalls = agents
+    .filter(agent => agent.role?.toLowerCase() !== "deactivated")
+    .reduce((accumulator, currentItem) => {
+      return accumulator + (currentItem.calls || 0);
+    }, 0);
+
+  const displayDateRange = dateRange.includes("-")
+    ? new Date(dateRange).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+    : dateRange;
 
   // --- SEARCH & FILTER STATE ---
   const [searchTerm, setSearchTerm] = useState("")
@@ -87,9 +75,9 @@ export default function AgentsPage() {
 
   // --- FILTER LOGIC ---
   const filteredAgents = agents.filter(agent => {
-    const matchesSearch = agent.agent.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          agent.email.toLowerCase().includes(searchTerm.toLowerCase())
-    const matchesRole = roleFilter === "All" || agent.role.toLowerCase() === roleFilter.toLowerCase()
+    const matchesSearch = (agent.name || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          (agent.email || "").toLowerCase().includes(searchTerm.toLowerCase())
+    const matchesRole = roleFilter === "All" || (agent.role || "").toLowerCase() === roleFilter.toLowerCase()
     return matchesSearch && matchesRole
   })
 
@@ -102,29 +90,89 @@ export default function AgentsPage() {
   const endIndex = startIndex + ITEMS_PER_PAGE
   const currentAgents = filteredAgents.slice(startIndex, endIndex)
 
-  // Edit Agent State
-  const [editingAgent, setEditingAgent] = useState<typeof initialAgents[0] | null>(null)
+  // --- EDIT AGENT STATE ---
+  const [editingAgent, setEditingAgent] = useState<any | null>(null)
 
-  // Add Agent & Validation State
-  const [addingAgent, setAddingAgent] = useState<{agent: string, email: string, password?: string, confirmPassword?: string, number: string, role: string} | null>(null)
+  // --- ADD AGENT AND VALIDATION STATE ---
+  const [addingAgent, setAddingAgent] = useState<{name: string, email: string, password?: string, confirmPassword?: string, phone: string, role: string} | null>(null)
   const [passwordError, setPasswordError] = useState<string | null>(null)
 
-  // Delete Agent
+  // --- DELETE AGENT STATE ---
   const [deactivateAgentId, setDeactivateAgentId] = useState<string | null>(null)
 
+  // --- DATE HANDLERS ---
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.value) {
       setDateRange(e.target.value)
+      loadCalls(e.target.value,agents)
     }
+  }
+
+  const handlePresetSelect = (preset: string) => {
+    setDateRange(preset)
+    loadCalls(preset,agents)
+  }
+
+  // --- DATE RANGE CALCULATOR ---
+  const getDateRangeIso = (dateValue: string) => {
+    const now = new Date()
+    let fromDate = new Date(now)
+    let toDate = new Date(now)
+
+    if (dateValue === "Today") {
+      // From exactly midnight today, to right now
+      fromDate.setHours(0, 0, 0, 0)
+    } else if (dateValue === "Past Week") {
+      // From exactly 7 days ago, to right now
+      fromDate.setDate(now.getDate() - 7)
+    } else if (dateValue === "Past Month") {
+      // From exactly 1 month ago, to right now
+      fromDate.setMonth(now.getMonth() - 1)
+    } else if (dateValue === "Past Year") {
+      // From exactly 1 year ago, to right now
+      fromDate.setFullYear(now.getFullYear() - 1)
+    } else {
+      // Specific Calendar Date: From 00:00:00 to 23:59:59 of that specific day
+      fromDate = new Date(dateValue)
+      fromDate.setHours(0, 0, 0, 0)
+      toDate = new Date(dateValue)
+      toDate.setHours(23, 59, 59, 999)
+    }
+
+    return {
+      from: fromDate.toISOString(),
+      to: toDate.toISOString()
+    }
+  }
+
+  // --- GLOBAL VALIDATION LOGIC ---
+  const validateAgentData = (data: { name: string, email: string, phone: string }) => {
+    if (!data.name || !data.name.trim()) {
+      toast.error("Name cannot be empty")
+      return false
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(data.email)) {
+      toast.error("Please enter a valid email address")
+      return false
+    }
+
+    const phoneRegex = /^\d{11}$/
+    if (data.phone && !phoneRegex.test(data.phone)) {
+      toast.error("Please enter a valid 11-digit phone number")
+      return false
+    }
+
+    return true
   }
 
   // --- EXPORT CSV FUNCTION ---
   const exportToCSV = () => {
-    const headers = ["ID", "Agent", "Email", "Phone", "Role", "Calls"]
+    const headers = ["ID", "Name", "Email", "Phone", "Role", "Total Calls"]
     const csvContent = [
       headers.join(","),
-      // Wrap strings in quotes to prevent issues with commas in names
-      ...filteredAgents.map(a => [a.id, `"${a.agent}"`, `"${a.email}"`, `"${a.number}"`, `"${a.role}"`, a.calls].join(","))
+      ...filteredAgents.map(a => [a.id, `"${a.name}"`, `"${a.email}"`, `"${a.phone}"`, `"${a.role}"`, a.calls || 0].join(","))
     ].join("\n")
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -139,26 +187,107 @@ export default function AgentsPage() {
     })
   }
 
+  // --- DATA LOADING ---
+  useEffect(() => {
+    loadAllAgents()
+  }, [])
+
+  const loadAllAgents = async () => {
+    try {
+      // deactivatedRes
+      const [activeRes] = await Promise.all([
+        apiFetch("users?role=user", { method: "GET" }),
+        // apiFetch("users?role=deactivated", { method: "GET" })
+      ]);
+
+      // if (!activeRes.ok || !deactivatedRes.ok) {
+      //   throw new Error("Failed to load agents.")
+      // }
+
+      const activeData = await activeRes.json()
+      // const deactivatedData = await deactivatedRes.json()
+
+      // Merge both arrays into one master list ...deactivatedData
+      const combinedData = [...activeData];
+
+      const mappedData = combinedData.map((agent: any) => ({
+        ...agent,
+        phone: agent.phoneNumber || agent.phone || "",
+        calls: 0
+      }))
+
+      setAgents(mappedData)
+      loadCalls(dateRange, mappedData)
+
+    } catch (error: any) {
+      toast.error(error.message)
+    }
+  }
+
+  const loadCalls = async (selectedDate: string, currentAgents: any[]) => {
+    // If there are no agents yet, don't try to fetch calls for them
+    if (!currentAgents || currentAgents.length === 0) return
+
+    try {
+      // 1. Get the exact ISO strings for the API
+      const { from, to } = getDateRangeIso(selectedDate)
+
+      // 2. Fetch all agent stats at the exact same time using Promise.all
+      const updatedAgents = await Promise.all(
+        currentAgents.map(async (agent) => {
+          try {
+            const response = await apiFetch(`users/${agent.id}/stats?from=${from}&to=${to}`, {
+              method: "GET",
+            })
+
+            if (response.ok) {
+              const statsData = await response.json()
+              // Merge the API's 'total_calls' into our agent object
+              return { ...agent, calls: statsData.total_calls || 0 }
+            }
+
+            // If this specific agent's call fails (like the 404 you documented), default to 0
+            return { ...agent, calls: 0 }
+
+          } catch (err) {
+            return { ...agent, calls: 0 }
+          }
+        })
+      )
+
+      // 3. Update the React state with the finished data!
+      setAgents(updatedAgents)
+
+    } catch (error: any) {
+      toast.error("Failed to aggregate call records.")
+    }
+  }
+
   // --- API FUNCTIONS ---
   const handleUpdateAgent = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingAgent) return
 
+    if (!validateAgentData(editingAgent)) return
+
     const payload = editingAgent
+    const { id, otp, otpExpiry, jwtToken, phoneNumber, calls, ...data } = payload // Stripped out 'calls' to prevent accidentally saving it to DB
     setEditingAgent(null)
 
     try {
-      const response = await apiFetch("/edit-agent", {
-        method: "PUT",
+      const response = await apiFetch(`users/${id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(data),
       })
 
       if (!response.ok) throw new Error("Failed to update agent")
 
       toast.success("Agent Updated", {
-        description: `${payload.agent}'s details have been saved successfully.`,
+        description: `${data.name}'s details have been saved successfully.`,
       })
+
+      loadAllAgents()
 
     } catch (error) {
       console.error("Error updating agent:", error)
@@ -170,7 +299,9 @@ export default function AgentsPage() {
 
   const handleAddAgent = async (e: React.FormEvent) => {
     e.preventDefault()
-    if(!addingAgent) return
+    if (!addingAgent) return
+
+    if (!validateAgentData(addingAgent)) return
 
     setPasswordError(null)
     const isPasswordValid = checkPasswordValidity(addingAgent.password || "").every(req => req.met)
@@ -187,8 +318,8 @@ export default function AgentsPage() {
     const { confirmPassword, ...agentData } = addingAgent
     setAddingAgent(null)
 
-    try{
-      const response = await apiFetch("/add-agent", {
+    try {
+      const response = await apiFetch("users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(agentData),
@@ -197,11 +328,12 @@ export default function AgentsPage() {
       if (!response.ok) throw new Error("Failed to add agent")
 
       toast.success("Agent Created", {
-        description: `${agentData.agent} has been added to the system.`,
+        description: `${agentData.name} has been added to the system.`,
       })
 
-    }
-    catch(error){
+      loadAllAgents()
+
+    } catch (error) {
       console.error("Error adding agent:", error)
       toast.error("Creation Failed", {
         description: "Could not create the new agent. Please check your connection and try again.",
@@ -211,26 +343,26 @@ export default function AgentsPage() {
 
   const handleDeactivateAgent = async (e: React.FormEvent) => {
     e.preventDefault()
-    if(!deactivateAgentId) return
+    if (!deactivateAgentId) return
 
     const targetId = deactivateAgentId
     setDeactivateAgentId(null)
 
-    try{
-      const response = await apiFetch("/delete-agent", {
-        method: "DELETE",
+    try {
+      const response = await apiFetch("deactivate-agent", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId })
       })
 
-      if (!response.ok) throw new Error("Failed to delete agent")
+      if (!response.ok) throw new Error("Failed to deactivate agent")
 
       toast.success("Agent Deactivated", {
-        description: "The agent has been successfully removed.",
+        description: "The agent has been successfully deactivated.",
       })
 
-    }
-    catch(error){
+      loadAllAgents()
+    } catch (error) {
       console.error("Error deleting agent:", error)
       toast.error("Deactivation Failed", {
         description: "An error occurred while trying to deactivate this agent.",
@@ -241,7 +373,7 @@ export default function AgentsPage() {
   return (
     <>
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <AppNavbar link1Name="Dashboard" link2Name="Reports" link3Name="Clients" />
+      <AppNavbar />
 
       <main className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-7xl mx-auto w-full">
 
@@ -255,7 +387,7 @@ export default function AgentsPage() {
             <CardContent>
               <div className="text-2xl font-bold">{agents.length}</div>
               <p className="text-xs text-muted-foreground">
-                +1 joined in last month
+                {agents.filter(a => a.role?.toLowerCase() !== "deactivated").length} active accounts
               </p>
             </CardContent>
           </Card>
@@ -270,18 +402,18 @@ export default function AgentsPage() {
                 {agents.filter(a => a.isOnline).length}
               </div>
               <p className="text-xs text-muted-foreground">
-                +2 active in last hour
+                {agents.filter(a => a.role?.toLowerCase() !== "deactivated" && !a.isOnline).length} currently offline
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Total Calls</CardTitle>
+              <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Total Calls ({displayDateRange})</CardTitle>
               <Phone className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">153</div>
+              <div className="text-2xl font-bold">{totalCalls}</div>
               <p className="text-xs text-muted-foreground">
                 Across all agents
               </p>
@@ -330,9 +462,8 @@ export default function AgentsPage() {
                   }}
                 >
                   <option value="All">All Roles</option>
-                  <option value="Agent">Agent</option>
-                  <option value="Supervisor">Supervisor</option>
-                  <option value="Admin">Admin</option>
+                  <option value="User">Agent</option>
+                  <option value="Deactivated">Deactivated</option>
                 </select>
 
                 <DropdownMenu>
@@ -343,10 +474,10 @@ export default function AgentsPage() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start" className="bg-background border-border shadow-md">
-                    <DropdownMenuItem onClick={() => setDateRange("Today")}>Today</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setDateRange("Past Week")}>Past Week</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setDateRange("Past Month")}>Past Month</DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setDateRange("Past Year")}>Past Year</DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetSelect("Today")}>Today</DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetSelect("Past Week")}>Past Week</DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetSelect("Past Month")}>Past Month</DropdownMenuItem>
+                    <DropdownMenuItem className="focus:bg-slate-200" onClick={() => handlePresetSelect("Past Year")}>Past Year</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
 
@@ -367,7 +498,7 @@ export default function AgentsPage() {
                 </Button>
                 <Button
                     onClick={() => {
-                      setAddingAgent({ agent: "", email: "", password: "", confirmPassword: "", number: "", role: "" })
+                      setAddingAgent({ name: "", email: "", password: "", confirmPassword: "", phone: "", role: "user" })
                       setPasswordError(null)
                     }}
                     className="h-9 w-full sm:w-auto bg-emerald-500 text-white hover:bg-emerald-600 border-none transition-colors justify-center">
@@ -401,17 +532,28 @@ export default function AgentsPage() {
                               className={`h-2.5 w-2.5 rounded-full shrink-0 ${agent.isOnline ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}
                               title={agent.isOnline ? "Online" : "Offline"}
                             />
-                            {agent.agent}
+                            {agent.name}
                           </div>
                         </TableCell>
                         <TableCell className="text-muted-foreground whitespace-nowrap">{agent.email}</TableCell>
-                        <TableCell className="whitespace-nowrap">{agent.number}</TableCell>
+                        <TableCell className="whitespace-nowrap">{agent.phone}</TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <Badge variant="outline" className="font-normal text-muted-foreground">
-                            {agent.role}
+                          <Badge
+                            variant="outline"
+                            className={`font-normal ${
+                              (agent.role || "").toLowerCase() === "deactivated" 
+                                ? "bg-red-50 text-red-700 border-red-200" 
+                                : (agent.role || "").toLowerCase() === "user" 
+                                ? "bg-blue-50 text-blue-700 border-blue-200" 
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {agent.role?.toLowerCase() === "user" ? "Agent" :
+                             agent.role?.toLowerCase() === "deactivated" ? "Deactivated" :
+                             agent.role ? agent.role.charAt(0).toUpperCase() + agent.role.slice(1).toLowerCase() : "Agent"}
                           </Badge>
                         </TableCell>
-                        <TableCell className="whitespace-nowrap">{agent.calls}</TableCell>
+                        <TableCell className="whitespace-nowrap">{agent.calls || 0}</TableCell>
                         <TableCell className="text-right pr-4 sm:pr-6">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -504,8 +646,8 @@ export default function AgentsPage() {
                   <Label htmlFor="name">Name</Label>
                   <Input
                     id="name"
-                    value={editingAgent.agent}
-                    onChange={(e) => setEditingAgent({...editingAgent, agent: e.target.value})}
+                    value={editingAgent.name || ""}
+                    onChange={(e) => setEditingAgent({...editingAgent, name: e.target.value})}
                     required
                   />
                 </div>
@@ -514,7 +656,7 @@ export default function AgentsPage() {
                   <Input
                     id="email"
                     type="email"
-                    value={editingAgent.email}
+                    value={editingAgent.email || ""}
                     onChange={(e) => setEditingAgent({...editingAgent, email: e.target.value})}
                     required
                   />
@@ -523,19 +665,27 @@ export default function AgentsPage() {
                   <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
-                    value={editingAgent.number}
-                    onChange={(e) => setEditingAgent({...editingAgent, number: e.target.value})}
+                    value={editingAgent.phone || ""}
+                    onChange={(e) => setEditingAgent({...editingAgent, phone: e.target.value})}
                     required
                   />
                 </div>
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="role">Role</Label>
-                  <Input
+                  <select
                     id="role"
-                    value={editingAgent.role}
+                    value={
+                      editingAgent.role
+                        ? editingAgent.role.charAt(0).toUpperCase() + editingAgent.role.slice(1).toLowerCase()
+                        : "User"
+                    }
                     onChange={(e) => setEditingAgent({...editingAgent, role: e.target.value})}
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     required
-                  />
+                  >
+                    <option value="Admin">Admin</option>
+                    <option value="User">Agent</option>
+                  </select>
                 </div>
               </div>
               <DialogFooter>
@@ -571,8 +721,8 @@ export default function AgentsPage() {
                   <Label htmlFor="add-name">Name</Label>
                   <Input
                     id="add-name"
-                    value={addingAgent.agent}
-                    onChange={(e) => setAddingAgent({...addingAgent, agent: e.target.value})}
+                    value={addingAgent.name}
+                    onChange={(e) => setAddingAgent({...addingAgent, name: e.target.value})}
                     required
                   />
                 </div>
@@ -615,20 +765,27 @@ export default function AgentsPage() {
                   <Label htmlFor="add-phone">Phone</Label>
                   <Input
                     id="add-phone"
-                    value={addingAgent.number}
-                    onChange={(e) => setAddingAgent({...addingAgent, number: e.target.value})}
+                    value={addingAgent.phone}
+                    onChange={(e) => setAddingAgent({...addingAgent, phone: e.target.value})}
                     required
                   />
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <Label htmlFor="add-role">Role</Label>
-                  <Input
+                  <select
                     id="add-role"
-                    value={addingAgent.role}
+                    value={
+                      addingAgent.role
+                        ? addingAgent.role.charAt(0).toUpperCase() + addingAgent.role.slice(1).toLowerCase()
+                        : "User"
+                    }
                     onChange={(e) => setAddingAgent({...addingAgent, role: e.target.value})}
+                    className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
                     required
-                  />
+                  >
+                    <option value="User" disabled>Agent</option>
+                  </select>
                 </div>
               </div>
               <DialogFooter>
