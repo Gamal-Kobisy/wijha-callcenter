@@ -179,6 +179,8 @@ components:
           nullable: true
         role:
           type: string
+        is_online:
+          type: boolean
 
     ProjectRef:
       type: object
@@ -949,6 +951,11 @@ paths:
           in: query
           schema:
             type: string
+        - name: online
+          in: query
+          description: Filter by online status ('true' or 'false')
+          schema:
+            type: string
       responses:
         "200":
           description: User list
@@ -1086,7 +1093,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
   /users/{userId}/deactivate:
-    delete:
+    patch:
       summary: Deactivate a user (admin only) — sets role to 'deactivated' and invalidates password
       operationId: deactivateUser
       tags: [users]

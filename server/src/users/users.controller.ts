@@ -32,7 +32,7 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles('admin')
   async findAll(@Query() query: ListUsersQueryDto): Promise<UserResponseDto[]> {
-    return this.usersService.findAll(query.role);
+    return this.usersService.findAll(query.role, query.online);
   }
 
   @Post()
@@ -66,7 +66,7 @@ export class UsersController {
     return this.usersService.update(userId, dto);
   }
 
-  @Delete(':userId/deactivate')
+  @Patch(':userId/deactivate')
   @UseGuards(RolesGuard)
   @Roles('admin')
   @HttpCode(HttpStatus.OK)

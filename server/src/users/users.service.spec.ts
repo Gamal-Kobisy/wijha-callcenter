@@ -36,26 +36,63 @@ describe('UsersService', () => {
         mockUser({ id: 1, email: 'agent', name: 'Agent' }),
         mockUser({ id: 2, email: 'admin', name: 'Admin', role: 'admin' }),
       ]);
+      prisma.activeSession.findMany.mockResolvedValue([
+        { agentId: 1, firstBeat: new Date() },
+      ]);
       const users = await service.findAll();
       expect(users).toHaveLength(2);
+      expect(users[0].is_online).toBe(true);
+      expect(users[1].is_online).toBe(false);
     });
 
     it('should filter by role', async () => {
       prisma.user.findMany.mockResolvedValue([
         mockUser({ id: 2, email: 'admin', name: 'Admin', role: 'admin' }),
       ]);
+      prisma.activeSession.findMany.mockResolvedValue([]);
       const admins = await service.findAll('admin');
       expect(admins).toHaveLength(1);
       expect(admins[0].role).toBe('admin');
+      expect(admins[0].is_online).toBe(false);
+    });
+
+    it('should filter by online=true', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        mockUser({ id: 1, email: 'agent', name: 'Agent' }),
+        mockUser({ id: 2, email: 'admin', name: 'Admin', role: 'admin' }),
+      ]);
+      prisma.activeSession.findMany.mockResolvedValue([
+        { agentId: 1, firstBeat: new Date() },
+      ]);
+      const users = await service.findAll(undefined, 'true');
+      expect(users).toHaveLength(1);
+      expect(users[0].id).toBe(1);
+      expect(users[0].is_online).toBe(true);
+    });
+
+    it('should filter by online=false', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        mockUser({ id: 1, email: 'agent', name: 'Agent' }),
+        mockUser({ id: 2, email: 'admin', name: 'Admin', role: 'admin' }),
+      ]);
+      prisma.activeSession.findMany.mockResolvedValue([
+        { agentId: 1, firstBeat: new Date() },
+      ]);
+      const users = await service.findAll(undefined, 'false');
+      expect(users).toHaveLength(1);
+      expect(users[0].id).toBe(2);
+      expect(users[0].is_online).toBe(false);
     });
   });
 
   describe('findById', () => {
     it('should return user by id', async () => {
       prisma.user.findUnique.mockResolvedValue(mockUser({ email: 'agent', name: 'Agent' }));
+      prisma.activeSession.findUnique.mockResolvedValue({ agentId: 1, firstBeat: new Date() });
       const user = await service.findById(1);
       expect(user).not.toBeNull();
       expect(user!.email).toBe('agent');
+      expect(user!.is_online).toBe(true);
     });
 
     it('should return null for non-existent id', async () => {
@@ -76,6 +113,7 @@ describe('UsersService', () => {
       });
       expect(user.id).toBe(3);
       expect(user.email).toBe('newuser@test.com');
+      expect(user.is_online).toBe(false);
     });
 
     it('should throw ConflictException for duplicate email', async () => {
@@ -108,7 +146,9 @@ describe('UsersService', () => {
 
       expect(users).toHaveLength(2);
       expect(users[0].email).toBe('alice@test.com');
+      expect(users[0].is_online).toBe(false);
       expect(users[1].email).toBe('bob@test.com');
+      expect(users[1].is_online).toBe(false);
     });
 
     it('should throw ConflictException when any email is duplicate', async () => {
@@ -146,6 +186,7 @@ describe('UsersService', () => {
       prisma.user.update.mockResolvedValue(mockUser({ email: 'agent', name: 'Updated Name' }));
       const updated = await service.update(1, { name: 'Updated Name' });
       expect(updated.name).toBe('Updated Name');
+      expect(updated.is_online).toBe(false);
     });
 
     it('should throw NotFoundException for non-existent id', async () => {
@@ -157,15 +198,16 @@ describe('UsersService', () => {
   describe('deactivate', () => {
     it('should deactivate existing user', async () => {
       prisma.user.findUnique.mockResolvedValue(mockUser());
-      prisma.user.update.mockResolvedValue(mockUser({ role: 'deleted' }));
+      prisma.user.update.mockResolvedValue(mockUser({ role: 'deactivated' }));
       const result = await service.deactivate(1);
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 1 },
-          data: { role: 'deleted', passwordHash: '!deleted!' },
+          data: { role: 'deactivated', passwordHash: '!deactivated!' },
         }),
       );
-      expect(result.role).toBe('deleted');
+      expect(result.role).toBe('deactivated');
+      expect(result.is_online).toBe(false);
     });
 
     it('should throw NotFoundException for non-existent user', async () => {

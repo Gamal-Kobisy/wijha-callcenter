@@ -19,7 +19,7 @@
 * **Before Coding**: Analyze existing code before suggesting changes.
 * **Refactoring**: Never replace existing logic without a clear explanation.
 * **Testing**: Write unit tests alongside every new feature.
-* **Commit Style**: Use Conventional Commits (`feat:`, `fix:`, `docs:`).
+* **Commit Style**: Use Conventional Commits if i requested a commit otherwise don't commit by urself (`feat:`, `fix:`, `docs:`)
 * **After Coding**: Make sure `api.yaml` is still matching the routing and types.
 
 ## 🚫 Constraints (What NOT to do)

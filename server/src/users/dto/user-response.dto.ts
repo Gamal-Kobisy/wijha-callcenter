@@ -4,4 +4,5 @@ export class UserResponseDto {
   name?: string | null;
   phone?: string | null;
   role!: string;
+  is_online!: boolean;
 }
