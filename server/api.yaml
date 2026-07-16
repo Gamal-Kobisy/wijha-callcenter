@@ -574,8 +574,8 @@ paths:
                 $ref: "#/components/schemas/Owner"
         "404":
           $ref: "#/components/responses/NotFound"
-
-    delete:
+  /owners/{ownerId}/deactivate:
+    post:
       summary: Delete an owner
       operationId: deleteOwner
       tags: [owners]
