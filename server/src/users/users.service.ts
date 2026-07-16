@@ -89,7 +89,7 @@ export class UsersService {
 
     const user = await this.prisma.user.update({
       where: { id },
-      data: { role: 'deleted', passwordHash: '!deleted!' },
+      data: { role: 'deactivated', passwordHash: '!deactivated!' },
       omit: { passwordHash: true },
     });
     return user as unknown as UserResponseDto;

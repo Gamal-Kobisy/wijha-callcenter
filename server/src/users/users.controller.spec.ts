@@ -126,9 +126,9 @@ describe('UsersController', () => {
   describe('DELETE /users/:userId', () => {
     it('should deactivate user', async () => {
       prisma.user.findUnique.mockResolvedValue(mockUser());
-      prisma.user.update.mockResolvedValue(mockUser({ role: 'deleted' }));
+      prisma.user.update.mockResolvedValue(mockUser({ role: 'deactivated' }));
       const result = await controller.remove(1);
-      expect(result.role).toBe('deleted');
+      expect(result.role).toBe('deactivated');
     });
   });
 

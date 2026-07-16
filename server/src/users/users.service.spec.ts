@@ -157,15 +157,15 @@ describe('UsersService', () => {
   describe('deactivate', () => {
     it('should deactivate existing user', async () => {
       prisma.user.findUnique.mockResolvedValue(mockUser());
-      prisma.user.update.mockResolvedValue(mockUser({ role: 'deleted' }));
+      prisma.user.update.mockResolvedValue(mockUser({ role: 'deactivated' }));
       const result = await service.deactivate(1);
       expect(prisma.user.update).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: 1 },
-          data: { role: 'deleted', passwordHash: '!deleted!' },
+          data: { role: 'deactivated', passwordHash: '!deactivated!' },
         }),
       );
-      expect(result.role).toBe('deleted');
+      expect(result.role).toBe('deactivated');
     });
 
     it('should throw NotFoundException for non-existent user', async () => {
