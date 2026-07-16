@@ -1,13 +1,4 @@
 -- ============================================================
--- Enum: user_role
--- ============================================================
-DO $$ BEGIN
-    CREATE TYPE "user_role" AS ENUM ('admin', 'user');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- ============================================================
 -- Table: project
 -- ============================================================
 CREATE TABLE IF NOT EXISTS "project" (
@@ -25,7 +16,7 @@ CREATE TABLE IF NOT EXISTS "user" (
     "phone_number"  VARCHAR(20),
     "password_hash" VARCHAR(255) NOT NULL,
     "name"          VARCHAR(50),
-    "role"          "user_role"  NOT NULL,
+    "role"          VARCHAR(50)  NOT NULL,
     "otp"           VARCHAR(6),
     "otp_expiry"    TIMESTAMP,
     "jwt_token"     TEXT
@@ -89,16 +80,29 @@ CREATE TABLE IF NOT EXISTS "call_detail_record" (
 );
 
 -- ============================================================
--- Table: user_log
+-- Table: user_session
 -- ============================================================
-CREATE TABLE IF NOT EXISTS "user_log" (
-    "id"         BIGSERIAL PRIMARY KEY,
-    "agent_id"   INTEGER,
-    "start_time" TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "duration"   INTEGER,
-    "is_active"  BOOLEAN,
-    CONSTRAINT "user_log_agent_id_fkey" FOREIGN KEY ("agent_id")
+CREATE TABLE IF NOT EXISTS "user_session" (
+    "agent_id"   INTEGER   NOT NULL,
+    "first_beat" TIMESTAMP NOT NULL,
+    "last_beat"  TIMESTAMP NOT NULL,
+    "duration"   INTEGER   NOT NULL DEFAULT 0,
+    PRIMARY KEY ("agent_id", "first_beat"),
+    CONSTRAINT "user_session_agent_id_fkey" FOREIGN KEY ("agent_id")
         REFERENCES "user" ("id")
+);
+
+-- ============================================================
+-- Table: active_session
+-- ============================================================
+CREATE TABLE IF NOT EXISTS "active_session" (
+    "agent_id"   INTEGER   NOT NULL,
+    "first_beat" TIMESTAMP NOT NULL,
+    PRIMARY KEY ("agent_id"),
+    CONSTRAINT "active_session_agent_id_fkey" FOREIGN KEY ("agent_id")
+        REFERENCES "user" ("id"),
+    CONSTRAINT "active_session_fk" FOREIGN KEY ("agent_id", "first_beat")
+        REFERENCES "user_session" ("agent_id", "first_beat") ON DELETE CASCADE
 );
 
 -- ============================================================

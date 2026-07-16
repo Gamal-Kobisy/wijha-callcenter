@@ -2,19 +2,23 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { UsersService } from './users.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { mockUser, mockCallRecord, mockSession } from '@/prisma/mock-data';
+import { SessionsService } from '@/sessions/sessions.service';
+import { mockUser, mockCallRecord } from '@/prisma/mock-data';
 
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: DeepMockProxy<PrismaService>;
+  let sessionsService: DeepMockProxy<SessionsService>;
 
   beforeEach(async () => {
     prisma = mockDeep<PrismaService>();
+    sessionsService = mockDeep<SessionsService>();
     prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
         { provide: PrismaService, useValue: prisma },
+        { provide: SessionsService, useValue: sessionsService },
       ],
     }).compile();
 
@@ -150,18 +154,23 @@ describe('UsersService', () => {
     });
   });
 
-  describe('delete', () => {
-    it('should delete existing user', async () => {
-      prisma.user.delete.mockResolvedValue(mockUser());
-      expect(await service.delete(1)).toBe(true);
+  describe('deactivate', () => {
+    it('should deactivate existing user', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser());
+      prisma.user.update.mockResolvedValue(mockUser({ role: 'deactivated' }));
+      const result = await service.deactivate(1);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { role: 'deactivated', passwordHash: '!deactivated!' },
+        }),
+      );
+      expect(result.role).toBe('deactivated');
     });
 
-    it('should return false for non-existent user', async () => {
-      const prismaError = new (require('@prisma/client').Prisma.PrismaClientKnownRequestError)(
-        'Record not found', { code: 'P2025', clientVersion: '7.8.0' },
-      );
-      prisma.user.delete.mockRejectedValue(prismaError);
-      expect(await service.delete(999)).toBe(false);
+    it('should throw NotFoundException for non-existent user', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.deactivate(999)).rejects.toThrow('User not found');
     });
   });
 
@@ -172,8 +181,14 @@ describe('UsersService', () => {
         mockCallRecord({ status: 'completed', duration: 120 }),
         mockCallRecord({ id: 2n, status: 'no_answer', duration: null }),
       ]);
-      prisma.userLog.findMany.mockResolvedValue([
-        mockSession({ duration: 3600 }),
+      sessionsService.findAll.mockResolvedValue([
+        {
+          agent_id: 1,
+          first_beat: '2024-06-01T09:00:00.000Z',
+          last_beat: '2024-06-01T10:00:00.000Z',
+          is_active: false,
+          duration: 3600,
+        },
       ]);
 
       const stats = await service.getStats(1);
