@@ -7,13 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRole {
-  admin
-  user
-
-  @@map("user_role")
-}
-
 model Project {
   id        Int     @id @default(autoincrement())
   name      String  @db.VarChar(100) @unique
@@ -31,27 +24,38 @@ model User {
   passwordHash String   @map("password_hash") @db.VarChar(255)
   phoneNumber  String?  @unique @map("phone_number") @db.VarChar(20)
   name         String?  @db.VarChar(50)
-  role         UserRole
+  role         String  @db.VarChar(50)
   otp          String?  @db.VarChar(6)
   otpExpiry    DateTime? @map("otp_expiry")
   jwtToken     String?  @map("jwt_token") @db.Text
 
-  userLogs          UserLog[]
+  userSessions      UserSession[]
   callDetailRecords CallDetailRecord[]
 
   @@map("user")
 }
 
-model UserLog {
-  id        BigInt   @id @default(autoincrement())
-  agentId   Int?     @map("agent_id")
-  startTime DateTime @default(now()) @map("start_time")
-  duration  Int?
-  isActive  Boolean? @map("is_active")
+model UserSession {
+  agentId   Int      @map("agent_id")
+  firstBeat DateTime @map("first_beat")
+  lastBeat  DateTime @map("last_beat")
+  duration  Int      @default(0) @map("duration")
 
-  agent User? @relation(fields: [agentId], references: [id])
+  agent          User             @relation(fields: [agentId], references: [id])
+  activeSessions ActiveSession[]
 
-  @@map("user_log")
+  @@id([agentId, firstBeat])
+  @@map("user_session")
+}
+
+model ActiveSession {
+  agentId   Int      @map("agent_id")
+  firstBeat DateTime @map("first_beat")
+
+  session UserSession @relation(fields: [agentId, firstBeat], references: [agentId, firstBeat], onDelete: Cascade)
+
+  @@id([agentId])
+  @@map("active_session")
 }
 
 model Owner {

@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsNumberString, IsDateString } from 'class-validator';
+import { IsOptional, IsString, IsNumberString, IsDateString, IsNumber } from 'class-validator';
+import { Type } from 'class-transformer';
 
 export class ListCallsQueryDto {
   @IsOptional()
@@ -26,6 +27,12 @@ export class ListCallsQueryDto {
   to?: Date;
 
   @IsOptional()
-  @IsNumberString()
-  limit?: string;
+  @Type(() => Number)
+  @IsNumber()
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  limit?: number;
 }

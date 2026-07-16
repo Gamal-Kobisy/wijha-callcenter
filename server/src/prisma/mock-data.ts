@@ -1,12 +1,10 @@
-import { $Enums } from '@prisma/client';
-
 export function mockUser(overrides?: Partial<{
   id: number;
   email: string;
   phoneNumber: string;
   passwordHash: string;
   name: string | null;
-  role: $Enums.UserRole;
+  role: string;
   otp: string | null;
   otpExpiry: Date | null;
   jwtToken: string | null;
@@ -17,7 +15,7 @@ export function mockUser(overrides?: Partial<{
     phoneNumber: '',
     passwordHash: '$2b$10$mockhash',
     name: 'Test User',
-    role: 'user' as $Enums.UserRole,
+    role: 'user',
     otp: null,
     otpExpiry: null,
     jwtToken: null,
@@ -107,19 +105,17 @@ export function mockProject(overrides?: Partial<{
   };
 }
 
-export function mockSession(overrides?: Partial<{
-  id: bigint;
-  agentId: number | null;
-  startTime: Date;
-  duration: number | null;
-  isActive: boolean | null;
+export function mockUserSession(overrides?: Partial<{
+  agentId: number;
+  firstBeat: Date;
+  lastBeat: Date;
+  duration: number;
 }>) {
   return {
-    id: 1n,
     agentId: 1,
-    startTime: new Date('2024-01-15T09:00:00Z'),
-    duration: 14400,
-    isActive: false,
+    firstBeat: new Date('2024-06-01T09:00:00Z'),
+    lastBeat: new Date('2024-06-01T09:30:00Z'),
+    duration: 1800,
     ...overrides,
   };
 }

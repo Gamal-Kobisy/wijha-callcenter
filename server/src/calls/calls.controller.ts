@@ -22,6 +22,7 @@ import type { StatusCountDto } from './dto/status-count.dto';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 import { CurrentUser } from '@/common/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@/common/interfaces/authenticated-user.interface';
+import { DEFAULT_PAGE_LIMIT } from './config';
 
 @Controller('calls')
 @UseGuards(JwtAuthGuard)
@@ -35,7 +36,7 @@ export class CallsController {
   }> {
     const ownerId = query.owner_id ? Number(query.owner_id) : undefined;
     const agentId = query.agent_id ? Number(query.agent_id) : undefined;
-    const limit = query.limit ? Number(query.limit) : 50;
+    const projectId = query.project_id ? Number(query.project_id) : undefined;
     const from = query.from ? new Date(query.from) : undefined;
     const to = query.to ? new Date(query.to) : undefined;
 
@@ -43,9 +44,11 @@ export class CallsController {
       owner_id: ownerId,
       agent_id: agentId,
       status: query.status,
-      limit,
+      page: query.page ?? 1,
+      limit: query.limit ?? DEFAULT_PAGE_LIMIT,
       from,
       to,
+      project_id: projectId,
     });
   }
 

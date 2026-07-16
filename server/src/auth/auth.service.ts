@@ -25,6 +25,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email or password');
     }
 
+    if (user.role === 'deleted') {
+      throw new UnauthorizedException('Deleted account cannot log in (please contact support)');
+    }
+
     const payload = { id: user.id, email: user.email, role: user.role };
     const token = this.jwtService.sign(payload);
     await this.prisma.user.update({

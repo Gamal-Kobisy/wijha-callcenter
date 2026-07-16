@@ -1,7 +1,7 @@
 export class SessionResponseDto {
-  id!: number;
   agent_id!: number;
-  start_time!: string;
-  duration?: number | null;
+  first_beat!: string;
+  last_beat!: string;
   is_active!: boolean;
+  duration!: number;
 }

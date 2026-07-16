@@ -15,7 +15,11 @@ const recordWithOwner = (overrides: Record<string, unknown> = {}) => ({
   time: new Date('2024-06-01T12:00:00Z'),
   duration: 60,
   agentNotes: null,
-  owner: { id: 1n, name: 'John Doe', number: { number: '555-0100' } },
+  owner: {
+    id: 1n,
+    name: 'John Doe',
+    ownerProjects: [{ project: { id: 1, name: 'Default Project' } }],
+  },
   ...overrides,
 });
 
@@ -28,8 +32,8 @@ describe('CallsController', () => {
 
     prisma.callDetailRecord.findMany.mockResolvedValue([
       recordWithOwner(),
-      recordWithOwner({ id: 2n, ownerId: 2n, status: 'completed', duration: null, owner: { id: 2n, name: 'Jane Smith', number: { number: '555-0200' } } }),
-      recordWithOwner({ id: 3n, ownerId: 3n, status: 'pending', duration: null, owner: { id: 3n, name: 'Bob Wilson', number: { number: '555-0300' } } }),
+      recordWithOwner({ id: 2n, ownerId: 2n, status: 'completed', duration: null, owner: { id: 2n, name: 'Jane Smith', ownerProjects: [{ project: { id: 2, name: 'Other Project' } }] } }),
+      recordWithOwner({ id: 3n, ownerId: 3n, status: 'pending', duration: null, owner: { id: 3n, name: 'Bob Wilson', ownerProjects: [] } }),
     ]);
     prisma.callDetailRecord.count.mockResolvedValue(3);
     prisma.callDetailRecord.findUnique.mockResolvedValue(recordWithOwner());
@@ -103,8 +107,8 @@ describe('CallsController', () => {
   describe('GET /calls/next', () => {
     it('should return next owner with past calls', async () => {
       prisma.callDetailRecord.findMany.mockResolvedValue([
-        mockCallRecord({ id: 1n, ownerId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z') }),
-        mockCallRecord({ id: 2n, ownerId: 1n, status: 'no_answer', time: new Date('2024-05-02T14:00:00Z') }),
+        mockCallRecord({ id: 1n, ownerId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z'), owner: { ownerProjects: [{ project: { id: 1, name: 'Default Project' } }] } }),
+        mockCallRecord({ id: 2n, ownerId: 1n, status: 'no_answer', time: new Date('2024-05-02T14:00:00Z'), owner: { ownerProjects: [{ project: { id: 1, name: 'Default Project' } }] } }),
       ]);
 
       const result = await controller.getNext({ project_id: '1' });

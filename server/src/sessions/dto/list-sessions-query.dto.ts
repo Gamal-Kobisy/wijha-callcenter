@@ -1,6 +1,10 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsNumberString } from 'class-validator';
 
 export class ListSessionsQueryDto {
+  @IsOptional()
+  @IsNumberString()
+  user_id?: string;
+
   @IsOptional()
   @IsString()
   from?: string;
@@ -8,4 +12,8 @@ export class ListSessionsQueryDto {
   @IsOptional()
   @IsString()
   to?: string;
+
+  @IsOptional()
+  @IsString()
+  time?: string;
 }

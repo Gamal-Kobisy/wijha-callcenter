@@ -1,10 +1,9 @@
-import { IsDateString, IsOptional, IsNumber } from 'class-validator';
+import { IsDateString } from 'class-validator';
 
 export class CreateSessionDto {
   @IsDateString()
-  start_time!: string;
+  first_beat!: string;
 
-  @IsOptional()
-  @IsNumber()
-  duration?: number;
+  @IsDateString()
+  last_beat!: string;
 }

@@ -1,3 +1,8 @@
+export class ProjectRef {
+  id!: number;
+  name!: string;
+}
+
 export class CallResponseDto {
   id!: number;
   owner_id!: number;
@@ -6,4 +11,5 @@ export class CallResponseDto {
   time!: string;
   duration?: number | null;
   agent_notes?: string | null;
+  projects!: ProjectRef[];
 }

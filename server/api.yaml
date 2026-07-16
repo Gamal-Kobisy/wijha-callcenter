@@ -32,10 +32,6 @@ components:
       type: string
       enum: [answered, no_answer, busy, failed, callback, not_interested]
 
-    UserRole:
-      type: string
-      enum: [admin, user]
-
     OwnerStatus:
       type: string
       enum: [active, inactive]
@@ -165,7 +161,7 @@ components:
               phone:
                 type: string
               role:
-                $ref: "#/components/schemas/UserRole"
+                type: string
 
     User:
       type: object
@@ -182,7 +178,16 @@ components:
           type: string
           nullable: true
         role:
-          $ref: "#/components/schemas/UserRole"
+          type: string
+
+    ProjectRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
 
     CallDetailRecord:
       type: object
@@ -208,6 +213,10 @@ components:
         agent_notes:
           type: string
           nullable: true
+        projects:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProjectRef"
 
     NextOwnerResponse:
       type: object
@@ -222,21 +231,20 @@ components:
 
     SessionResponse:
       type: object
-      required: [id, agent_id, start_time, is_active]
+      required: [agent_id, first_beat, last_beat, is_active, duration]
       properties:
-        id:
-          type: integer
-          format: int64
         agent_id:
           type: integer
-        start_time:
+        first_beat:
           type: string
           format: date-time
-        duration:
-          type: integer
-          nullable: true
+        last_beat:
+          type: string
+          format: date-time
         is_active:
           type: boolean
+        duration:
+          type: integer
 
     PaginatedOwners:
       type: object
@@ -363,7 +371,7 @@ paths:
                 phone:
                   type: string
                 role:
-                  $ref: "#/components/schemas/UserRole"
+                  type: string
       responses:
         "201":
           description: User created and logged in
@@ -579,8 +587,8 @@ paths:
                 $ref: "#/components/schemas/Owner"
         "404":
           $ref: "#/components/responses/NotFound"
-
-    delete:
+  /owners/{ownerId}/deactivate:
+    post:
       summary: Delete an owner
       operationId: deleteOwner
       tags: [owners]
@@ -679,6 +687,11 @@ paths:
           schema:
             type: string
             format: date-time
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
         - name: limit
           in: query
           schema:
@@ -846,23 +859,36 @@ paths:
 
   /sessions:
     get:
-      summary: List session logs for the current agent
+      summary: List sessions. Regular users see only their own; admins can filter.
       operationId: listSessions
       tags: [sessions]
       parameters:
+        - name: user_id
+          in: query
+          description: Filter by user ID (admin only)
+          schema:
+            type: integer
         - name: from
           in: query
+          description: Filter by first_beat >= from
           schema:
             type: string
             format: date-time
         - name: to
           in: query
+          description: Filter by first_beat <= to
+          schema:
+            type: string
+            format: date-time
+        - name: time
+          in: query
+          description: Find sessions covering this exact time (first_beat <= time <= last_beat)
           schema:
             type: string
             format: date-time
       responses:
         "200":
-          description: Session log entries
+          description: Session list
           content:
             application/json:
               schema:
@@ -872,26 +898,26 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
     post:
-      summary: Save a new session log entry
-      operationId: saveSession
+      summary: Record a session (manual, with overlap merge)
+      operationId: createSession
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [start_time]
+              required: [first_beat, last_beat]
               properties:
-                start_time:
+                first_beat:
                   type: string
                   format: date-time
-                duration:
-                  type: integer
-                  description: Duration in seconds
+                last_beat:
+                  type: string
+                  format: date-time
       tags: [sessions]
       responses:
         "201":
-          description: Session started
+          description: Session created or merged
           content:
             application/json:
               schema:
@@ -901,14 +927,16 @@ paths:
 
   /sessions/active:
     post:
-      summary: Sends a heartbeat to keep the current session active
-      operationId: sessionActive
+      summary: Heartbeat — create or extend the current session
+      operationId: sessionHeartbeat
       tags: [sessions]
       responses:
         "200":
-          description: Active session
-        "204":
-          description: No active session
+          description: Session heartbeat accepted (created or extended)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SessionResponse"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
@@ -921,7 +949,7 @@ paths:
         - name: role
           in: query
           schema:
-            $ref: "#/components/schemas/UserRole"
+            type: string
       responses:
         "200":
           description: User list
@@ -955,7 +983,7 @@ paths:
                 phone:
                   type: string
                 role:
-                  $ref: "#/components/schemas/UserRole"
+                  type: string
       responses:
         "201":
           description: User created
@@ -1046,7 +1074,7 @@ paths:
                 phone:
                   type: string
                 role:
-                  $ref: "#/components/schemas/UserRole"
+                  type: string
       responses:
         "200":
           description: Updated user profile
@@ -1059,7 +1087,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
     delete:
-      summary: Delete a user (admin only)
+      summary: Deactivate a user (admin only) — sets role to 'deactivated' and invalidates password
       operationId: deleteUser
       tags: [users]
       parameters:
@@ -1069,8 +1097,12 @@ paths:
           schema:
             type: integer
       responses:
-        "204":
-          description: User deleted
+        "200":
+          description: User deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
         "404":
           $ref: "#/components/responses/NotFound"
 

@@ -7,9 +7,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
-  Res,
 } from '@nestjs/common';
-import type { Response } from 'express';
 import { SessionsService } from './sessions.service';
 import { CreateSessionDto } from './dto/create-session.dto';
 import { ListSessionsQueryDto } from './dto/list-sessions-query.dto';
@@ -24,8 +22,11 @@ export class SessionsController {
   constructor(private sessionsService: SessionsService) {}
 
   @Get()
-  async findAll(@Query() query: ListSessionsQueryDto): Promise<SessionResponseDto[]> {
-    return this.sessionsService.findAll(query.from, query.to);
+  async findAll(
+    @Query() query: ListSessionsQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<SessionResponseDto[]> {
+    return this.sessionsService.findAll(query, user);
   }
 
   @Post()
@@ -38,12 +39,8 @@ export class SessionsController {
   }
 
   @Post('active')
-  async active(@Res() res: Response): Promise<void> {
-    const active = await this.sessionsService.getActiveSession();
-    if (!active) {
-      res.status(HttpStatus.NO_CONTENT).send();
-      return;
-    }
-    res.status(HttpStatus.OK).send();
+  @HttpCode(HttpStatus.OK)
+  async active(@CurrentUser() user: AuthenticatedUser): Promise<SessionResponseDto> {
+    return this.sessionsService.beat(user.id);
   }
 }
