@@ -32,10 +32,6 @@ components:
       type: string
       enum: [answered, no_answer, busy, failed, callback, not_interested]
 
-    UserRole:
-      type: string
-      enum: [admin, user]
-
     OwnerStatus:
       type: string
       enum: [active, inactive]
@@ -165,7 +161,7 @@ components:
               phone:
                 type: string
               role:
-                $ref: "#/components/schemas/UserRole"
+                type: string
 
     User:
       type: object
@@ -182,7 +178,7 @@ components:
           type: string
           nullable: true
         role:
-          $ref: "#/components/schemas/UserRole"
+          type: string
 
     CallDetailRecord:
       type: object
@@ -362,7 +358,7 @@ paths:
                 phone:
                   type: string
                 role:
-                  $ref: "#/components/schemas/UserRole"
+                  type: string
       responses:
         "201":
           description: User created and logged in
@@ -935,7 +931,7 @@ paths:
         - name: role
           in: query
           schema:
-            $ref: "#/components/schemas/UserRole"
+            type: string
       responses:
         "200":
           description: User list
@@ -969,7 +965,7 @@ paths:
                 phone:
                   type: string
                 role:
-                  $ref: "#/components/schemas/UserRole"
+                  type: string
       responses:
         "201":
           description: User created
@@ -1060,7 +1056,7 @@ paths:
                 phone:
                   type: string
                 role:
-                  $ref: "#/components/schemas/UserRole"
+                  type: string
       responses:
         "200":
           description: Updated user profile
@@ -1073,7 +1069,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
     delete:
-      summary: Delete a user (admin only)
+      summary: Deactivate a user (admin only) — sets role to 'deleted' and invalidates password
       operationId: deleteUser
       tags: [users]
       parameters:
@@ -1083,8 +1079,12 @@ paths:
           schema:
             type: integer
       responses:
-        "204":
-          description: User deleted
+        "200":
+          description: User deactivated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
         "404":
           $ref: "#/components/responses/NotFound"
 

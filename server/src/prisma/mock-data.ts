@@ -1,12 +1,10 @@
-import { $Enums } from '@prisma/client';
-
 export function mockUser(overrides?: Partial<{
   id: number;
   email: string;
   phoneNumber: string;
   passwordHash: string;
   name: string | null;
-  role: $Enums.UserRole;
+  role: string;
   otp: string | null;
   otpExpiry: Date | null;
   jwtToken: string | null;
@@ -17,7 +15,7 @@ export function mockUser(overrides?: Partial<{
     phoneNumber: '',
     passwordHash: '$2b$10$mockhash',
     name: 'Test User',
-    role: 'user' as $Enums.UserRole,
+    role: 'user',
     otp: null,
     otpExpiry: null,
     jwtToken: null,

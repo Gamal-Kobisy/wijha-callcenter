@@ -154,18 +154,23 @@ describe('UsersService', () => {
     });
   });
 
-  describe('delete', () => {
-    it('should delete existing user', async () => {
-      prisma.user.delete.mockResolvedValue(mockUser());
-      expect(await service.delete(1)).toBe(true);
+  describe('deactivate', () => {
+    it('should deactivate existing user', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser());
+      prisma.user.update.mockResolvedValue(mockUser({ role: 'deleted' }));
+      const result = await service.deactivate(1);
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1 },
+          data: { role: 'deleted', passwordHash: '!deleted!' },
+        }),
+      );
+      expect(result.role).toBe('deleted');
     });
 
-    it('should return false for non-existent user', async () => {
-      const prismaError = new (require('@prisma/client').Prisma.PrismaClientKnownRequestError)(
-        'Record not found', { code: 'P2025', clientVersion: '7.8.0' },
-      );
-      prisma.user.delete.mockRejectedValue(prismaError);
-      expect(await service.delete(999)).toBe(false);
+    it('should throw NotFoundException for non-existent user', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.deactivate(999)).rejects.toThrow('User not found');
     });
   });
 

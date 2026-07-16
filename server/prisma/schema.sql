@@ -1,13 +1,4 @@
 -- ============================================================
--- Enum: user_role
--- ============================================================
-DO $$ BEGIN
-    CREATE TYPE "user_role" AS ENUM ('admin', 'user');
-EXCEPTION
-    WHEN duplicate_object THEN null;
-END $$;
-
--- ============================================================
 -- Table: project
 -- ============================================================
 CREATE TABLE IF NOT EXISTS "project" (
@@ -25,7 +16,7 @@ CREATE TABLE IF NOT EXISTS "user" (
     "phone_number"  VARCHAR(20),
     "password_hash" VARCHAR(255) NOT NULL,
     "name"          VARCHAR(50),
-    "role"          "user_role"  NOT NULL,
+    "role"          VARCHAR(50)  NOT NULL,
     "otp"           VARCHAR(6),
     "otp_expiry"    TIMESTAMP,
     "jwt_token"     TEXT

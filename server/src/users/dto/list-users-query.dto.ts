@@ -1,7 +1,7 @@
-import { IsOptional, IsEnum } from 'class-validator';
+import { IsOptional, IsString } from 'class-validator';
 
 export class ListUsersQueryDto {
   @IsOptional()
-  @IsEnum(['admin', 'user'] as const)
-  role?: 'admin' | 'user';
+  @IsString()
+  role?: string;
 }

@@ -26,7 +26,6 @@ describe('UsersController', () => {
     );
     prisma.user.create.mockResolvedValue(mockUser({ id: 3, email: 'test@test.com', name: 'Test', phoneNumber: '555-0000' }));
     prisma.user.update.mockResolvedValue(mockUser({ id: 1, email: 'agent', name: 'Updated' }));
-    prisma.user.delete.mockResolvedValue(mockUser({ id: 1, email: 'agent', name: 'Deleted' }));
     prisma.callDetailRecord.count.mockResolvedValue(0);
     prisma.callDetailRecord.findMany.mockResolvedValue([]);
 
@@ -125,8 +124,11 @@ describe('UsersController', () => {
   });
 
   describe('DELETE /users/:userId', () => {
-    it('should delete user', async () => {
-      await expect(controller.remove(1)).resolves.toBeUndefined();
+    it('should deactivate user', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser());
+      prisma.user.update.mockResolvedValue(mockUser({ role: 'deleted' }));
+      const result = await controller.remove(1);
+      expect(result.role).toBe('deleted');
     });
   });
 

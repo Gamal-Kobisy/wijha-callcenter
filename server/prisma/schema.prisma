@@ -7,13 +7,6 @@ datasource db {
   provider = "postgresql"
 }
 
-enum UserRole {
-  admin
-  user
-
-  @@map("user_role")
-}
-
 model Project {
   id        Int     @id @default(autoincrement())
   name      String  @db.VarChar(100) @unique
@@ -31,7 +24,7 @@ model User {
   passwordHash String   @map("password_hash") @db.VarChar(255)
   phoneNumber  String?  @unique @map("phone_number") @db.VarChar(20)
   name         String?  @db.VarChar(50)
-  role         UserRole
+  role         String  @db.VarChar(50)
   otp          String?  @db.VarChar(6)
   otpExpiry    DateTime? @map("otp_expiry")
   jwtToken     String?  @map("jwt_token") @db.Text

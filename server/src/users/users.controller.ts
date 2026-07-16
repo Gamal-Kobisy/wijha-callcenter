@@ -69,9 +69,9 @@ export class UsersController {
   @Delete(':userId')
   @UseGuards(RolesGuard)
   @Roles('admin')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('userId', ParseIntPipe) userId: number): Promise<void> {
-    await this.usersService.delete(userId);
+  @HttpCode(HttpStatus.OK)
+  async remove(@Param('userId', ParseIntPipe) userId: number): Promise<UserResponseDto> {
+    return this.usersService.deactivate(userId);
   }
 
   @Get(':userId/stats')

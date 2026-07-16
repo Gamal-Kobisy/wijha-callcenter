@@ -13,7 +13,7 @@ import { SessionsService } from '@/sessions/sessions.service';
 export class UsersService {
   constructor(private prisma: PrismaService, private sessionService: SessionsService) {}
 
-  async findAll(role?: 'admin' | 'user'): Promise<UserResponseDto[]> {
+  async findAll(role?: string): Promise<UserResponseDto[]> {
     return this.prisma.user.findMany({
       where: role ? { role } : undefined,
       omit: { passwordHash: true },
@@ -81,16 +81,18 @@ export class UsersService {
     }
   }
 
-  async delete(id: number): Promise<boolean> {
-    try {
-      await this.prisma.user.delete({ where: { id } });
-      return true;
-    } catch (err) {
-      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
-        return false;
-      }
-      throw err;
+  async deactivate(id: number): Promise<UserResponseDto> {
+    const existing = await this.prisma.user.findUnique({ where: { id } });
+    if (!existing) {
+      throw new NotFoundException('User not found');
     }
+
+    const user = await this.prisma.user.update({
+      where: { id },
+      data: { role: 'deleted', passwordHash: '!deleted!' },
+      omit: { passwordHash: true },
+    });
+    return user as unknown as UserResponseDto;
   }
 
   async createBulk(dtos: CreateUserDto[]): Promise<UserResponseDto[]> {
