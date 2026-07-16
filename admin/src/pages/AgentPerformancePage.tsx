@@ -880,14 +880,14 @@ export default function AgentPerformancePage() {
                   <span
                     className="h-2.5 w-2.5 rounded-full shrink-0"
                     style={{
-                      backgroundColor: Agent.isOnline
+                      backgroundColor: Agent.is_online
                         ? chartPalette.emerald
                         : "#cbd5e1",
-                      boxShadow: Agent.isOnline
+                      boxShadow: Agent.is_online
                         ? `0 0 6px ${hexToRgba(chartPalette.emerald, 0.6)}`
                         : "none",
                     }}
-                    title={Agent.isOnline ? "Online" : "Offline"}
+                    title={Agent.is_online ? "Online" : "Offline"}
                   />
                 </div>
 
