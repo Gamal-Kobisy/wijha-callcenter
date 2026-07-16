@@ -32,7 +32,7 @@ export class UsersController {
   @UseGuards(RolesGuard)
   @Roles('admin')
   async findAll(@Query() query: ListUsersQueryDto): Promise<UserResponseDto[]> {
-    return this.usersService.findAll(query.role);
+    return this.usersService.findAll(query.role, query.online);
   }
 
   @Post()

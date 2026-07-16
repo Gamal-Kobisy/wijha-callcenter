@@ -179,6 +179,8 @@ components:
           nullable: true
         role:
           type: string
+        is_online:
+          type: boolean
 
     ProjectRef:
       type: object
@@ -947,6 +949,11 @@ paths:
       parameters:
         - name: role
           in: query
+          schema:
+            type: string
+        - name: online
+          in: query
+          description: Filter by online status ('true' or 'false')
           schema:
             type: string
       responses:

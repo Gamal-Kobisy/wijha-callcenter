@@ -13,11 +13,34 @@ import { SessionsService } from '@/sessions/sessions.service';
 export class UsersService {
   constructor(private prisma: PrismaService, private sessionService: SessionsService) {}
 
-  async findAll(role?: string): Promise<UserResponseDto[]> {
-    return this.prisma.user.findMany({
+  async findAll(role?: string, online?: string): Promise<UserResponseDto[]> {
+    const users = await this.prisma.user.findMany({
       where: role ? { role } : undefined,
       omit: { passwordHash: true },
-    }) as unknown as UserResponseDto[];
+    }) as unknown as (UserResponseDto & { id: number })[];
+
+    const agentIds = users.map(u => u.id);
+    let activeAgentIds: number[] = [];
+    if (agentIds.length > 0) {
+      const activeSessions = await this.prisma.activeSession.findMany({
+        where: { agentId: { in: agentIds } },
+        select: { agentId: true },
+      });
+      activeAgentIds = activeSessions.map(a => a.agentId);
+    }
+
+    let filtered = users.map(u => ({
+      ...u,
+      is_online: activeAgentIds.includes(u.id),
+    }));
+
+    if (online === 'true') {
+      filtered = filtered.filter(u => u.is_online);
+    } else if (online === 'false') {
+      filtered = filtered.filter(u => !u.is_online);
+    }
+
+    return filtered;
   }
 
   async findById(id: number): Promise<UserResponseDto | null> {
@@ -25,7 +48,16 @@ export class UsersService {
       where: { id },
       omit: { passwordHash: true },
     });
-    return user as unknown as UserResponseDto | null;
+    if (!user) return null;
+
+    const activeSession = await this.prisma.activeSession.findUnique({
+      where: { agentId: id },
+    });
+
+    return {
+      ...(user as unknown as UserResponseDto),
+      is_online: !!activeSession,
+    } as UserResponseDto;
   }
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
@@ -41,7 +73,7 @@ export class UsersService {
         },
         omit: { passwordHash: true },
       });
-      return user as unknown as UserResponseDto;
+      return { ...(user as unknown as UserResponseDto), is_online: false };
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException('Email already exists');
@@ -72,7 +104,7 @@ export class UsersService {
         },
         omit: { passwordHash: true },
       });
-      return user as unknown as UserResponseDto;
+      return { ...(user as unknown as UserResponseDto), is_online: false };
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException('Email already exists');
@@ -89,10 +121,10 @@ export class UsersService {
 
     const user = await this.prisma.user.update({
       where: { id },
-      data: { role: 'deleted', passwordHash: '!deleted!' },
+      data: { role: 'deactivated', passwordHash: '!deactivated!' },
       omit: { passwordHash: true },
     });
-    return user as unknown as UserResponseDto;
+    return { ...(user as unknown as UserResponseDto), is_online: false };
   }
 
   async createBulk(dtos: CreateUserDto[]): Promise<UserResponseDto[]> {
@@ -123,7 +155,7 @@ export class UsersService {
           },
           omit: { passwordHash: true },
         });
-        users.push(user as unknown as UserResponseDto);
+        users.push({ ...(user as unknown as UserResponseDto), is_online: false });
       }
 
       return users;
