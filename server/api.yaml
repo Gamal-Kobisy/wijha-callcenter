@@ -1087,7 +1087,7 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
     delete:
-      summary: Deactivate a user (admin only) — sets role to 'deactivated' and invalidates password
+      summary: Deactivate a user (admin only) — sets role to 'deleted' and invalidates password
       operationId: deleteUser
       tags: [users]
       parameters:
