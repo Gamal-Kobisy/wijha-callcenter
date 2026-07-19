@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { CreateOwnerDto } from './dto/create-owner.dto';
 import type { UpdateOwnerDto } from './dto/update-owner.dto';
@@ -189,11 +190,12 @@ export class OwnersService {
 
   async getNextOwner(args?: { projectId?: number, date?: Date}): Promise<OwnerResponseDto | null> {
     const { projectId } = args || {};
+    const where: Prisma.OwnerWhereInput = { status: 'active' };
+    if (projectId !== undefined) {
+      where.ownerProjects = { some: { projectId } };
+    }
     const owners = await this.prisma.owner.findMany({
-      where: {
-        status: 'active',
-        ownerProjects: { some: { projectId } },
-      },
+      where,
       orderBy: {
         attemptCount: 'asc',
         lastDialedAt: 'asc',
