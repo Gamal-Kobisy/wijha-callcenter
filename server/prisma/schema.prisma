@@ -28,6 +28,7 @@ model User {
   otp          String?  @db.VarChar(6)
   otpExpiry    DateTime? @map("otp_expiry")
   jwtToken     String?  @map("jwt_token") @db.Text
+  profileImage String?  @map("profile_image") @db.VarChar(255)
 
   userSessions      UserSession[]
   callDetailRecords CallDetailRecord[]

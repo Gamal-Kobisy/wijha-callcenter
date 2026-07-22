@@ -69,6 +69,7 @@ describe('AuthController', () => {
         role: fullUser.role,
         name: fullUser.name,
         phone: fullUser.phoneNumber,
+        profile_image: null,
       });
     });
   });

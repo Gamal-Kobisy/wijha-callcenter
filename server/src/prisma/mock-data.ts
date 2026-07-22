@@ -8,6 +8,7 @@ export function mockUser(overrides?: Partial<{
   otp: string | null;
   otpExpiry: Date | null;
   jwtToken: string | null;
+  profileImage: string | null;
 }>) {
   return {
     id: 1,
@@ -19,6 +20,7 @@ export function mockUser(overrides?: Partial<{
     otp: null,
     otpExpiry: null,
     jwtToken: null,
+    profileImage: null,
     ...overrides,
   };
 }
