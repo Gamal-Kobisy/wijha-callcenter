@@ -179,10 +179,9 @@ components:
           nullable: true
         role:
           type: string
-        profile_image:
-          type: string
-          nullable: true
-          description: URL path to the user's profile image
+        has_profile_image:
+          type: boolean
+          description: Whether the user has a profile image stored
         is_online:
           type: boolean
 
@@ -1097,6 +1096,26 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
   /users/{userId}/profile-image:
+    get:
+      summary: Get the profile image for a user
+      operationId: getProfileImage
+      tags: [users]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Profile image binary
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
     post:
       summary: Upload a profile image for a user
       operationId: uploadProfileImage

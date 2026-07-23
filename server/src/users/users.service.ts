@@ -8,8 +8,6 @@ import type { UserResponseDto } from './dto/user-response.dto';
 import type { UserStatsDto } from './dto/user-stats.dto';
 import { CallsService } from '@/calls/calls.service';
 import { SessionsService } from '@/sessions/sessions.service';
-import { unlink } from 'fs/promises';
-import { join } from 'path';
 
 @Injectable()
 export class UsersService {
@@ -22,7 +20,7 @@ export class UsersService {
       name: user.name ?? null,
       phone: user.phoneNumber ?? null,
       role: user.role,
-      profile_image: user.profileImage ?? null,
+      has_profile_image: !!user.profileImage,
       is_online: isOnline,
     };
   }
@@ -172,21 +170,15 @@ export class UsersService {
     });
   }
 
-  async uploadProfileImage(userId: number, file: Express.Multer.File): Promise<UserResponseDto> {
+  async uploadProfileImage(userId: number, buffer: Buffer, mime: string): Promise<UserResponseDto> {
     const existing = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!existing) {
       throw new NotFoundException('User not found');
     }
 
-    if (existing.profileImage) {
-      const oldPath = join(process.cwd(), existing.profileImage);
-      try { await unlink(oldPath); } catch { /* file may not exist */ }
-    }
-
-    const profileImage = `/uploads/profiles/${file.filename}`;
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { profileImage },
+      data: { profileImage: buffer as any, profileMime: mime },
       omit: { passwordHash: true },
     });
 
@@ -203,14 +195,9 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    if (existing.profileImage) {
-      const oldPath = join(process.cwd(), existing.profileImage);
-      try { await unlink(oldPath); } catch { /* file may not exist */ }
-    }
-
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { profileImage: null },
+      data: { profileImage: null, profileMime: null },
       omit: { passwordHash: true },
     });
 
@@ -219,6 +206,17 @@ export class UsersService {
     });
 
     return this.toResponse(user, !!activeSession);
+  }
+
+  async getProfileImage(userId: number): Promise<{ data: Buffer; mime: string } | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { profileImage: true, profileMime: true },
+    });
+
+    if (!user?.profileImage || !user?.profileMime) return null;
+
+    return { data: Buffer.from(user.profileImage), mime: user.profileMime };
   }
 
   async getStats(userId: number, _from?: string, _to?: string): Promise<UserStatsDto | null> {
