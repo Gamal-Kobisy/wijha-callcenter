@@ -31,8 +31,40 @@ import {
   Legend
 } from "recharts"
 import AppNavbar from "@/components/AppNavbar.tsx";
-import {useState} from "react";
+import {useEffect, useState} from "react";
 import { Button } from "@/components/ui/button"
+import {apiFetch} from "@/lib/api.tsx";
+import {toast} from "sonner";
+
+
+const chartPalette = {
+  dial: "#0077BE",
+  connect: "#0D9488",
+  interest: "#F59E0B",
+  convert: "#4F46E5",
+  miss: "#FB7185",
+  neutral: "#94A3B8",
+  emerald: "#10B981"
+}
+
+const statusPalette = {
+  dial: "#7B00BEFF",
+  closed: "#0077BE",
+  answered: "#0D9488",
+  busy: "#F59E0B",
+  not_interested: "#000000",
+  failed: "#FB7185",
+  no_answer: "#94A3B8",
+  callback: "#10B981"
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const clean = hex.replace("#", "")
+  const r = parseInt(clean.substring(0, 2), 16)
+  const g = parseInt(clean.substring(2, 4), 16)
+  const b = parseInt(clean.substring(4, 6), 16)
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`
+}
 
 // --- DUMMY DATA ---
 const callVolumeData = [
@@ -59,32 +91,75 @@ const projectData = [
   { name: "Follow-ups", calls: 90 },
 ]
 
-const recentCalls = [
-  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Closed", duration: "04:12", time: "15:42" },
-  { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", status: "Voicemail", duration: "00:45", time: "15:40" },
-  { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", status: "Answered", duration: "02:30", time: "15:38" },
-  { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", status: "No Answer", duration: "00:00", time: "15:35" },
-  { id: "1033", agent: "Ahmed Tarek", number: "+20 155 777 8899", status: "Answered", duration: "06:15", time: "15:30" },
-  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Closed", duration: "04:12", time: "15:42" },
-  { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", status: "Voicemail", duration: "00:45", time: "15:40" },
-  { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", status: "Answered", duration: "02:30", time: "15:38" },
-  { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", status: "No Answer", duration: "00:00", time: "15:35" },
-  { id: "1033", agent: "Ahmed Tarek", number: "+20 155 777 8899", status: "Answered", duration: "06:15", time: "15:30" },
-  { id: "1029", agent: "Ahmed Tarek", number: "+20 100 123 4567", status: "Closed", duration: "04:12", time: "15:42" },
-  { id: "1030", agent: "Sarah Kamel", number: "+20 111 987 6543", status: "Voicemail", duration: "00:45", time: "15:40" },
-  { id: "1031", agent: "Omar Hassan", number: "+20 122 345 6789", status: "Answered", duration: "02:30", time: "15:38" },
-  { id: "1032", agent: "Nour Ali", number: "+20 100 555 1234", status: "No Answer", duration: "00:00", time: "15:35" },
-  { id: "1033", agent: "Ahmed Tarek", number: "+20 155 777 8899", status: "Answered", duration: "06:15", time: "15:30" },
-]
-
 export default function DashboardPage() {
+
+  // Recent Calls
+  const [recentCalls, setRecentCalls] = useState<any[]>([])
+
   const [currentPage, setCurrentPage] = useState(1)
   const ITEMS_PER_PAGE = 10
-  const totalPages = Math.ceil(recentCalls.length / ITEMS_PER_PAGE) || 1
 
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE
   const endIndex = startIndex + ITEMS_PER_PAGE
   const currentCalls = recentCalls.slice(startIndex, endIndex)
+
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalRecords, setTotalRecords] = useState(0)
+
+  // Helper Function
+  const getStatusColor = (status: string) => {
+    if (!status) return chartPalette.neutral;
+    const formatted = status.toLowerCase().replace(" ", "_") as keyof typeof statusPalette;
+
+    // If it's a known color, use it!
+    if (statusPalette[formatted]) return statusPalette[formatted];
+
+    // If it's unknown, generate a consistent pseudo-random color based on the string text
+    // This ensures that "weird_status" always gets the exact same color and never flashes
+    let hash = 0;
+    for (let i = 0; i < formatted.length; i++) {
+      hash = formatted.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    return `#${(hash & 0x00FFFFFF).toString(16).padStart(6, '0')}`;
+  }
+
+  useEffect(() => {
+    loadCallRecords()
+  }, [currentPage]);
+
+  const loadCallRecords = async () => {
+    const now = new Date();
+    let fromDate = new Date(now);
+    fromDate.setHours(0,0,0,0);
+    let toDate = new Date(now);
+
+    try {
+      const response = await apiFetch(`calls?from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=10&page=${currentPage}`, {
+        method: "GET",
+      })
+
+      if (!response.ok) {
+        setRecentCalls([])
+        setTotalPages(1)
+        setTotalRecords(0)
+        return
+      }
+
+      const jsonResponse = await response.json();
+
+      if (jsonResponse && Array.isArray(jsonResponse.data)) {
+         setRecentCalls(jsonResponse.data)
+         const total = jsonResponse.meta?.total || 0;
+         setTotalRecords(total)
+         setTotalPages(Math.ceil(total / 10) || 1)
+      } else {
+         setRecentCalls([])
+      }
+    } catch(error: any) {
+      toast.error("Failed to load call records")
+      setRecentCalls([])
+    }
+  }
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -326,11 +401,7 @@ export default function DashboardPage() {
                       <TableCell className="whitespace-nowrap">{call.duration}</TableCell>
                       <TableCell className="text-right pr-4 sm:pr-6">
                         <Badge
-                          variant={
-                            call.status === "Closed" ? "default" :
-                            call.status === "Answered" ? "secondary" :
-                            call.status === "No Answer" ? "destructive" : "outline"
-                          }
+                          style={{backgroundColor: getStatusColor(call.status)}}
                           className={call.status === "Closed" ? "bg-emerald-500 hover:bg-emerald-600" : ""}
                         >
                           {call.status}
@@ -353,7 +424,7 @@ export default function DashboardPage() {
         {/* Paging Footer */}
         <CardFooter className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 border-t border-border p-4 sm:p-6">
           <div className="text-sm text-muted-foreground text-center sm:text-left w-full sm:w-auto">
-            Showing <strong>{recentCalls.length === 0 ? 0 : startIndex + 1}</strong> to <strong>{Math.min(endIndex, recentCalls.length)}</strong> of <strong>{recentCalls.length}</strong> calls
+            Showing <strong>{totalRecords === 0 ? 0 : ((currentPage - 1) * 10) + 1}</strong> to <strong>{Math.min(currentPage * 10, totalRecords)}</strong> of <strong>{totalRecords}</strong> calls
           </div>
           <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
             <Button

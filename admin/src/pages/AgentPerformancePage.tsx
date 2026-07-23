@@ -597,7 +597,7 @@ export default function AgentPerformancePage() {
     }
 
     try {
-      const response = await apiFetch(`calls?agent_id=${id}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=10`, {
+      const response = await apiFetch(`calls?agent_id=${id}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=10&page=${currentPage}`, {
         method: "GET",
       })
 

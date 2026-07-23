@@ -62,15 +62,11 @@ export class CallsController {
   }
 
   @Get('next')
-  async getNext(@Query() query?: GetNextOwnerQueryDto): Promise<NextOwnerResponseDto | null> {
-    let date, projectId;
-    if (query?.date) {
-      date = new Date(query.date);
-    }
-    if (query?.project_id) {
-      projectId = Number(query.project_id);
-    }
-    return this.callsService.getNextOwner({ projectId, date });
+  async getNext(@Query() query: GetNextOwnerQueryDto): Promise<NextOwnerResponseDto | null> {
+    return this.callsService.getNextOwner({
+      projectId: Number(query.project_id),
+      date: query.date ? new Date(query.date) : undefined,
+    });
   }
 
   @Get('statuses')

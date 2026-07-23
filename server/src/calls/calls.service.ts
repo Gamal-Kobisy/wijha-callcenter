@@ -111,6 +111,20 @@ export class CallsService {
     if (call.ownerId && (['not_interested', 'contacted'].includes(call.status??""))) 
       await this.ownersService.update(Number(call.ownerId), { status: 'inactive' });
 
+    await this.prisma.ownerProject.update({
+      where: { ownerId_projectId: { ownerId: dto.owner_id, projectId: dto.project_id } },
+      data: { status: dto.status, lastDialedAt: new Date() },
+    });
+
+    await this.prisma.owner.update({
+      where: { id: dto.owner_id },
+      data: {
+        nextDialAt: dto.status === 'callback' && dto.next_dial_at
+          ? new Date(dto.next_dial_at)
+          : new Date(),
+      },
+    });
+
     return {
       id: Number(call.id),
       owner_id: Number(call.ownerId),
@@ -123,7 +137,7 @@ export class CallsService {
     };
   }
 
-  async getNextOwner(args?: { projectId?: number, date?: Date }): Promise<NextOwnerResponseDto | null> {
+  async getNextOwner(args: { projectId: number, date?: Date }): Promise<NextOwnerResponseDto | null> {
     const owner = await this.ownersService.getNextOwner(args);
     if (!owner) return null;
 
@@ -180,10 +194,14 @@ export class CallsService {
       where.ownerNumbers = { some: { number: dto.owner_number } };
     }
 
-    await
-    this.prisma.owner.update({
+    await this.prisma.owner.update({
       where,
       data: { lastDialedAt: new Date().toISOString() },
     })
+
+    await this.prisma.ownerProject.update({
+      where: { ownerId_projectId: { ownerId: dto.owner_id, projectId: dto.project_id } },
+      data: { lastDialedAt: new Date(), attemptCount: { increment: 1 } },
+    });
   }
 }

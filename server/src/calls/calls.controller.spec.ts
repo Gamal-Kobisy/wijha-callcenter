@@ -49,6 +49,14 @@ describe('CallsController', () => {
 
     (prisma.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(prisma));
 
+    prisma.$queryRaw.mockResolvedValue([{ id: 1n }]);
+    prisma.owner.findUnique.mockResolvedValue(
+      mockOwner({
+        numbers: [mockNumber({ number: '555-0100' })],
+        ownerInfo: [mockOwnerInfo({ key: 'email', value: 'john@example.com' })],
+      }),
+    );
+
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CallsController],
       providers: [
@@ -94,6 +102,7 @@ describe('CallsController', () => {
           status: 'completed',
           time: '2024-06-01T12:00:00Z',
           duration: 60,
+          project_id: 1,
         },
         user,
       );
@@ -164,7 +173,7 @@ describe('CallsController', () => {
   describe('POST /calls/calling', () => {
     it('should notify calling', async () => {
       await expect(
-        controller.notifyCalling({ owner_id: 1 }),
+        controller.notifyCalling({ owner_id: 1, project_id: 1 }),
       ).resolves.toBeUndefined();
     });
   });
