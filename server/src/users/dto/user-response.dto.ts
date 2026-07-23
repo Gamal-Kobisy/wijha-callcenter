@@ -4,5 +4,6 @@ export class UserResponseDto {
   name?: string | null;
   phone?: string | null;
   role!: string;
+  profile_image?: string | null;
   is_online!: boolean;
 }

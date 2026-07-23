@@ -4,6 +4,7 @@ export class UserResponse {
   name?: string | null;
   phone?: string | null;
   role!: string;
+  profile_image?: string | null;
 }
 
 export class LoginResponseDto {

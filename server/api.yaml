@@ -179,6 +179,10 @@ components:
           nullable: true
         role:
           type: string
+        profile_image:
+          type: string
+          nullable: true
+          description: URL path to the user's profile image
         is_online:
           type: boolean
 
@@ -1092,6 +1096,61 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/ValidationError"
+  /users/{userId}/profile-image:
+    post:
+      summary: Upload a profile image for a user
+      operationId: uploadProfileImage
+      tags: [users]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [profile_image]
+              properties:
+                profile_image:
+                  type: string
+                  format: binary
+      responses:
+        "200":
+          description: Profile image uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      summary: Delete the profile image for a user
+      operationId: deleteProfileImage
+      tags: [users]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Profile image deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /users/{userId}/deactivate:
     patch:
       summary: Deactivate a user (admin only) — sets role to 'deactivated' and invalidates password
