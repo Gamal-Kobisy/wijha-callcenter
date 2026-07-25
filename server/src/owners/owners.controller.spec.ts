@@ -146,7 +146,7 @@ describe('OwnersController', () => {
     it('should assign owner to a project', async () => {
       prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
       prisma.project.findFirst.mockResolvedValue(mockProject({ name: 'Default Project' }));
-      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1 });
+      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1, status: 'dial', lastDialedAt: null, attemptCount: 0 });
 
       const result = await controller.assignProject(1, { project_name: 'Default Project' });
       expect(result).toHaveProperty('id');

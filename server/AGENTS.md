@@ -26,3 +26,12 @@
 * Do not add external libraries without asking first.
 * Do not create any type before telling me why and what new will this type provide.
 * Do not use `any` types under any circumstance.
+
+## 🎯 Next-Call Dispatch Design (agreed, not yet implemented)
+
+**Scoring formula:** `(hours_since_last_dial × 2) − (attempt_count × 10)`
+
+**Design:**
+- Multipliers hardcoded as constants (no DB config table needed)
+- Raw SQL with `FOR UPDATE SKIP LOCKED` for the dispatch query
+- Cooldown via `lastDialedAt` (auto-tracked) and `nextDialAt` (manual override field on owner)

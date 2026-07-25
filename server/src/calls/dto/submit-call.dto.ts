@@ -1,4 +1,4 @@
-import { IsNumber, IsString, IsOptional, IsDateString, IsDate } from 'class-validator';
+import { IsNumber, IsString, IsOptional, IsDateString } from 'class-validator';
 
 export class SubmitCallDto {
   @IsNumber()
@@ -10,6 +10,9 @@ export class SubmitCallDto {
   @IsDateString()
   time!: string;
 
+  @IsNumber()
+  project_id!: number;
+
   @IsOptional()
   @IsNumber()
   duration?: number;
@@ -17,4 +20,8 @@ export class SubmitCallDto {
   @IsOptional()
   @IsString()
   agent_notes?: string;
+
+  @IsOptional()
+  @IsDateString()
+  next_dial_at?: string;
 }

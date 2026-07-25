@@ -179,10 +179,9 @@ components:
           nullable: true
         role:
           type: string
-        profile_image:
-          type: string
-          nullable: true
-          description: URL path to the user's profile image
+        has_profile_image:
+          type: boolean
+          description: Whether the user has a profile image stored
         is_online:
           type: boolean
 
@@ -736,11 +735,13 @@ paths:
           application/json:
             schema:
               type: object
-              required: [owner_id, status, time]
+              required: [owner_id, status, time, project_id]
               properties:
                 owner_id:
                   type: integer
                   format: int64
+                project_id:
+                  type: integer
                 status:
                   $ref: "#/components/schemas/CallStatus"
                 time:
@@ -752,6 +753,10 @@ paths:
                 agent_notes:
                   type: string
                   maxLength: 2000
+                next_dial_at:
+                  type: string
+                  format: date-time
+                  description: Callback time (only when status is callback)
       responses:
         "201":
           description: Call record saved
@@ -796,11 +801,13 @@ paths:
           application/json:
             schema:
               type: object
-              required: [owner_number]
+              required: [owner_id, project_id]
               properties:
                 owner_id:
                   type: integer
                   format: int64
+                project_id:
+                  type: integer
                 owner_number:
                   type: string
                   description: The specific number being called (optional)
@@ -1097,6 +1104,26 @@ paths:
         "422":
           $ref: "#/components/responses/ValidationError"
   /users/{userId}/profile-image:
+    get:
+      summary: Get the profile image for a user
+      operationId: getProfileImage
+      tags: [users]
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Profile image binary
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/NotFound"
     post:
       summary: Upload a profile image for a user
       operationId: uploadProfileImage
