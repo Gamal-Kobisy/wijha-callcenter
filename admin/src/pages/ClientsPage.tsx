@@ -50,7 +50,8 @@ import {
   ArrowRight,
   CheckCircle2,
   Edit,
-  Trash2
+  Trash2,
+  Plus
 } from "lucide-react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LabelList } from "recharts"
 import { toast, Toaster } from "sonner"
@@ -237,7 +238,14 @@ export default function ClientsPage() {
   const handleUpdateClient = (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingClient) return
-    setClients(clients.map(l => l.id === editingClient.id ? editingClient : l))
+    const phones = (editingClient as any).phoneNumbers || [editingClient.primaryNumber]
+    const cleanPhones = phones.filter((p: string) => p.trim() !== "")
+    const updatedClient = {
+      ...editingClient,
+      primaryNumber: cleanPhones[0] || editingClient.primaryNumber || "",
+      phoneNumbers: cleanPhones.length > 0 ? cleanPhones : [editingClient.primaryNumber || ""]
+    }
+    setClients(clients.map(l => l.id === editingClient.id ? updatedClient : l))
     setEditingClient(null)
     toast.success("Client Updated", { description: "The client details have been saved." })
   }
@@ -656,7 +664,7 @@ export default function ClientsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="bg-background">
-                              <DropdownMenuItem className="cursor-pointer focus:bg-slate-200" onClick={() => setEditingClient(client)}>
+                              <DropdownMenuItem className="cursor-pointer focus:bg-slate-200" onClick={() => setEditingClient({ ...client, phoneNumbers: (client as any).phoneNumbers || [client.primaryNumber] })}>
                                 <Edit className="h-4 w-4 mr-2 text-blue-500" /> Edit Client
                               </DropdownMenuItem>
                               <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => setDeletingClientId(client.id)}>
@@ -722,12 +730,62 @@ export default function ClientsPage() {
                 </div>
 
                 <div className="col-span-2 flex flex-col gap-2">
-                  <Label>Primary Phone</Label>
-                  <Input
-                    value={editingClient.primaryNumber}
-                    onChange={(e) => setEditingClient({...editingClient, primaryNumber: e.target.value})}
-                    required
-                  />
+                  <div className="flex items-center justify-between">
+                    <Label>Phone Numbers</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 px-2 text-xs flex items-center gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                      onClick={() => {
+                        const currentPhones = (editingClient as any).phoneNumbers || [editingClient.primaryNumber || ""];
+                        setEditingClient({
+                          ...editingClient,
+                          phoneNumbers: [...currentPhones, ""]
+                        } as any);
+                      }}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add Phone
+                    </Button>
+                  </div>
+
+                  {((editingClient as any).phoneNumbers || [editingClient.primaryNumber || ""]).map((phone: string, idx: number) => (
+                    <div key={idx} className="flex items-center gap-2">
+                      <Input
+                        value={phone}
+                        placeholder={idx === 0 ? "Primary Phone (e.g. +20 100 123 4567)" : `Phone Number ${idx + 1}`}
+                        onChange={(e) => {
+                          const updatedPhones = [...((editingClient as any).phoneNumbers || [editingClient.primaryNumber || ""])];
+                          updatedPhones[idx] = e.target.value;
+                          setEditingClient({
+                            ...editingClient,
+                            primaryNumber: updatedPhones[0] || "",
+                            phoneNumbers: updatedPhones
+                          } as any);
+                        }}
+                        required={idx === 0}
+                      />
+                      {((editingClient as any).phoneNumbers || [editingClient.primaryNumber || ""]).length > 1 && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          className="h-9 w-9 p-0 shrink-0 text-slate-400 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => {
+                            const currentPhones = (editingClient as any).phoneNumbers || [editingClient.primaryNumber || ""];
+                            const updatedPhones = currentPhones.filter((_: any, i: number) => i !== idx);
+                            setEditingClient({
+                              ...editingClient,
+                              primaryNumber: updatedPhones[0] || "",
+                              phoneNumbers: updatedPhones.length > 0 ? updatedPhones : [""]
+                            } as any);
+                          }}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 <div className="col-span-2 flex flex-col gap-2">
