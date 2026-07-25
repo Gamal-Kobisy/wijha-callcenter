@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom"
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom"
 import LoginPage from "./pages/LoginPage"
 import DashboardPage from "./pages/DashboardPage"
 import ForgotPasswordPage from "./pages/forgotPasswordPage"
@@ -12,6 +12,7 @@ function App() {
   <AuthProvider>
     <BrowserRouter>
       <Routes>
+        <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />}  />
@@ -19,6 +20,7 @@ function App() {
         <Route path="/agents/:id" element={<AgentPerformancePage />} />
         <Route path="/clients" element={<ClientsPage />} />
         <Route path="/account" element={<AccountPage />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   </AuthProvider>
