@@ -126,7 +126,7 @@ describe('CallsService', () => {
       );
 
       const call = await service.submit(
-        { owner_id: 1, status: 'busy', time: '2024-06-01T12:00:00Z', duration: 30, agent_notes: 'Line busy' },
+        { owner_id: 1, status: 'busy', time: '2024-06-01T12:00:00Z', duration: 30, agent_notes: 'Line busy', project_id: 1 },
         1,
       );
       expect(call.status).toBe('busy');
@@ -140,12 +140,61 @@ describe('CallsService', () => {
       );
 
       const call = await service.submit(
-        { owner_id: 2, status: 'no_answer', time: '2024-06-01T12:00:00Z' },
+        { owner_id: 2, status: 'no_answer', time: '2024-06-01T12:00:00Z', project_id: 1 },
         2,
       );
       expect(call.duration).toBeNull();
       expect(call.agent_notes).toBeNull();
       expect(call.projects).toEqual([]);
+    });
+
+    it('should update OwnerProject status and lastDialedAt', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 6n, status: 'answered' }),
+      );
+
+      await service.submit(
+        { owner_id: 1, status: 'answered', time: '2024-06-01T12:00:00Z', project_id: 1 },
+        1,
+      );
+
+      expect(prisma.ownerProject.update).toHaveBeenCalledWith({
+        where: { ownerId_projectId: { ownerId: 1, projectId: 1 } },
+        data: { status: 'answered', lastDialedAt: expect.any(Date) },
+      });
+    });
+
+    it('should set Owner.nextDialAt to NOW() for non-callback status', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 7n, status: 'no_answer' }),
+      );
+
+      await service.submit(
+        { owner_id: 1, status: 'no_answer', time: '2024-06-01T12:00:00Z', project_id: 1 },
+        1,
+      );
+
+      expect(prisma.owner.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { nextDialAt: expect.any(Date) },
+      });
+    });
+
+    it('should set Owner.nextDialAt to callback time when status is callback', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 8n, status: 'callback' }),
+      );
+      const callbackTime = '2024-06-05T14:00:00Z';
+
+      await service.submit(
+        { owner_id: 1, status: 'callback', time: '2024-06-01T12:00:00Z', project_id: 1, next_dial_at: callbackTime },
+        1,
+      );
+
+      expect(prisma.owner.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { nextDialAt: new Date(callbackTime) },
+      });
     });
   });
 
@@ -262,8 +311,26 @@ describe('CallsService', () => {
   describe('notifyCalling', () => {
     it('should not throw', async () => {
       await expect(
-        service.notifyCalling({ owner_id: 1, owner_number: '555-0100' }),
+        service.notifyCalling({ owner_id: 1, owner_number: '555-0100', project_id: 1 }),
       ).resolves.toBeUndefined();
+    });
+
+    it('should update Owner.lastDialedAt', async () => {
+      await service.notifyCalling({ owner_id: 1, project_id: 1 });
+
+      expect(prisma.owner.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { lastDialedAt: expect.any(String) },
+      });
+    });
+
+    it('should update OwnerProject lastDialedAt and increment attemptCount', async () => {
+      await service.notifyCalling({ owner_id: 1, project_id: 1 });
+
+      expect(prisma.ownerProject.update).toHaveBeenCalledWith({
+        where: { ownerId_projectId: { ownerId: 1, projectId: 1 } },
+        data: { lastDialedAt: expect.any(Date), attemptCount: { increment: 1 } },
+      });
     });
   });
 });

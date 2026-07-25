@@ -150,4 +150,90 @@ describe('UsersController', () => {
       expect(result).toHaveProperty('total_calls');
     });
   });
+
+  describe('POST /users/:userId/profile-image', () => {
+    it('should upload a profile image', async () => {
+      const buffer = Buffer.from('fake-image-data');
+      const file = { buffer, mimetype: 'image/jpeg' } as any;
+      const currentUser = { id: 1, role: 'user', email: 'agent' } as any;
+
+      prisma.user.findUnique.mockResolvedValue(mockUser());
+      prisma.user.update.mockResolvedValue(mockUser({ profileImage: buffer, profileMime: 'image/jpeg' }));
+      prisma.activeSession.findUnique.mockResolvedValue(null);
+
+      const result = await controller.uploadProfileImage(1, file, currentUser);
+      expect(result.has_profile_image).toBe(true);
+    });
+
+    it('should throw ForbiddenException when wrong user', async () => {
+      const file = { buffer: Buffer.from('x'), mimetype: 'image/jpeg' } as any;
+      const currentUser = { id: 2, role: 'user', email: 'other' } as any;
+
+      await expect(
+        controller.uploadProfileImage(1, file, currentUser),
+      ).rejects.toThrow('You can only update your own profile image');
+    });
+
+    it('should throw BadRequestException when no file provided', async () => {
+      const currentUser = { id: 1, role: 'user', email: 'agent' } as any;
+
+      await expect(
+        controller.uploadProfileImage(1, null as any, currentUser),
+      ).rejects.toThrow('No file provided');
+    });
+  });
+
+  describe('GET /users/:userId/profile-image', () => {
+    it('should return the profile image binary', async () => {
+      const buffer = Buffer.from('fake-image-data');
+      prisma.user.findUnique.mockResolvedValue({ profileImage: buffer, profileMime: 'image/jpeg' } as any);
+
+      const mockRes = {
+        set: jest.fn(),
+        send: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        end: jest.fn(),
+      } as any;
+
+      await controller.getProfileImage(1, mockRes);
+      expect(mockRes.set).toHaveBeenCalledWith('Content-Type', 'image/jpeg');
+      expect(mockRes.send).toHaveBeenCalledWith(buffer);
+    });
+
+    it('should return 404 when user has no image', async () => {
+      prisma.user.findUnique.mockResolvedValue({ profileImage: null, profileMime: null } as any);
+
+      const mockRes = {
+        set: jest.fn(),
+        send: jest.fn(),
+        status: jest.fn().mockReturnThis(),
+        end: jest.fn(),
+      } as any;
+
+      await controller.getProfileImage(1, mockRes);
+      expect(mockRes.status).toHaveBeenCalledWith(404);
+      expect(mockRes.end).toHaveBeenCalled();
+    });
+  });
+
+  describe('DELETE /users/:userId/profile-image', () => {
+    it('should delete the profile image', async () => {
+      const currentUser = { id: 1, role: 'user', email: 'agent' } as any;
+
+      prisma.user.findUnique.mockResolvedValue(mockUser({ profileImage: Buffer.from('x'), profileMime: 'image/jpeg' }));
+      prisma.user.update.mockResolvedValue(mockUser({ profileImage: null, profileMime: null }));
+      prisma.activeSession.findUnique.mockResolvedValue(null);
+
+      const result = await controller.deleteProfileImage(1, currentUser);
+      expect(result.has_profile_image).toBe(false);
+    });
+
+    it('should throw ForbiddenException when wrong user', async () => {
+      const currentUser = { id: 2, role: 'user', email: 'other' } as any;
+
+      await expect(
+        controller.deleteProfileImage(1, currentUser),
+      ).rejects.toThrow('You can only delete your own profile image');
+    });
+  });
 });

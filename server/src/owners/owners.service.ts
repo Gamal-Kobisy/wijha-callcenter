@@ -4,7 +4,6 @@ import type { CreateOwnerDto } from './dto/create-owner.dto';
 import type { UpdateOwnerDto } from './dto/update-owner.dto';
 import type { OwnerResponseDto } from './dto/owner-response.dto';
 import type { StatusCountDto } from '@/calls/dto/status-count.dto';
-import { isSameDay } from 'date-fns';
 
 type OwnerWithRelations = {
   id: bigint;
@@ -131,7 +130,7 @@ export class OwnersService {
                         projectId: dto.project_id,
                       },
                     },
-                    create: { projectId: dto.project_id },
+                    create: { projectId: dto.project_id, status: 'dial', attemptCount: 0 },
                     update: {},
                   },
                 },
@@ -160,7 +159,7 @@ export class OwnersService {
             }
           : undefined,
         ownerProjects: dto.project_id
-          ? { create: { projectId: dto.project_id } }
+          ? { create: { projectId: dto.project_id, status: 'dial', attemptCount: 0 } }
           : undefined,
       },
       include: { numbers: true, ownerInfo: true },
@@ -187,26 +186,28 @@ export class OwnersService {
     return toOwnerResponse(owner);
   }
 
-  async getNextOwner(args?: { projectId?: number, date?: Date}): Promise<OwnerResponseDto | null> {
-    const { projectId } = args || {};
-    const owners = await this.prisma.owner.findMany({
-      where: {
-        status: 'active',
-        ownerProjects: { some: { projectId } },
-      },
-      orderBy: {
-        attemptCount: 'asc',
-        lastDialedAt: 'asc',
-      },
+  async getNextOwner(args: { projectId: number, date?: Date }): Promise<OwnerResponseDto | null> {
+    const { projectId } = args;
+
+    const rows = await this.prisma.$queryRaw<{ id: bigint }[]>`
+      SELECT o.id
+      FROM owner o
+      JOIN owner_project op ON op.owner_id = o.id
+      WHERE op.project_id = ${projectId}
+        AND op.status IN ('dial', 'callback', 'not_answered')
+        AND (o.next_dial_at IS NULL OR o.next_dial_at <= NOW())
+      ORDER BY o.next_dial_at ASC NULLS FIRST
+      LIMIT 1
+    `;
+
+    if (rows.length === 0) return null;
+
+    const owner = await this.prisma.owner.findUnique({
+      where: { id: rows[0].id },
       include: { numbers: true, ownerInfo: true },
     });
 
-    const today = new Date();
-    const todays_owner = owners.filter(o => o.nextDialAt && isSameDay(o.nextDialAt, today));
-    const owner = todays_owner.length > 0 ? todays_owner[0] : owners[0];
-
     if (!owner) return null;
-
     return toOwnerResponse(owner);
   }
 
@@ -229,7 +230,7 @@ export class OwnersService {
 
     await this.prisma.ownerProject.upsert({
       where: { ownerId_projectId: { ownerId, projectId: project.id } },
-      create: { ownerId, projectId: project.id },
+      create: { ownerId, projectId: project.id, status: 'dial', attemptCount: 0 },
       update: {},
     });
 

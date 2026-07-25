@@ -1,15 +1,4 @@
-export function mockUser(overrides?: Partial<{
-  id: number;
-  email: string;
-  phoneNumber: string;
-  passwordHash: string;
-  name: string | null;
-  role: string;
-  otp: string | null;
-  otpExpiry: Date | null;
-  jwtToken: string | null;
-  profileImage: string | null;
-}>) {
+export function mockUser(overrides?: Record<string, any>) {
   return {
     id: 1,
     email: 'test@example.com',
@@ -21,6 +10,7 @@ export function mockUser(overrides?: Partial<{
     otpExpiry: null,
     jwtToken: null,
     profileImage: null,
+    profileMime: null,
     ...overrides,
   };
 }

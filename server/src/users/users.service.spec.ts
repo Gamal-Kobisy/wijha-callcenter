@@ -247,4 +247,63 @@ describe('UsersService', () => {
       expect(await service.getStats(999)).toBeNull();
     });
   });
+
+  describe('uploadProfileImage', () => {
+    it('should upload image and set has_profile_image to true', async () => {
+      const buffer = Buffer.from('fake-image-data');
+      const mime = 'image/jpeg';
+      prisma.user.findUnique.mockResolvedValue(mockUser());
+      prisma.user.update.mockResolvedValue(mockUser({ profileImage: buffer, profileMime: mime }));
+      prisma.activeSession.findUnique.mockResolvedValue(null);
+
+      const result = await service.uploadProfileImage(1, buffer, mime);
+      expect(result.has_profile_image).toBe(true);
+    });
+
+    it('should throw NotFoundException for non-existent user', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(
+        service.uploadProfileImage(999, Buffer.from('x'), 'image/jpeg'),
+      ).rejects.toThrow('User not found');
+    });
+  });
+
+  describe('getProfileImage', () => {
+    it('should return image data and mime type', async () => {
+      const buffer = Buffer.from('fake-image-data');
+      prisma.user.findUnique.mockResolvedValue({ profileImage: buffer, profileMime: 'image/jpeg' } as any);
+
+      const result = await service.getProfileImage(1);
+      expect(result).not.toBeNull();
+      expect(result!.data).toEqual(buffer);
+      expect(result!.mime).toBe('image/jpeg');
+    });
+
+    it('should return null when user has no image', async () => {
+      prisma.user.findUnique.mockResolvedValue({ profileImage: null, profileMime: null } as any);
+      expect(await service.getProfileImage(1)).toBeNull();
+    });
+
+    it('should return null when profileImage exists but profileMime is null', async () => {
+      prisma.user.findUnique.mockResolvedValue({ profileImage: Buffer.from('x'), profileMime: null } as any);
+      expect(await service.getProfileImage(1)).toBeNull();
+    });
+  });
+
+  describe('deleteProfileImage', () => {
+    it('should delete image and set has_profile_image to false', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser({ profileImage: Buffer.from('x'), profileMime: 'image/jpeg' }));
+      prisma.user.update.mockResolvedValue(mockUser({ profileImage: null, profileMime: null }));
+      prisma.activeSession.findUnique.mockResolvedValue(null);
+
+      const result = await service.deleteProfileImage(1);
+      expect(result.has_profile_image).toBe(false);
+    });
+
+    it('should throw NotFoundException for non-existent user', async () => {
+      prisma.user.findUnique.mockResolvedValue(null);
+      await expect(service.deleteProfileImage(999)).rejects.toThrow('User not found');
+    });
+  });
 });
+

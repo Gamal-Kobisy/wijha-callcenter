@@ -317,7 +317,7 @@ describe('OwnersService', () => {
       const owner = mockOwner({ name: 'John', numbers: [], ownerInfo: [] });
       prisma.owner.findUnique.mockResolvedValue(owner);
       prisma.project.findFirst.mockResolvedValue(mockProject({ name: 'Default Project' }));
-      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1 });
+      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1, status: 'dial', lastDialedAt: null, attemptCount: 0 });
 
       const result = await service.assignToProject(1, 'Default Project');
       expect(result.name).toBe('John');
@@ -334,6 +334,20 @@ describe('OwnersService', () => {
       prisma.project.findFirst.mockResolvedValue(null);
 
       await expect(service.assignToProject(1, 'NoProject')).rejects.toThrow('Project "NoProject" not found');
+    });
+
+    it('should upsert OwnerProject with default status and attemptCount', async () => {
+      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.project.findFirst.mockResolvedValue(mockProject({ name: 'Default Project' }));
+      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1, status: 'dial', lastDialedAt: null, attemptCount: 0 });
+
+      await service.assignToProject(1, 'Default Project');
+
+      expect(prisma.ownerProject.upsert).toHaveBeenCalledWith({
+        where: { ownerId_projectId: { ownerId: 1, projectId: 1 } },
+        create: { ownerId: 1, projectId: 1, status: 'dial', attemptCount: 0 },
+        update: {},
+      });
     });
   });
 
@@ -390,9 +404,8 @@ describe('OwnersService', () => {
 
   describe('getNextOwner', () => {
     it('should return owner with lowest attempt_count', async () => {
-      prisma.owner.findMany.mockResolvedValue([
-        mockOwner({ name: 'John', numbers: [], ownerInfo: [] }),
-      ]);
+      prisma.$queryRaw.mockResolvedValue([{ id: 1n }]);
+      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
 
       const next = await service.getNextOwner({ projectId: 1 });
       expect(next).not.toBeNull();
@@ -400,9 +413,10 @@ describe('OwnersService', () => {
     });
 
     it('should return null when no owner available', async () => {
-      prisma.owner.findMany.mockResolvedValue([]);
+      prisma.$queryRaw.mockResolvedValue([]);
       const next = await service.getNextOwner({ projectId: 1 });
       expect(next).toBeNull();
     });
+
   });
 });

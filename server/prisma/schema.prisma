@@ -28,7 +28,8 @@ model User {
   otp          String?  @db.VarChar(6)
   otpExpiry    DateTime? @map("otp_expiry")
   jwtToken     String?  @map("jwt_token") @db.Text
-  profileImage String?  @map("profile_image") @db.VarChar(255)
+  profileImage Bytes?   @map("profile_image")
+  profileMime  String?  @map("profile_mime") @db.VarChar(20)
 
   userSessions      UserSession[]
   callDetailRecords CallDetailRecord[]
@@ -124,8 +125,11 @@ model ProjectCallDetailRecord {
 }
 
 model OwnerProject {
-  ownerId   BigInt @map("owner_id")
-  projectId Int    @map("project_id")
+  ownerId      BigInt    @map("owner_id")
+  projectId    Int       @map("project_id")
+  status       String?   @default("dial") @db.VarChar(50)
+  lastDialedAt DateTime? @map("last_dialed_at")
+  attemptCount Int?      @default(0) @map("attempt_count")
 
   owner   Owner   @relation(fields: [ownerId], references: [id])
   project Project @relation(fields: [projectId], references: [id])
