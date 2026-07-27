@@ -2,7 +2,7 @@ import { IsNumber, IsString, IsOptional, IsDateString } from 'class-validator';
 
 export class SubmitCallDto {
   @IsNumber()
-  owner_id!: number;
+  client_id!: number;
 
   @IsString()
   status!: string;
