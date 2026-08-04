@@ -89,7 +89,7 @@ export function LoginForm({
           <FieldLabel htmlFor="email">Email</FieldLabel>
           <Input
             id="email"
-            type="text"
+            type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required

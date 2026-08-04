@@ -15,7 +15,7 @@ interface AuthContextType {
   user: User | null
   isLoading: boolean
   logout: () => Promise<void>
-  refreshUser: () => Promise<void> // 1. Add this to the interface
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -24,13 +24,39 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const hasFetched = useRef(false)
+  const currentAvatarUrl = useRef<string | null>(null) // Used to prevent memory leaks with Object URLs
 
-  // 2. Pull this function out so it can be called on demand
   const fetchUserDetails = async () => {
     try {
+      // 1. Fetch user data
       const response = await apiFetch("me", { method: "GET" })
+
       if (response.ok) {
         const data = await response.json()
+
+        // 2. Fetch the binary profile image safely
+        try {
+          const imageResponse = await apiFetch(`users/${data.id}/profile-image`, {
+            method: "GET"
+          })
+
+          if (imageResponse.ok) {
+            // Convert binary response to a Blob
+            const imageBlob = await imageResponse.blob()
+
+            // Clean up the old URL from memory if it exists
+            if (currentAvatarUrl.current) {
+              URL.revokeObjectURL(currentAvatarUrl.current)
+            }
+
+            // Create a local URL for the image and attach it to the user object
+            currentAvatarUrl.current = URL.createObjectURL(imageBlob)
+            data.avatarUrl = currentAvatarUrl.current
+          }
+        } catch (imgError) {
+          console.warn("No profile image found or failed to load (404).")
+        }
+
         setUser(data)
       }
     } catch (error: any) {
@@ -52,6 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } else {
       setIsLoading(false)
     }
+
+    // Cleanup object URL on unmount to prevent memory leaks
+    return () => {
+      if (currentAvatarUrl.current) {
+        URL.revokeObjectURL(currentAvatarUrl.current)
+      }
+    }
   }, [])
 
   const logout = async () => {
@@ -60,6 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error("Network error during logout.")
     } finally {
+      if (currentAvatarUrl.current) URL.revokeObjectURL(currentAvatarUrl.current)
       localStorage.clear()
       sessionStorage.clear()
       window.location.href = "/login"
@@ -67,7 +101,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    // 3. Expose fetchUserDetails as refreshUser
     <AuthContext.Provider value={{ user, isLoading, logout, refreshUser: fetchUserDetails }}>
       {children}
     </AuthContext.Provider>

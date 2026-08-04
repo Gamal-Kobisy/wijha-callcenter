@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Camera, Save, X, Edit, Mail, Phone, Shield, User } from "lucide-react"
 import { toast, Toaster } from "sonner"
 // @ts-ignore
-import avatar from "../assets/avatar.jpg"
+import defaultAvatar from "../assets/avatar.jpg"
 import { useAuth } from "@/contexts/AuthContext.tsx"
 import { apiFetch } from "@/lib/api.tsx"
 
@@ -15,18 +15,17 @@ export default function AccountPage() {
   const [isEditing, setIsEditing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
-  const { user,refreshUser } = useAuth()
+  const { user, refreshUser } = useAuth()
 
-  // 1. Initialize with safe empty strings to prevent null crashes
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
     role: "",
-    avatarUrl: avatar
+    avatarUrl: defaultAvatar
   })
 
-  // 2. Sync data when the user finishes loading from the context
+  // Sync data whenever the user context finishes fetching (including the image blob)
   useEffect(() => {
     if (user) {
       setFormData({
@@ -34,44 +33,38 @@ export default function AccountPage() {
         email: user.email || "",
         phone: user.phone || "",
         role: user.role || "",
-        avatarUrl: avatar
+        avatarUrl: user.avatarUrl || defaultAvatar // Uses Blob URL or static fallback
       })
     }
   }, [user])
 
-  // --- VALIDATION LOGIC ---
   const validateForm = () => {
-    // Check for empty name
     if (!formData.name.trim()) {
       toast.error("Name cannot be empty")
       return false
     }
 
-    // Check email using Regex
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(formData.email)) {
       toast.error("Please enter a valid email address")
       return false
     }
 
-    // Check phone number (Allows optional +, spaces, dashes, and 8-15 digits)
     const phoneRegex = /^\d{11}$/
     if (formData.phone && !phoneRegex.test(formData.phone)) {
-      toast.error("Please enter a valid phone number")
+      toast.error("Please enter a valid 11-digit phone number")
       return false
     }
 
     return true
   }
 
-  // --- HANDLE AVATAR PHOTO CHANGE ---
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      // 1. Save the actual file object for the API request
       setSelectedFile(file)
 
-      // 2. Create a temporary local preview for the UI
+      // Temporary local base64 preview while editing
       const reader = new FileReader()
       reader.onloadend = () => {
         setFormData(prev => ({ ...prev, avatarUrl: reader.result as string }))
@@ -81,57 +74,63 @@ export default function AccountPage() {
     }
   }
 
-  // --- SAVE NEW DATA ---
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!validateForm()) return
-
-    // NEW: Use FormData to package the text data AND the file
-    const submitData = new FormData()
-    submitData.append("name", formData.name)
-    submitData.append("email", formData.email)
-    if (formData.phone) submitData.append("phone", formData.phone)
-
-    // Attach the file only if the user selected a new one
-    if (selectedFile) {
-      submitData.append("avatar", selectedFile)
-    }
 
     try {
       if (!user?.id) throw new Error("User ID missing")
 
-      const response = await apiFetch(`users/${user.id}`, {
+      // 1. Send text info
+      const profilePayload = {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone || undefined,
+      }
+
+      const profileResponse = await apiFetch(`users/${user.id}`, {
         method: "PATCH",
-        body: submitData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profilePayload),
       })
 
-      if (!response.ok) {
-        throw new Error("Failed to update profile. Please try again later")
+      if (!profileResponse.ok) throw new Error("Failed to update profile information")
+
+      // 2. Upload actual binary file if changed
+      if (selectedFile) {
+        const imageFormData = new FormData()
+        imageFormData.append("profile_image", selectedFile)
+
+        const imageResponse = await apiFetch(`users/${user.id}/profile-image`, {
+          method: "POST",
+          body: imageFormData,
+        })
+
+        if (!imageResponse.ok) throw new Error("Failed to upload profile picture")
       }
 
       setIsEditing(false)
-      setSelectedFile(null) // Clear the file state after successful save
+      setSelectedFile(null)
       toast.success("Profile saved successfully")
 
+      // 3. Force context to re-fetch `/me` and the new profile image blob!
       await refreshUser()
     } catch (e: any) {
       toast.error(e.message || "An error occurred")
     }
   }
 
-  // --- CANCEL LOGIC ---
   const handleCancel = () => {
-    // Revert the form back to the real user data
     if (user) {
       setFormData({
         name: user.name || "",
         email: user.email || "",
         phone: user.phone || "",
         role: user.role || "",
-        avatarUrl: avatar
+        avatarUrl: user.avatarUrl || defaultAvatar
       })
     }
+    setSelectedFile(null)
     setIsEditing(false)
   }
 
@@ -141,7 +140,7 @@ export default function AccountPage() {
         <AppNavbar link1Name="Dashboard" link2Name="Agents" link3Name="Clients" />
 
         <main className="flex-1 p-4 md:p-8 flex items-center justify-center w-full">
-          <Card className="w-full max-w-2xl shadow-xl border-slate-100 overflow-hidden bg-white relative ">
+          <Card className="w-full max-w-2xl shadow-xl border-slate-100 overflow-hidden bg-white relative">
 
             <div className="h-35 w-full bg-slate-900 relative overflow-hidden !-mt-6">
                <div className="absolute -top-10 -right-10 size-40 bg-indigo-500 rounded-full opacity-30 blur-2xl animate-pulse"></div>
@@ -149,7 +148,6 @@ export default function AccountPage() {
             </div>
 
             <CardContent className="relative px-6 pb-8 pt-0">
-              {/* Profile Header section */}
               <div className="flex flex-col sm:flex-row items-start sm:items-end -mt-16 mb-8 gap-4">
                 <div className="relative group">
                   <img
@@ -161,7 +159,7 @@ export default function AccountPage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-2xl text-white opacity-0 group-hover:opacity-100 transition-opacity"
+                      className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Camera className="size-8" />
                     </button>
@@ -196,43 +194,27 @@ export default function AccountPage() {
                 </div>
               </div>
 
-              {/* Form Inputs Grid */}
               <form onSubmit={handleSave} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 text-slate-600 font-medium">
                       <User className="size-4" /> Full Name
                     </Label>
-                    <Input
-                      disabled={!isEditing}
-                      value={formData.name}
-                      onChange={(e) => setFormData({...formData, name: e.target.value})}
-                      className="bg-slate-50"
-                    />
+                    <Input disabled={!isEditing} value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} className="bg-slate-50" />
                   </div>
 
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 text-slate-600 font-medium">
                       <Mail className="size-4" /> Email Address
                     </Label>
-                    <Input
-                      disabled={!isEditing}
-                      value={formData.email}
-                      onChange={(e) => setFormData({...formData, email: e.target.value})}
-                      className="bg-slate-50"
-                    />
+                    <Input disabled={!isEditing} value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} className="bg-slate-50" />
                   </div>
 
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2 text-slate-600 font-medium">
                       <Phone className="size-4" /> Phone Number
                     </Label>
-                    <Input
-                      disabled={!isEditing}
-                      value={formData.phone}
-                      onChange={(e) => setFormData({...formData, phone: e.target.value})}
-                      className="bg-slate-50"
-                    />
+                    <Input disabled={!isEditing} value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} className="bg-slate-50" />
                   </div>
 
                   <div className="space-y-2">
@@ -243,13 +225,7 @@ export default function AccountPage() {
                   </div>
                 </div>
 
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  className="hidden"
-                  accept="image/*"
-                  onChange={handleAvatarChange}
-                />
+                <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
               </form>
             </CardContent>
           </Card>
