@@ -17,6 +17,9 @@ export default function AccountPage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const { user, refreshUser } = useAuth()
 
+  // Determine if the user is an admin
+  const isAdmin = user?.role?.toLowerCase() === "admin"
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -137,7 +140,13 @@ export default function AccountPage() {
   return (
     <>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <AppNavbar link1Name="Dashboard" link2Name="Agents" link3Name="Clients" />
+
+        {/* DYNAMIC NAVBAR: Only Admins get the Agents and Clients links */}
+        <AppNavbar
+          link1Name={isAdmin ? "Dashboard" : "Agent-Dashboard"}
+          link2Name={isAdmin ? "Agents" : ""}
+          link3Name={isAdmin ? "Clients" : ""}
+        />
 
         <main className="flex-1 p-4 md:p-8 flex items-center justify-center w-full">
           <Card className="w-full max-w-2xl shadow-xl border-slate-100 overflow-hidden bg-white relative">

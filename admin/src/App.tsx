@@ -7,6 +7,7 @@ import AgentPerformancePage from "./pages/AgentPerformancePage"
 import ClientsPage from "./pages/ClientsPage"
 import AccountPage from "./pages/AccountPage.tsx"
 import { AuthProvider } from "@/contexts/AuthContext"
+import AgentDashboardPage from "@/pages/AgentDashboardPage.tsx";
 function App() {
   return (
   <AuthProvider>
@@ -15,6 +16,7 @@ function App() {
         <Route path="/" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/agent-dashboard" element={<AgentDashboardPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />}  />
         <Route path="/agents" element={<AgentsPage />} />
         <Route path="/agents/:id" element={<AgentPerformancePage />} />

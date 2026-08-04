@@ -52,6 +52,7 @@ const heatmapHours = ["9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm",
 export default function AgentPerformancePage() {
   // --- INITIALIZATION ---
   const { id } = useParams()
+  const ITEMS_PER_PAGE = 10
   const [Agent, setAgent] = useState<any>({})
 
   const [dateRange, setDateRange] = useState("Today")
@@ -597,7 +598,7 @@ export default function AgentPerformancePage() {
     }
 
     try {
-      const response = await apiFetch(`calls?agent_id=${id}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=10&page=${currentPage}`, {
+      const response = await apiFetch(`calls?agent_id=${id}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=${ITEMS_PER_PAGE}&page=${currentPage}`, {
         method: "GET",
       })
 
