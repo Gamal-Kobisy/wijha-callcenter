@@ -1071,8 +1071,10 @@ export default function AgentDashboardPage() {
 
       {/* --- UPLOAD MODAL --- */}
       <Dialog open={isUploadOpen} onOpenChange={(open) => !open && resetModals()}>
-        <DialogContent className="sm:max-w-[550px] bg-background">
-          <DialogHeader>
+        {/* Added: max-h-[90vh] flex flex-col to lock the modal height and prevent screen overflow */}
+        <DialogContent className="sm:max-w-[550px] bg-background max-h-[90vh] flex flex-col">
+
+          <DialogHeader className="shrink-0">
             <DialogTitle>Upload My Leads</DialogTitle>
             <DialogDescription>
               {uploadStep === 1 ? "Upload a CSV or Excel file to add leads directly to your pipeline." : "Map the columns in your file. These will be securely assigned to you."}
@@ -1080,20 +1082,24 @@ export default function AgentDashboardPage() {
           </DialogHeader>
 
           {uploadStep === 1 ? (
-            <div className="space-y-4 pt-4">
+            <div className="space-y-4 pt-4 shrink-0">
               <div className="border-2 border-dashed border-slate-200 rounded-lg p-10 flex flex-col items-center justify-center bg-slate-50 cursor-pointer relative">
                 <input type="file" accept=".csv, .xlsx, .xls" className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onChange={handleFileSelect} />
                 <FileSpreadsheet className={`h-12 w-12 mb-4 ${uploadFile ? 'text-blue-500' : 'text-slate-400'}`} />
                 <span className="text-base font-semibold text-slate-700">{uploadFile ? uploadFile.name : "Select .csv or .xlsx file"}</span>
               </div>
-              <DialogFooter>
+              <DialogFooter className="pt-2">
                 <Button variant="outline" onClick={resetModals}>Cancel</Button>
                 <Button disabled={!uploadFile} onClick={() => setUploadStep(2)} className="bg-blue-600 hover:bg-blue-700 text-white">Next Step</Button>
               </DialogFooter>
             </div>
           ) : (
-            <form onSubmit={handleFinalSubmit}>
-              <div className="space-y-4 pt-4">
+            // Added: overflow-hidden min-h-0 to the form wrapper
+            <form onSubmit={handleFinalSubmit} className="flex flex-col overflow-hidden min-h-0">
+
+              {/* Added: flex-1 overflow-y-auto to create the internal scrollbar! */}
+              <div className="flex-1 overflow-y-auto space-y-4 pt-4 pr-2">
+
                 <div className="flex gap-4">
                   <div className="space-y-2 flex-1"><Label>Start Row</Label><Input type="number" min={1} value={startRow} onChange={(e) => setStartRow(Number(e.target.value))} /></div>
                   <div className="space-y-2 flex-1"><Label>End Row</Label><Input type="number" min={1} placeholder="(EOF)" value={endRow} onChange={(e) => setEndRow(e.target.value)} /></div>
@@ -1121,12 +1127,15 @@ export default function AgentDashboardPage() {
                   ))}
                 </div>
               </div>
-              <DialogFooter className="pt-6">
+
+              {/* Added: shrink-0 mt-4 border-t to pin the buttons to the bottom */}
+              <DialogFooter className="pt-6 shrink-0 mt-2 border-t border-slate-100">
                 <Button type="button" variant="ghost" onClick={() => setUploadStep(1)}>Back</Button>
                 <Button type="submit" disabled={!columnMapping["Primary Phone"]} className="bg-blue-600 hover:bg-blue-700 text-white">
                   <CheckCircle2 className="mr-2 h-4 w-4"/> Import to Pipeline
                 </Button>
               </DialogFooter>
+
             </form>
           )}
         </DialogContent>
