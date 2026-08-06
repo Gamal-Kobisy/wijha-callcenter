@@ -90,7 +90,7 @@ export class UsersService {
     }
   }
 
-  async update(id: number, dto: UpdateUserDto): Promise<UserResponseDto> {
+  async update(id: number, dto: UpdateUserDto, allowRoleChange = true): Promise<UserResponseDto> {
     const existing = await this.prisma.user.findUnique({ where: { id } });
     if (!existing) {
       throw new NotFoundException('User not found');
@@ -107,7 +107,7 @@ export class UsersService {
           ...(dto.email !== undefined ? { email: dto.email } : {}),
           ...(dto.name !== undefined ? { name: dto.name } : {}),
           ...(dto.phone !== undefined ? { phoneNumber: dto.phone } : {}),
-          ...(dto.role !== undefined ? { role: dto.role } : {}),
+          ...(dto.role !== undefined && allowRoleChange ? { role: dto.role } : {}),
           ...(passwordHash !== undefined ? { passwordHash } : {}),
         },
         omit: { passwordHash: true },

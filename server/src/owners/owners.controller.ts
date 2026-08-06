@@ -33,9 +33,10 @@ export class OwnersController {
     meta: { total: number; page: number; limit: number };
   }> {
     const projectId = query.project_id ? Number(query.project_id) : undefined;
+    const agentId = query.agent_id ? Number(query.agent_id) : undefined;
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Math.min(Number(query.limit), 100) : 20;
-    return this.ownersService.findAll(projectId, query.status, page, limit);
+    return this.ownersService.findAll(projectId, query.status, page, limit, agentId);
   }
 
   @Post()

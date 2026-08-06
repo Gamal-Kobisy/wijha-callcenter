@@ -125,7 +125,7 @@ describe('CallsController', () => {
         mockCallRecord({ id: 2n, clientId: 1n, status: 'no_answer', time: new Date('2024-05-02T14:00:00Z'), client: { clientProjects: [{ project: { id: 1, name: 'Default Project' } }] } }),
       ]);
 
-      const result = await controller.getNext({ project_id: '1' });
+      const result = await controller.getNext({ project_id: '1' }, { id: 1, email: 'a@b.com', role: 'user' });
       expect(result).not.toBeNull();
       expect(result!.owner.id).toBe(1);
       expect(result!.owner.name).toBe('John Doe');
@@ -137,8 +137,32 @@ describe('CallsController', () => {
     it('should pass date query param to service', async () => {
       prisma.callDetailRecord.findMany.mockResolvedValue([]);
 
-      const result = await controller.getNext({ project_id: '1', date: '2024-06-01' });
+      const result = await controller.getNext({ project_id: '1', date: '2024-06-01' }, { id: 1, email: 'a@b.com', role: 'user' });
       expect(result).not.toBeNull();
+    });
+
+    it('should pass requesting agent id when assigned_only=true', async () => {
+      const spy = jest.spyOn(OwnersService.prototype, 'getNextOwner');
+
+      await controller.getNext(
+        { project_id: '1', assigned_only: 'true' },
+        { id: 5, email: 'agent@example.com', role: 'user' },
+      );
+
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ agentId: 5 }));
+      spy.mockRestore();
+    });
+
+    it('should not scope to agent when assigned_only is absent', async () => {
+      const spy = jest.spyOn(OwnersService.prototype, 'getNextOwner');
+
+      await controller.getNext(
+        { project_id: '1' },
+        { id: 5, email: 'agent@example.com', role: 'user' },
+      );
+
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ agentId: undefined }));
+      spy.mockRestore();
     });
   });
 

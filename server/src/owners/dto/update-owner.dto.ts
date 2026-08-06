@@ -1,9 +1,13 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsInt, IsOptional, IsString } from 'class-validator';
 
 export class UpdateOwnerDto {
   @IsOptional()
   @IsString()
   type?: string;
+
+  @IsOptional()
+  @IsInt()
+  agent_id?: number;
 
   @IsOptional()
   @IsString()

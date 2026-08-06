@@ -126,10 +126,33 @@ describe('UsersController', () => {
   });
 
   describe('PATCH /users/:userId', () => {
-    it('should update user', async () => {
-      const result = await controller.update(1, { name: 'Updated' });
+    it('should let admin update a user', async () => {
+      const result = await controller.update(
+        1,
+        { name: 'Updated' },
+        { id: 2, email: 'admin', role: 'admin' },
+      );
       expect(result.name).toBe('Updated');
       expect(result.is_online).toBe(false);
+    });
+
+    it('should let a user update their own profile', async () => {
+      const result = await controller.update(
+        1,
+        { name: 'Self Updated', phone: '555-1111' },
+        { id: 1, email: 'agent', role: 'user' },
+      );
+      expect(result.name).toBe('Updated');
+    });
+
+    it('should forbid a non-admin updating another user', async () => {
+      await expect(
+        controller.update(
+          2,
+          { name: 'Hacked' },
+          { id: 1, email: 'agent', role: 'user' },
+        ),
+      ).rejects.toThrow('You can only update your own profile');
     });
   });
 

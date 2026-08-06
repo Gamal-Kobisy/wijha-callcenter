@@ -193,6 +193,32 @@ describe('UsersService', () => {
       prisma.user.findUnique.mockResolvedValue(null);
       await expect(service.update(999, { name: 'Nope' })).rejects.toThrow('User not found');
     });
+
+    it('should update role when allowRoleChange is true (admin)', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser());
+      prisma.user.update.mockResolvedValue(mockUser({ role: 'admin' }));
+
+      await service.update(1, { role: 'admin' }, true);
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ role: 'admin' }),
+        }),
+      );
+    });
+
+    it('should ignore role when allowRoleChange is false (self)', async () => {
+      prisma.user.findUnique.mockResolvedValue(mockUser());
+      prisma.user.update.mockResolvedValue(mockUser());
+
+      await service.update(1, { role: 'admin', name: 'Self' }, false);
+
+      expect(prisma.user.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.not.objectContaining({ role: 'admin' }),
+        }),
+      );
+    });
   });
 
   describe('deactivate', () => {
