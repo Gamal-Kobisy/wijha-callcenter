@@ -179,10 +179,22 @@ export class OwnersService {
   }
 
   async update(id: number, dto: UpdateOwnerDto): Promise<OwnerResponseDto> {
-    const existing = await this.prisma.client.findUnique({ where: { id } });
+    const existing = await this.prisma.client.findUnique({
+      where: { id },
+      include: { numbers: true },
+    });
     if (!existing) {
       throw new NotFoundException('Client not found');
     }
+
+    const existingPhoneValues = (existing.numbers ?? []).map(n => n.number);
+    const newPhoneValues = dto.phones?.map(p => p.phone) ?? null;
+    const phonesToRemove = newPhoneValues
+      ? existingPhoneValues.filter(p => !newPhoneValues.includes(p))
+      : [];
+    const phonesToCreate = newPhoneValues
+      ? newPhoneValues.filter(p => !existingPhoneValues.includes(p)).map(p => ({ number: p }))
+      : [];
 
     const client = await this.prisma.client.update({
       where: { id },
@@ -190,6 +202,14 @@ export class OwnersService {
         ...(dto.type !== undefined ? { type: dto.type } : {}),
         ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
         ...(dto.next_dial_at !== undefined ? { nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at).toISOString() : null } : {}),
+        ...(phonesToRemove.length > 0 || phonesToCreate.length > 0
+          ? {
+              numbers: {
+                ...(phonesToRemove.length > 0 ? { deleteMany: { number: { in: phonesToRemove } } } : {}),
+                ...(phonesToCreate.length > 0 ? { create: phonesToCreate } : {}),
+              },
+            }
+          : {}),
       },
       include: { numbers: true, clientInfo: true },
     });

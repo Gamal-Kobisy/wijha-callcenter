@@ -53,6 +53,7 @@ import {
   Edit,
   Trash2,
   Loader2,
+  Plus,
 } from "lucide-react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LabelList } from "recharts"
 import { toast, Toaster } from "sonner"
@@ -157,6 +158,7 @@ export default function ClientsPage() {
   const [selectedClientHistory, setSelectedClientHistory] = useState<CallRecord[]>([])
   const [isLoadingHistory, setIsLoadingHistory] = useState(false)
   const [editingClient, setEditingClient] = useState<DisplayClient | null>(null)
+  const [editingPhones, setEditingPhones] = useState<string[]>([])
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null)
 
   // CSV Mapping State
@@ -166,6 +168,7 @@ export default function ClientsPage() {
   const [startRow, setStartRow] = useState<number>(2)
   const [endRow, setEndRow] = useState<string>("")
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
+  const [phoneFields, setPhoneFields] = useState<string[]>(["Primary Phone"])
 
   // --- API: Load all data on mount ---
   const loadClients = useCallback(async (page = 1) => {
@@ -304,11 +307,17 @@ export default function ClientsPage() {
     e.preventDefault()
     if (!editingClient) return
 
+    const phones = editingPhones.map(p => p.trim()).filter(p => p !== "")
+    if (phones.length === 0) {
+      return toast.error("Phone Required", { description: "At least one phone number is required." })
+    }
+
     try {
       const ownerId = Number(editingClient.id)
       await clientsApi.updateClient(ownerId, {
         type: editingClient._raw.type,
         next_dial_at: editingClient.nextDialAt || null,
+        phones,
       })
 
       setEditingClient(null)
@@ -319,6 +328,17 @@ export default function ClientsPage() {
       toast.error("Update Failed", { description: error.message })
     }
   }
+
+  const openEditClient = (client: DisplayClient) => {
+    setEditingPhones(client._raw.phones?.map(p => p.phone) ?? [])
+    setEditingClient({ ...client })
+  }
+
+  const addEditingPhone = () => setEditingPhones(prev => [...prev, ""])
+  const updateEditingPhone = (index: number, value: string) =>
+    setEditingPhones(prev => prev.map((p, i) => (i === index ? value : p)))
+  const removeEditingPhone = (index: number) =>
+    setEditingPhones(prev => prev.filter((_, i) => i !== index))
 
   const handleDeleteClient = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -382,6 +402,11 @@ export default function ClientsPage() {
     setColumnMapping({})
     setStartRow(2)
     setEndRow("")
+    setPhoneFields(["Primary Phone"])
+  }
+
+  const handleAddPhoneField = () => {
+    setPhoneFields(prev => [...prev, `Phone ${prev.length + 1}`])
   }
 
   // --- REAL CSV PARSING ENGINE (now calls API) ---
@@ -415,18 +440,19 @@ export default function ClientsPage() {
               return row[idx] || "";
             }
 
-            let rawPhone = getVal("Primary Phone");
-            if (!rawPhone) continue;
-            rawPhone = rawPhone.replace(/\t/g, '');
+            // Loop through all dynamically created phone columns
+            const rawPhones = phoneFields
+              .map(field => getVal(field))
+              .filter(phone => !!phone) // Remove empty strings
+              .map(phone => phone.replace(/\t/g, '')); // Clean export garbage
 
-            const projectName = getVal("Project") || undefined;
+            if (rawPhones.length === 0) continue; // Requires at least one valid phone
 
             ownersToCreate.push({
               name: getVal("Client Name") || "Unknown Client",
-              phones: [{ phone: rawPhone }],
+              phones: rawPhones.map(phone => ({ phone })),
               type: "OWNER",
               info: [],
-              ...(projectName ? {} : {}), // project_id needs lookup
             });
           }
 
@@ -460,6 +486,7 @@ export default function ClientsPage() {
 
   const renderMappingUI = (mode: "upload" | "assign") => {
     const activeFields = mode === "assign" ? systemFields.filter(f => f !== "Assigned Agent") : systemFields;
+    const otherFields = activeFields.filter(f => f !== "Primary Phone");
 
     return (
       <div className="space-y-6 pt-4 animate-in fade-in slide-in-from-right-4 duration-300">
@@ -475,10 +502,15 @@ export default function ClientsPage() {
         </div>
 
         <div className="space-y-4 border-t pt-6 border-slate-100">
-          <Label className="text-xs text-slate-500 uppercase tracking-wider font-bold">Map CSV Columns</Label>
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+            <Label className="text-xs text-slate-500 uppercase tracking-wider font-bold">Map CSV Columns</Label>
+            <Button type="button" variant="outline" size="sm" onClick={handleAddPhoneField} className="h-7 px-2 text-xs flex items-center gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50">
+              <Plus className="h-3.5 w-3.5" /> Add Phone Column
+            </Button>
+          </div>
           <p className="text-xs text-muted-foreground mb-4">Enter the exact column letter (A, B, C...) from your file that matches our system fields.</p>
 
-          {activeFields.map(field => (
+          {[...phoneFields, ...otherFields].map(field => (
             <div key={field} className="flex items-center justify-between gap-4">
               <span className="text-sm font-medium text-slate-700 w-1/2">
                 {field} {field === "Primary Phone" && <span className="text-red-500">*</span>}
@@ -763,7 +795,7 @@ export default function ClientsPage() {
                               }}>
                                 <Search className="h-4 w-4 mr-2 text-slate-500" /> View Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem className="cursor-pointer focus:bg-slate-200" onClick={() => setEditingClient({ ...client })}>
+                              <DropdownMenuItem className="cursor-pointer focus:bg-slate-200" onClick={() => openEditClient(client)}>
                                 <Edit className="h-4 w-4 mr-2 text-blue-500" /> Edit Client
                               </DropdownMenuItem>
                               <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => setDeletingClientId(client.id)}>
@@ -829,13 +861,35 @@ export default function ClientsPage() {
                 </div>
 
                 <div className="col-span-2 flex flex-col gap-2">
-                  <Label>Primary Phone</Label>
-                  <Input
-                    value={editingClient.primaryNumber}
-                    disabled
-                    className="bg-slate-50"
-                  />
-                  <p className="text-xs text-muted-foreground">Phone numbers are managed at the server level.</p>
+                  <div className="flex items-center justify-between">
+                    <Label>Phone Numbers</Label>
+                    <Button type="button" variant="outline" size="sm" onClick={addEditingPhone} className="h-7 px-2 text-xs flex items-center gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50">
+                      <Plus className="h-3.5 w-3.5" /> Add Number
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {editingPhones.map((phone, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <Input
+                          value={phone}
+                          onChange={(e) => updateEditingPhone(index, e.target.value)}
+                          placeholder={`Phone ${index + 1}`}
+                          className={index === 0 ? "flex-1" : "flex-1 bg-slate-50"}
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 shrink-0 text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => removeEditingPhone(index)}
+                          disabled={editingPhones.length === 1}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">You can add or remove multiple phone numbers for this client.</p>
                 </div>
 
                 <div className="col-span-2 flex flex-col gap-2">
