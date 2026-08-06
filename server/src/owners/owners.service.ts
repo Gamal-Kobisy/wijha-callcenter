@@ -173,16 +173,36 @@ export class OwnersService {
   }
 
   async update(id: number, dto: UpdateOwnerDto): Promise<OwnerResponseDto> {
-    const existing = await this.prisma.client.findUnique({ where: { id } });
+    const existing = await this.prisma.client.findUnique({
+      where: { id },
+      include: { numbers: true },
+    });
     if (!existing) {
       throw new NotFoundException('Client not found');
     }
+
+    const existingPhoneValues = (existing.numbers ?? []).map(n => n.number);
+    const newPhoneValues = dto.phones?.map(p => p.phone) ?? null;
+    const phonesToRemove = newPhoneValues
+      ? existingPhoneValues.filter(p => !newPhoneValues.includes(p))
+      : [];
+    const phonesToCreate = newPhoneValues
+      ? newPhoneValues.filter(p => !existingPhoneValues.includes(p)).map(p => ({ number: p }))
+      : [];
 
     const client = await this.prisma.client.update({
       where: { id },
       data: {
         ...(dto.type !== undefined ? { type: dto.type } : {}),
         ...(dto.next_dial_at !== undefined ? { nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at).toISOString() : null } : {}),
+        ...(phonesToRemove.length > 0 || phonesToCreate.length > 0
+          ? {
+              numbers: {
+                ...(phonesToRemove.length > 0 ? { deleteMany: { number: { in: phonesToRemove } } } : {}),
+                ...(phonesToCreate.length > 0 ? { create: phonesToCreate } : {}),
+              },
+            }
+          : {}),
       },
       include: { numbers: true, clientInfo: true },
     });
@@ -192,18 +212,16 @@ export class OwnersService {
 
   async getNextOwner(args?: { projectId?: number, date?: Date}): Promise<OwnerResponseDto | null> {
     const { projectId } = args || {};
-    const where: Prisma.OwnerWhereInput = { status: 'active' };
-    if (projectId !== undefined) {
-      where.ownerProjects = { some: { projectId } };
-    }
-    const owners = await this.prisma.owner.findMany({
-      where,
-      orderBy: {
-        attemptCount: 'asc',
-        lastDialedAt: 'asc',
-      },
-      include: { numbers: true, ownerInfo: true },
-    });
+    const rows = await this.prisma.$queryRaw<{ id: bigint }[]>`
+      SELECT c.id
+      FROM client c
+      JOIN client_project cp ON cp.client_id = c.id
+      WHERE (${projectId}::int IS NULL OR cp.project_id = ${projectId})
+        AND (cp.status IS NULL OR cp.status IN ('dial', 'callback', 'not_answered'))
+        AND (c.next_dial_at IS NULL OR c.next_dial_at <= NOW())
+      ORDER BY c.next_dial_at ASC NULLS FIRST
+      LIMIT 1
+    `;
 
     if (rows.length === 0) return null;
 

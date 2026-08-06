@@ -445,6 +445,69 @@ describe('OwnersService', () => {
       expect(updated.next_dial_at).toBeNull();
     });
 
+    it('should add new phone numbers and remove missing ones', async () => {
+      prisma.client.findUnique.mockResolvedValue(
+        mockClient({
+          name: 'John',
+          numbers: [{ number: '555-0100', clientId: 1n }, { number: '555-0200', clientId: 1n }],
+          clientInfo: [],
+        }),
+      );
+      prisma.client.update.mockResolvedValue(
+        mockClient({
+          name: 'John',
+          numbers: [{ number: '555-0100', clientId: 1n }, { number: '555-0300', clientId: 1n }],
+          clientInfo: [],
+        }),
+      );
+
+      const updated = await service.update(1, {
+        phones: [{ phone: '555-0100' }, { phone: '555-0300' }],
+      });
+
+      expect(updated.phones).toEqual([
+        { phone: '555-0100' },
+        { phone: '555-0300' },
+      ]);
+      expect(prisma.client.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: {
+          numbers: {
+            deleteMany: { number: { in: ['555-0200'] } },
+            create: [{ number: '555-0300' }],
+          },
+        },
+        include: { numbers: true, clientInfo: true },
+      });
+    });
+
+    it('should skip number changes when phones are not provided', async () => {
+      prisma.client.findUnique.mockResolvedValue(
+        mockClient({
+          name: 'John',
+          numbers: [{ number: '555-0100', clientId: 1n }],
+          clientInfo: [],
+        }),
+      );
+      prisma.client.update.mockResolvedValue(
+        mockClient({
+          name: 'John',
+          type: 'LEAD',
+          numbers: [{ number: '555-0100', clientId: 1n }],
+          clientInfo: [],
+        }),
+      );
+
+      const updated = await service.update(1, { type: 'LEAD' });
+
+      expect(updated.type).toBe('LEAD');
+      expect(prisma.client.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { type: 'LEAD' },
+        include: { numbers: true, clientInfo: true },
+      });
+    });
+
     it('should throw NotFoundException for non-existent id', async () => {
       prisma.client.findUnique.mockResolvedValue(null);
       await expect(service.update(999, { type: 'done' })).rejects.toThrow('Client not found');

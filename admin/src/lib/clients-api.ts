@@ -102,12 +102,17 @@ export const clientsApi = {
     };
   },
 
-  async updateClient(ownerId: number, data: { type?: string; next_dial_at?: string | null }): Promise<Owner> {
+  async updateClient(ownerId: number, data: { type?: string; next_dial_at?: string | null; phones?: string[] }): Promise<Owner> {
     await delay(400);
     const idx = mockClients.findIndex(c => c.id === ownerId);
     if (idx === -1) throw new Error("Client not found");
     
-    mockClients[idx] = { ...mockClients[idx], ...data };
+    const { phones, ...rest } = data;
+    mockClients[idx] = {
+      ...mockClients[idx],
+      ...rest,
+      ...(phones ? { phones: phones.map(p => ({ phone: p })) } : {}),
+    };
     return mockClients[idx];
   },
 
