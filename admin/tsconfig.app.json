@@ -1,9 +1,12 @@
 {
   "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "types": ["vite/client"],
     "paths": {
       "@/*": [
         "./src/*"
-      ],
+      ]
     },
 
     /* Bundler mode */
