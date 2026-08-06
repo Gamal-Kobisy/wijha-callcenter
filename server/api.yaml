@@ -71,6 +71,9 @@ components:
           type: string
           format: date-time
           nullable: true
+        agent_id:
+          type: integer
+          nullable: true
         phones:
           type: array
           items:
@@ -87,6 +90,8 @@ components:
         name:
           type: string
         project_id:
+          type: integer
+        agent_id:
           type: integer
         type:
           $ref: "#/components/schemas/ClientType"
@@ -462,6 +467,10 @@ paths:
           in: query
           schema:
             type: integer
+        - name: agent_id
+          in: query
+          schema:
+            type: integer
         - name: type
           in: query
           schema:
@@ -572,6 +581,9 @@ paths:
               properties:
                 type:
                   $ref: "#/components/schemas/ClientType"
+                agent_id:
+                  type: integer
+                  nullable: true
                 next_dial_at:
                   type: string
                   format: date-time
@@ -771,6 +783,11 @@ paths:
           required: true
           schema:
             type: integer
+        - name: assigned_only
+          in: query
+          description: If true, only return clients assigned to the calling agent.
+          schema:
+            type: boolean
       responses:
         "200":
           description: Next client to call with past call history
@@ -1058,9 +1075,13 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
     patch:
-      summary: Update a user profile (admin only)
+      summary: Update a user profile (self or admin)
       operationId: updateUser
       tags: [users]
+      description: |
+        Admins may update any user. A non-admin user may only update their own
+        profile (name, phone, email, password). The `role` field is admin-only
+        and is ignored for non-admin requests.
       parameters:
         - name: userId
           in: path
@@ -1085,6 +1106,7 @@ paths:
                   type: string
                 role:
                   type: string
+                  description: Admin only. Ignored for non-admin self-updates.
       responses:
         "200":
           description: Updated user profile
@@ -1092,6 +1114,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/User"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
         "422":

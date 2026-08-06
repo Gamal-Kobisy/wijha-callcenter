@@ -12,6 +12,7 @@ export class OwnerResponseDto {
   name?: string;
   type?: string;
   next_dial_at?: string | null;
+  agent_id?: number;
   phones?: OwnerPhoneResponse[];
   info?: OwnerInfoResponse[];
 }

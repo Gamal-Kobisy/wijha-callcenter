@@ -80,6 +80,23 @@ describe('OwnersController', () => {
       expect(result.data).toHaveLength(1);
       expect(result.meta.limit).toBe(1);
     });
+
+    it('should forward agent_id to the service', async () => {
+      prisma.client.findMany.mockResolvedValue([]);
+      prisma.client.count.mockResolvedValue(0);
+
+      await controller.findAll({ agent_id: '5' });
+      expect(prisma.client.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ agentId: 5 }) }),
+      );
+    });
+
+    it('should not filter by agent when agent_id omitted', async () => {
+      await controller.findAll({});
+      expect(prisma.client.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.not.objectContaining({ agentId: expect.anything() }) }),
+      );
+    });
   });
 
   describe('POST /owners', () => {
@@ -126,13 +143,17 @@ describe('OwnersController', () => {
       const result = await controller.createBulk({
         owners: [
           { name: 'Alice', phones: [{ phone: '555-1111' }], project_id: 1 },
-          { name: 'Bob', phones: [{ phone: '555-2222' }], project_id: 1 },
+          { name: 'Bob', agent_id: 3, phones: [{ phone: '555-2222' }], project_id: 1 },
         ],
       });
 
       expect(result).toHaveLength(2);
       expect(result[0].name).toBe('Alice');
       expect(result[1].name).toBe('Bob');
+      expect(prisma.client.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ data: expect.objectContaining({ agentId: 3 }) }),
+      );
     });
   });
 

@@ -20,6 +20,7 @@ export function mockClient(overrides?: Partial<{
   name: string | null;
   type: string;
   nextDialAt: Date | null;
+  agentId: number | null;
   numbers: { number: string; clientId: bigint }[];
   clientInfo: { key: string; clientId: bigint; value: string }[];
 }>) {
@@ -28,6 +29,7 @@ export function mockClient(overrides?: Partial<{
     name: 'John Doe',
     type: 'OWNER',
     nextDialAt: null,
+    agentId: null,
     numbers: [] as { number: string; clientId: bigint }[],
     clientInfo: [] as { key: string; clientId: bigint; value: string }[],
     ...overrides,

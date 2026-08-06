@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { CreateOwnerDto } from './dto/create-owner.dto';
 import type { UpdateOwnerDto } from './dto/update-owner.dto';
@@ -10,6 +11,7 @@ type ClientWithRelations = {
   name?: string | null;
   type?: string | null;
   nextDialAt?: Date | null;
+  agentId?: number | null;
   numbers: { number: string }[];
   clientInfo?: { key: string; value: string }[];
 };
@@ -20,6 +22,7 @@ function toOwnerResponse(client: ClientWithRelations): OwnerResponseDto {
     name: client.name ?? undefined,
     type: client.type ?? undefined,
     next_dial_at: client.nextDialAt?.toISOString() ?? null,
+    agent_id: client.agentId ?? undefined,
     phones: client.numbers.map(n => ({ phone: n.number })),
     info: client.clientInfo?.map(i => ({ key: i.key, value: i.value })),
   };
@@ -34,9 +37,11 @@ export class OwnersService {
     type?: string,
     page = 1,
     limit = 20,
+    agent_id?: number,
   ): Promise<{ data: OwnerResponseDto[]; meta: { total: number; page: number; limit: number } }> {
     const where: any = {};
     if (type) where.type = type;
+    if (agent_id) where.agentId = agent_id;
     if (project_id) where.clientProjects = { some: { projectId: project_id } };
 
     const [clients, total] = await Promise.all([
@@ -106,6 +111,7 @@ export class OwnersService {
         data: {
           ...(mergedName !== undefined ? { name: mergedName } : {}),
           ...(dto.type !== undefined ? { type: dto.type } : {}),
+          ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
           ...(newNumbers.length > 0
             ? { numbers: { create: newNumbers.map(n => ({ number: n })) } }
             : {}),
@@ -143,6 +149,7 @@ export class OwnersService {
       data: {
         name: dto.name,
         type: dto.type ?? 'OWNER',
+        agentId: dto.agent_id ?? null,
         numbers: {
           create: dto.phones.map(n => ({ number: n.phone })),
         },
@@ -173,6 +180,7 @@ export class OwnersService {
       where: { id },
       data: {
         ...(dto.type !== undefined ? { type: dto.type } : {}),
+        ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
         ...(dto.next_dial_at !== undefined ? { nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at).toISOString() : null } : {}),
       },
       include: { numbers: true, clientInfo: true },
@@ -181,8 +189,12 @@ export class OwnersService {
     return toOwnerResponse(client);
   }
 
-  async getNextOwner(args: { projectId: number, date?: Date }): Promise<OwnerResponseDto | null> {
-    const { projectId } = args;
+  async getNextOwner(args: { projectId: number, date?: Date, agentId?: number }): Promise<OwnerResponseDto | null> {
+    const { projectId, agentId } = args;
+
+    const agentClause = agentId !== undefined && agentId !== null
+      ? Prisma.sql`AND c.agent_id = ${agentId}`
+      : Prisma.empty;
 
     const rows = await this.prisma.$queryRaw<{ id: bigint }[]>`
       SELECT c.id
@@ -191,6 +203,7 @@ export class OwnersService {
       WHERE cp.project_id = ${projectId}
         AND cp.status IN ('dial', 'callback', 'not_answered')
         AND (c.next_dial_at IS NULL OR c.next_dial_at <= NOW())
+        ${agentClause}
       ORDER BY c.next_dial_at ASC NULLS FIRST
       LIMIT 1
     `;
