@@ -13,6 +13,7 @@ type ClientWithRelations = {
   nextDialAt?: Date | null;
   numbers: { number: string }[];
   clientInfo?: { key: string; value: string }[];
+  clientProjects?: { projectId: number; status: string | null; attemptCount: number | null; lastDialedAt: Date | null; project: { id: number; name: string } }[];
 };
 
 function toOwnerResponse(client: ClientWithRelations): OwnerResponseDto {
@@ -23,6 +24,13 @@ function toOwnerResponse(client: ClientWithRelations): OwnerResponseDto {
     next_dial_at: client.nextDialAt?.toISOString() ?? null,
     phones: client.numbers.map(n => ({ phone: n.number })),
     info: client.clientInfo?.map(i => ({ key: i.key, value: i.value })),
+    projects: client.clientProjects?.map(cp => ({
+      project_id: cp.projectId,
+      project_name: cp.project.name,
+      status: cp.status ?? undefined,
+      attempt_count: cp.attemptCount ?? 0,
+      last_dialed_at: cp.lastDialedAt?.toISOString() ?? null,
+    })),
   };
 }
 
@@ -43,7 +51,7 @@ export class OwnersService {
     const [clients, total] = await Promise.all([
       this.prisma.client.findMany({
         where,
-        include: { numbers: true, clientInfo: true },
+        include: { numbers: true, clientInfo: true, clientProjects: { include: { project: true } } },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -59,7 +67,7 @@ export class OwnersService {
   async findById(id: number): Promise<OwnerResponseDto | null> {
     const client = await this.prisma.client.findUnique({
       where: { id },
-      include: { numbers: true, clientInfo: true },
+      include: { numbers: true, clientInfo: true, clientProjects: { include: { project: true } } },
     });
     if (!client) return null;
     return toOwnerResponse(client);

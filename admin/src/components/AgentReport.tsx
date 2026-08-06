@@ -167,7 +167,7 @@ export default function AgentReport({ data }: AgentReportProps) {
               <XAxis dataKey="day" tick={{ fontSize: 9 }} />
               <YAxis tick={{ fontSize: 9 }} />
               <Line isAnimationActive={false} type="monotone" dataKey="avgDuration" name="Duration" stroke={chartPalette.dial} strokeWidth={2} dot={{ r: 3, fill: chartPalette.dial }}>
-                <LabelList dataKey="avgDuration" position="top" offset={12} style={{ fontSize: 9, fill: "#334155", fontWeight: 700 }} formatter={(v: number) => `${v}s`} />
+                <LabelList dataKey="avgDuration" position="top" offset={12} style={{ fontSize: 9, fill: "#334155", fontWeight: 700 }} formatter={(v: any) => `${v}s`} />
               </Line>
             </LineChart>
           </div>
