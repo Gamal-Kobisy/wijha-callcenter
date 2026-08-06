@@ -76,6 +76,31 @@ describe('OwnersService', () => {
         }),
       );
     });
+
+    it('should filter by agent_id', async () => {
+      prisma.client.findMany.mockResolvedValue([]);
+      prisma.client.count.mockResolvedValue(0);
+
+      const result = await service.findAll(undefined, undefined, 1, 20, 5);
+      expect(result.data).toHaveLength(0);
+      expect(prisma.client.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ agentId: 5 }),
+        }),
+      );
+    });
+
+    it('should omit agent filter when agent_id is not provided', async () => {
+      prisma.client.findMany.mockResolvedValue([]);
+      prisma.client.count.mockResolvedValue(0);
+
+      await service.findAll();
+      expect(prisma.client.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({ agentId: expect.anything() }),
+        }),
+      );
+    });
   });
 
   describe('findById', () => {
@@ -279,6 +304,58 @@ describe('OwnersService', () => {
       expect(result.phones).toHaveLength(2);
       expect(result.info).toHaveLength(2);
     });
+
+    it('should assign agent_id on create', async () => {
+      prisma.number.findFirst.mockResolvedValue(null);
+      prisma.client.create.mockResolvedValue(
+        mockClient({ id: 8n, name: 'Assigned', agentId: 5, numbers: [mockNumber({ number: '555-5555' })], clientInfo: [] }),
+      );
+
+      await service.create({
+        name: 'Assigned',
+        agent_id: 5,
+        phones: [{ phone: '555-5555' }],
+      });
+
+      expect(prisma.client.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ agentId: 5 }),
+        }),
+      );
+    });
+
+    it('should set agent_id when merging an existing owner', async () => {
+      const existingClient = mockClient({
+        id: 2n, name: 'Existing',
+        numbers: [mockNumber({ number: '555-9999' })],
+        clientInfo: [],
+      });
+      prisma.number.findFirst.mockResolvedValue({
+        number: '555-9999',
+        clientId: 2n,
+        client: existingClient,
+      } as any);
+      prisma.client.update.mockResolvedValue(
+        mockClient({
+          id: 2n, name: 'Existing', agentId: 7,
+          numbers: [mockNumber({ number: '555-9999' })],
+          clientInfo: [],
+        }),
+      );
+
+      await service.create({
+        name: 'Existing',
+        agent_id: 7,
+        phones: [{ phone: '555-9999' }],
+      });
+
+      expect(prisma.client.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ agentId: 7 }),
+        }),
+      );
+      expect(prisma.client.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('createBulk', () => {
@@ -367,6 +444,31 @@ describe('OwnersService', () => {
       expect(results[0].type).toBe('LEAD');
       expect(results[1].type).toBe('OWNER');
     });
+
+    it('should assign agent_id per owner in bulk', async () => {
+      prisma.number.findFirst.mockResolvedValue(null);
+      prisma.client.create
+        .mockResolvedValueOnce(
+          mockClient({ id: 3n, name: 'Alice', agentId: 1, numbers: [mockNumber({ number: '555-1111' })], clientInfo: [] }),
+        )
+        .mockResolvedValueOnce(
+          mockClient({ id: 4n, name: 'Bob', agentId: 2, numbers: [mockNumber({ number: '555-2222' })], clientInfo: [] }),
+        );
+
+      await service.createBulk([
+        { name: 'Alice', agent_id: 1, phones: [{ phone: '555-1111' }], project_id: 1 },
+        { name: 'Bob', agent_id: 2, phones: [{ phone: '555-2222' }], project_id: 1 },
+      ]);
+
+      expect(prisma.client.create).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ data: expect.objectContaining({ agentId: 1 }) }),
+      );
+      expect(prisma.client.create).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({ data: expect.objectContaining({ agentId: 2 }) }),
+      );
+    });
   });
 
   describe('assignToProject', () => {
@@ -431,6 +533,21 @@ describe('OwnersService', () => {
         data: { nextDialAt: expect.any(String) },
         include: { numbers: true, clientInfo: true },
       });
+    });
+
+    it('should reassign agent_id', async () => {
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
+      prisma.client.update.mockResolvedValue(
+        mockClient({ name: 'John', agentId: 9, numbers: [], clientInfo: [] }),
+      );
+
+      const updated = await service.update(1, { agent_id: 9 });
+      expect(updated.agent_id).toBe(9);
+      expect(prisma.client.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ agentId: 9 }),
+        }),
+      );
     });
 
     it('should clear next_dial_at when set to null', async () => {
@@ -564,6 +681,29 @@ describe('OwnersService', () => {
       prisma.$queryRaw.mockResolvedValue([]);
       const next = await service.getNextOwner({ projectId: 1 });
       expect(next).toBeNull();
+    });
+
+    it('should scope query to agent when agentId provided', async () => {
+      prisma.$queryRaw.mockResolvedValue([{ id: 1n }]);
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
+
+      const next = await service.getNextOwner({ projectId: 1, agentId: 5 });
+      expect(next).not.toBeNull();
+
+      const agentClause = (prisma.$queryRaw as jest.Mock).mock.calls[0][2];
+      expect(agentClause.strings.join('')).toContain('c.agent_id');
+      expect(agentClause.values).toContain(5);
+    });
+
+    it('should not add agent clause when agentId is omitted', async () => {
+      prisma.$queryRaw.mockResolvedValue([{ id: 1n }]);
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
+
+      const next = await service.getNextOwner({ projectId: 1 });
+      expect(next).not.toBeNull();
+
+      const agentClause = (prisma.$queryRaw as jest.Mock).mock.calls[0][2];
+      expect(agentClause.strings.join('')).not.toContain('c.agent_id');
     });
   });
 });

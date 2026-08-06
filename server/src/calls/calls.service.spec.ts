@@ -303,6 +303,23 @@ describe('CallsService', () => {
       expect(result).not.toBeNull();
       expect(getNextOwnerSpy).toHaveBeenCalledWith({ projectId: 1, date });
     });
+
+    it('should forward agentId to ownersService', async () => {
+      const getNextOwnerSpy = jest.spyOn(ownersService, 'getNextOwner').mockResolvedValue({
+        id: 1,
+        name: 'Assigned Owner',
+        next_dial_at: null,
+        agent_id: 4,
+        phones: [],
+        info: [],
+      });
+
+      prisma.callDetailRecord.findMany.mockResolvedValue([]);
+
+      const result = await service.getNextOwner({ projectId: 1, agentId: 4 });
+      expect(result).not.toBeNull();
+      expect(getNextOwnerSpy).toHaveBeenCalledWith({ projectId: 1, agentId: 4 });
+    });
   });
 
   describe('getStatusCounts', () => {

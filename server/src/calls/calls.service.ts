@@ -137,7 +137,7 @@ export class CallsService {
     };
   }
 
-  async getNextOwner(args: { projectId: number, date?: Date }): Promise<NextOwnerResponseDto | null> {
+  async getNextOwner(args: { projectId: number, date?: Date, agentId?: number }): Promise<NextOwnerResponseDto | null> {
     const owner = await this.ownersService.getNextOwner(args);
     if (!owner) return null;
 
