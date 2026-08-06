@@ -1,4 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { CreateOwnerDto } from './dto/create-owner.dto';
 import type { UpdateOwnerDto } from './dto/update-owner.dto';
@@ -181,19 +182,20 @@ export class OwnersService {
     return toOwnerResponse(client);
   }
 
-  async getNextOwner(args: { projectId: number, date?: Date }): Promise<OwnerResponseDto | null> {
-    const { projectId } = args;
-
-    const rows = await this.prisma.$queryRaw<{ id: bigint }[]>`
-      SELECT c.id
-      FROM client c
-      JOIN client_project cp ON cp.client_id = c.id
-      WHERE cp.project_id = ${projectId}
-        AND cp.status IN ('dial', 'callback', 'not_answered')
-        AND (c.next_dial_at IS NULL OR c.next_dial_at <= NOW())
-      ORDER BY c.next_dial_at ASC NULLS FIRST
-      LIMIT 1
-    `;
+  async getNextOwner(args?: { projectId?: number, date?: Date}): Promise<OwnerResponseDto | null> {
+    const { projectId } = args || {};
+    const where: Prisma.OwnerWhereInput = { status: 'active' };
+    if (projectId !== undefined) {
+      where.ownerProjects = { some: { projectId } };
+    }
+    const owners = await this.prisma.owner.findMany({
+      where,
+      orderBy: {
+        attemptCount: 'asc',
+        lastDialedAt: 'asc',
+      },
+      include: { numbers: true, ownerInfo: true },
+    });
 
     if (rows.length === 0) return null;
 
