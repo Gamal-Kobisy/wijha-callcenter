@@ -5,7 +5,7 @@ export class ProjectRef {
 
 export class CallResponseDto {
   id!: number;
-  owner_id!: number;
+  client_id!: number;
   agent_id!: number;
   status!: string;
   time!: string;

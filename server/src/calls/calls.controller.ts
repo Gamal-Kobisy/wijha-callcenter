@@ -14,7 +14,7 @@ import { CallsService } from './calls.service';
 import { SubmitCallDto } from './dto/submit-call.dto';
 import { NotifyCallingDto } from './dto/notify-calling.dto';
 import { ListCallsQueryDto } from './dto/list-calls-query.dto';
-import { GetNextOwnerQueryDto } from './dto/get-next-owner-query.dto';
+import { GetNextClientQueryDto } from './dto/get-next-owner-query.dto';
 import { GetStatusesQueryDto } from './dto/get-statuses-query.dto';
 import type { CallResponseDto } from './dto/call-response.dto';
 import type { NextOwnerResponseDto } from './dto/next-owner-response.dto';
@@ -34,14 +34,14 @@ export class CallsController {
     data: CallResponseDto[];
     meta: { total: number; page: number; limit: number };
   }> {
-    const ownerId = query.owner_id ? Number(query.owner_id) : undefined;
+    const clientId = query.client_id ? Number(query.client_id) : undefined;
     const agentId = query.agent_id ? Number(query.agent_id) : undefined;
     const projectId = query.project_id ? Number(query.project_id) : undefined;
     const from = query.from ? new Date(query.from) : undefined;
     const to = query.to ? new Date(query.to) : undefined;
 
     return this.callsService.findAll({
-      owner_id: ownerId,
+      client_id: clientId,
       agent_id: agentId,
       status: query.status,
       page: query.page ?? 1,
@@ -62,7 +62,7 @@ export class CallsController {
   }
 
   @Get('next')
-  async getNext(@Query() query: GetNextOwnerQueryDto): Promise<NextOwnerResponseDto | null> {
+  async getNext(@Query() query: GetNextClientQueryDto): Promise<NextOwnerResponseDto | null> {
     return this.callsService.getNextOwner({
       projectId: Number(query.project_id),
       date: query.date ? new Date(query.date) : undefined,

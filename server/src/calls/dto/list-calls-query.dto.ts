@@ -4,7 +4,7 @@ import { Type } from 'class-transformer';
 export class ListCallsQueryDto {
   @IsOptional()
   @IsNumberString()
-  owner_id?: string;
+  client_id?: string;
 
   @IsOptional()
   @IsNumberString()

@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { OwnersService } from './owners.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '@/prisma/mock-data';
+import { mockClient, mockNumber, mockClientInfo, mockProject } from '@/prisma/mock-data';
 
 describe('OwnersService', () => {
   let service: OwnersService;
@@ -28,37 +28,50 @@ describe('OwnersService', () => {
 
   describe('findAll', () => {
     it('should return paginated owners', async () => {
-      prisma.owner.findMany.mockResolvedValue([
-        mockOwner({ name: 'John', numbers: [mockNumber()], ownerInfo: [mockOwnerInfo({ key: 'city', value: 'NYC' })] }),
+      prisma.client.findMany.mockResolvedValue([
+        mockClient({ name: 'John', numbers: [mockNumber()], clientInfo: [mockClientInfo({ key: 'city', value: 'NYC' })] }),
       ]);
-      prisma.owner.count.mockResolvedValue(1);
+      prisma.client.count.mockResolvedValue(1);
 
       const result = await service.findAll();
       expect(result.data).toHaveLength(1);
       expect(result.meta.total).toBe(1);
     });
 
-    it('should filter by status', async () => {
-      prisma.owner.findMany.mockResolvedValue([]);
-      prisma.owner.count.mockResolvedValue(0);
+    it('should filter by type', async () => {
+      prisma.client.findMany.mockResolvedValue([]);
+      prisma.client.count.mockResolvedValue(0);
 
-      const result = await service.findAll(undefined, 'inactive');
+      const result = await service.findAll(undefined, 'OWNER');
       expect(result.data).toHaveLength(0);
       expect(result.meta.total).toBe(0);
     });
 
+    it('should filter by type and project_id combined', async () => {
+      prisma.client.findMany.mockResolvedValue([]);
+      prisma.client.count.mockResolvedValue(0);
+
+      const result = await service.findAll(1, 'LEAD');
+      expect(result.data).toHaveLength(0);
+      expect(prisma.client.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { type: 'LEAD', clientProjects: { some: { projectId: 1 } } },
+        }),
+      );
+    });
+
     it('should filter by project_id', async () => {
-      prisma.owner.findMany.mockResolvedValue([
-        mockOwner({ name: 'Project Owner', numbers: [], ownerInfo: [] }),
+      prisma.client.findMany.mockResolvedValue([
+        mockClient({ name: 'Project Owner', numbers: [], clientInfo: [] }),
       ]);
-      prisma.owner.count.mockResolvedValue(1);
+      prisma.client.count.mockResolvedValue(1);
 
       const result = await service.findAll(1);
       expect(result.data).toHaveLength(1);
-      expect(prisma.owner.findMany).toHaveBeenCalledWith(
+      expect(prisma.client.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            ownerProjects: { some: { projectId: 1 } },
+            clientProjects: { some: { projectId: 1 } },
           }),
         }),
       );
@@ -67,11 +80,11 @@ describe('OwnersService', () => {
 
   describe('findById', () => {
     it('should return owner with nested relations', async () => {
-      prisma.owner.findUnique.mockResolvedValue(
-        mockOwner({
+      prisma.client.findUnique.mockResolvedValue(
+        mockClient({
           name: 'John Doe',
           numbers: [mockNumber({ number: '555-0100' }), mockNumber({ number: '555-0101' })],
-          ownerInfo: [mockOwnerInfo({ key: 'company', value: 'Acme Corp' })],
+          clientInfo: [mockClientInfo({ key: 'company', value: 'Acme Corp' })],
         }),
       );
 
@@ -83,7 +96,7 @@ describe('OwnersService', () => {
     });
 
     it('should return null for non-existent id', async () => {
-      prisma.owner.findUnique.mockResolvedValue(null);
+      prisma.client.findUnique.mockResolvedValue(null);
       expect(await service.findById(999)).toBeNull();
     });
   });
@@ -91,11 +104,11 @@ describe('OwnersService', () => {
   describe('create', () => {
     it('should create owner with numbers and info', async () => {
       prisma.number.findFirst.mockResolvedValue(null);
-      prisma.owner.create.mockResolvedValue(
-        mockOwner({
+      prisma.client.create.mockResolvedValue(
+        mockClient({
           id: 3n, name: 'Test Owner',
           numbers: [mockNumber({ number: '555-9999' })],
-          ownerInfo: [mockOwnerInfo({ key: 'city', value: 'NYC' })],
+          clientInfo: [mockClientInfo({ key: 'city', value: 'NYC' })],
         }),
       );
 
@@ -110,32 +123,56 @@ describe('OwnersService', () => {
       expect(owner.info).toEqual([{ key: 'city', value: 'NYC' }]);
     });
 
-    it('should default status to active', async () => {
+    it('should default type to OWNER', async () => {
       prisma.number.findFirst.mockResolvedValue(null);
-      prisma.owner.create.mockResolvedValue(mockOwner({ id: 3n, name: 'No Status', numbers: [], ownerInfo: [] }));
+      prisma.client.create.mockResolvedValue(mockClient({ id: 3n, name: 'No Status', numbers: [], clientInfo: [] }));
 
       const owner = await service.create({
         name: 'No Status', project_id: 1, phones: [{ phone: '555-0000' }],
       });
-      expect(owner.status).toBe('active');
+      expect(owner.type).toBe('OWNER');
+    });
+
+    it('should accept explicit type LEAD', async () => {
+      prisma.number.findFirst.mockResolvedValue(null);
+      prisma.client.create.mockResolvedValue(
+        mockClient({ id: 4n, name: 'Lead Client', type: 'LEAD', numbers: [mockNumber({ number: '555-1111' })], clientInfo: [] }),
+      );
+
+      const owner = await service.create({
+        name: 'Lead Client', type: 'LEAD', project_id: 1, phones: [{ phone: '555-1111' }],
+      });
+      expect(owner.type).toBe('LEAD');
+    });
+
+    it('should accept explicit type BOTH', async () => {
+      prisma.number.findFirst.mockResolvedValue(null);
+      prisma.client.create.mockResolvedValue(
+        mockClient({ id: 5n, name: 'Both Client', type: 'BOTH', numbers: [mockNumber({ number: '555-2222' })], clientInfo: [] }),
+      );
+
+      const owner = await service.create({
+        name: 'Both Client', type: 'BOTH', project_id: 1, phones: [{ phone: '555-2222' }],
+      });
+      expect(owner.type).toBe('BOTH');
     });
 
     it('should merge into existing owner when number already exists (longer name wins)', async () => {
-      const existingOwner = mockOwner({
+      const existingClient = mockClient({
         id: 2n, name: 'Existing Jane',
         numbers: [mockNumber({ number: '555-9999' })],
-        ownerInfo: [],
+        clientInfo: [],
       });
       prisma.number.findFirst.mockResolvedValue({
         number: '555-9999',
-        ownerId: 2n,
-        owner: existingOwner,
+        clientId: 2n,
+        client: existingClient,
       } as any);
-      prisma.owner.update.mockResolvedValue(
-        mockOwner({
+      prisma.client.update.mockResolvedValue(
+        mockClient({
           id: 2n, name: 'Existing Jane',
           numbers: [mockNumber({ number: '555-9999' })],
-          ownerInfo: [],
+          clientInfo: [],
         }),
       );
 
@@ -146,26 +183,26 @@ describe('OwnersService', () => {
       });
 
       expect(result.name).toBe('Existing Jane');
-      expect(prisma.owner.create).not.toHaveBeenCalled();
-      expect(prisma.owner.update).toHaveBeenCalled();
+      expect(prisma.client.create).not.toHaveBeenCalled();
+      expect(prisma.client.update).toHaveBeenCalled();
     });
 
     it('should replace name when new name is longer', async () => {
-      const existingOwner = mockOwner({
+      const existingClient = mockClient({
         id: 2n, name: 'Short',
         numbers: [mockNumber({ number: '555-9999' })],
-        ownerInfo: [],
+        clientInfo: [],
       });
       prisma.number.findFirst.mockResolvedValue({
         number: '555-9999',
-        ownerId: 2n,
-        owner: existingOwner,
+        clientId: 2n,
+        client: existingClient,
       } as any);
-      prisma.owner.update.mockResolvedValue(
-        mockOwner({
+      prisma.client.update.mockResolvedValue(
+        mockClient({
           id: 2n, name: 'Much Longer Name',
           numbers: [mockNumber({ number: '555-9999' })],
-          ownerInfo: [],
+          clientInfo: [],
         }),
       );
 
@@ -176,25 +213,25 @@ describe('OwnersService', () => {
       });
 
       expect(result.name).toBe('Much Longer Name');
-      expect(prisma.owner.update).toHaveBeenCalled();
+      expect(prisma.client.update).toHaveBeenCalled();
     });
 
     it('should fill name when existing name is null', async () => {
-      const existingOwner = mockOwner({
+      const existingClient = mockClient({
         id: 2n, name: null,
         numbers: [mockNumber({ number: '555-9999' })],
-        ownerInfo: [],
+        clientInfo: [],
       });
       prisma.number.findFirst.mockResolvedValue({
         number: '555-9999',
-        ownerId: 2n,
-        owner: existingOwner,
+        clientId: 2n,
+        client: existingClient,
       } as any);
-      prisma.owner.update.mockResolvedValue(
-        mockOwner({
+      prisma.client.update.mockResolvedValue(
+        mockClient({
           id: 2n, name: 'New Name',
           numbers: [mockNumber({ number: '555-9999' })],
-          ownerInfo: [],
+          clientInfo: [],
         }),
       );
 
@@ -208,26 +245,26 @@ describe('OwnersService', () => {
     });
 
     it('should add new numbers and info when merging', async () => {
-      const existingOwner = mockOwner({
+      const existingClient = mockClient({
         id: 2n, name: 'Existing',
         numbers: [mockNumber({ number: '555-0001' })],
-        ownerInfo: [mockOwnerInfo({ key: 'city', value: 'NYC' })],
+        clientInfo: [mockClientInfo({ key: 'city', value: 'NYC' })],
       });
       prisma.number.findFirst.mockResolvedValue({
         number: '555-0001',
-        ownerId: 2n,
-        owner: existingOwner,
+        clientId: 2n,
+        client: existingClient,
       } as any);
-      prisma.owner.update.mockResolvedValue(
-        mockOwner({
+      prisma.client.update.mockResolvedValue(
+        mockClient({
           id: 2n, name: 'Existing',
           numbers: [
             mockNumber({ number: '555-0001' }),
             mockNumber({ number: '555-0002' }),
           ],
-          ownerInfo: [
-            mockOwnerInfo({ key: 'city', value: 'NYC' }),
-            mockOwnerInfo({ key: 'email', value: 'a@b.com' }),
+          clientInfo: [
+            mockClientInfo({ key: 'city', value: 'NYC' }),
+            mockClientInfo({ key: 'email', value: 'a@b.com' }),
           ],
         }),
       );
@@ -247,12 +284,12 @@ describe('OwnersService', () => {
   describe('createBulk', () => {
     it('should create multiple owners', async () => {
       prisma.number.findFirst.mockResolvedValue(null);
-      prisma.owner.create
+      prisma.client.create
         .mockResolvedValueOnce(
-          mockOwner({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], ownerInfo: [] }),
+          mockClient({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], clientInfo: [] }),
         )
         .mockResolvedValueOnce(
-          mockOwner({ id: 4n, name: 'Bob', numbers: [mockNumber({ number: '555-2222' })], ownerInfo: [] }),
+          mockClient({ id: 4n, name: 'Bob', numbers: [mockNumber({ number: '555-2222' })], clientInfo: [] }),
         );
 
       const results = await service.createBulk([
@@ -270,18 +307,18 @@ describe('OwnersService', () => {
         .mockResolvedValueOnce(null)
         .mockResolvedValueOnce({
           number: '555-1111',
-          ownerId: 3n,
-          owner: mockOwner({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], ownerInfo: [] }),
+          clientId: 3n,
+          client: mockClient({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], clientInfo: [] }),
         } as any);
 
-      prisma.owner.create.mockResolvedValue(
-        mockOwner({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], ownerInfo: [] }),
+      prisma.client.create.mockResolvedValue(
+        mockClient({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], clientInfo: [] }),
       );
-      prisma.owner.update.mockResolvedValue(
-        mockOwner({
+      prisma.client.update.mockResolvedValue(
+        mockClient({
           id: 3n, name: 'Alice',
           numbers: [mockNumber({ number: '555-1111' }), mockNumber({ number: '555-3333' })],
-          ownerInfo: [],
+          clientInfo: [],
         }),
       );
 
@@ -297,9 +334,9 @@ describe('OwnersService', () => {
 
     it('should rollback when an error occurs', async () => {
       prisma.number.findFirst.mockResolvedValue(null);
-      prisma.owner.create
+      prisma.client.create
         .mockResolvedValueOnce(
-          mockOwner({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], ownerInfo: [] }),
+          mockClient({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], clientInfo: [] }),
         )
         .mockRejectedValueOnce(new Error('DB error'));
 
@@ -310,42 +347,62 @@ describe('OwnersService', () => {
         ]),
       ).rejects.toThrow('DB error');
     });
+
+    it('should accept type field in each entry', async () => {
+      prisma.number.findFirst.mockResolvedValue(null);
+      prisma.client.create
+        .mockResolvedValueOnce(
+          mockClient({ id: 6n, name: 'Lead One', type: 'LEAD', numbers: [mockNumber({ number: '555-3333' })], clientInfo: [] }),
+        )
+        .mockResolvedValueOnce(
+          mockClient({ id: 7n, name: 'Owner One', type: 'OWNER', numbers: [mockNumber({ number: '555-4444' })], clientInfo: [] }),
+        );
+
+      const results = await service.createBulk([
+        { name: 'Lead One', type: 'LEAD', phones: [{ phone: '555-3333' }], project_id: 1 },
+        { name: 'Owner One', phones: [{ phone: '555-4444' }], project_id: 1 },
+      ]);
+
+      expect(results).toHaveLength(2);
+      expect(results[0].type).toBe('LEAD');
+      expect(results[1].type).toBe('OWNER');
+    });
   });
 
   describe('assignToProject', () => {
     it('should assign owner to a project', async () => {
-      const owner = mockOwner({ name: 'John', numbers: [], ownerInfo: [] });
-      prisma.owner.findUnique.mockResolvedValue(owner);
+      const client = mockClient({ name: 'John', numbers: [], clientInfo: [] });
+      prisma.client.findUnique.mockResolvedValue(client);
       prisma.project.findFirst.mockResolvedValue(mockProject({ name: 'Default Project' }));
-      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1, status: 'dial', lastDialedAt: null, attemptCount: 0 });
+      prisma.clientProject.upsert.mockResolvedValue({ clientId: 1n, projectId: 1, status: 'dial', lastDialedAt: null, attemptCount: 0 });
 
       const result = await service.assignToProject(1, 'Default Project');
       expect(result.name).toBe('John');
     });
 
     it('should throw NotFoundException when owner does not exist', async () => {
-      prisma.owner.findUnique.mockResolvedValue(null);
+      prisma.client.findUnique.mockResolvedValue(null);
 
-      await expect(service.assignToProject(999, 'Default Project')).rejects.toThrow('Owner not found');
+      await expect(service.assignToProject(999, 'Default Project')).rejects.toThrow('Client not found');
     });
 
     it('should throw NotFoundException when project does not exist', async () => {
-      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
       prisma.project.findFirst.mockResolvedValue(null);
 
       await expect(service.assignToProject(1, 'NoProject')).rejects.toThrow('Project "NoProject" not found');
     });
 
-    it('should upsert OwnerProject with default status and attemptCount', async () => {
-      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+    it('should upsert ClientProject with default status and attemptCount', async () => {
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
       prisma.project.findFirst.mockResolvedValue(mockProject({ name: 'Default Project' }));
-      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1, status: 'dial', lastDialedAt: null, attemptCount: 0 });
+      prisma.clientProject.upsert.mockResolvedValue({ clientId: 1n, projectId: 1, status: 'dial', lastDialedAt: null, attemptCount: 0 });
 
       await service.assignToProject(1, 'Default Project');
 
-      expect(prisma.ownerProject.upsert).toHaveBeenCalledWith({
-        where: { ownerId_projectId: { ownerId: 1, projectId: 1 } },
-        create: { ownerId: 1, projectId: 1, status: 'dial', attemptCount: 0 },
+      expect(prisma.clientProject.upsert).toHaveBeenCalledWith({
+        where: { clientId_projectId: { clientId: 1, projectId: 1 } },
+        create: { clientId: 1, projectId: 1, status: 'dial', attemptCount: 0 },
         update: {},
       });
     });
@@ -353,31 +410,59 @@ describe('OwnersService', () => {
 
   describe('update', () => {
     it('should update owner fields', async () => {
-      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
-      prisma.owner.update.mockResolvedValue(mockOwner({ name: 'John', status: 'completed', numbers: [], ownerInfo: [] }));
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
+      prisma.client.update.mockResolvedValue(mockClient({ name: 'John', type: 'LEAD', numbers: [], clientInfo: [] }));
 
-      const updated = await service.update(1, { status: 'completed' });
-      expect(updated.status).toBe('completed');
+      const updated = await service.update(1, { type: 'LEAD' });
+      expect(updated.type).toBe('LEAD');
+    });
+
+    it('should update next_dial_at', async () => {
+      const futureDate = '2024-07-01T12:00:00Z';
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
+      prisma.client.update.mockResolvedValue(
+        mockClient({ name: 'John', nextDialAt: new Date(futureDate), numbers: [], clientInfo: [] }),
+      );
+
+      const updated = await service.update(1, { next_dial_at: futureDate });
+      expect(updated.next_dial_at).toBe(new Date(futureDate).toISOString());
+      expect(prisma.client.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { nextDialAt: expect.any(String) },
+        include: { numbers: true, clientInfo: true },
+      });
+    });
+
+    it('should clear next_dial_at when set to null', async () => {
+      prisma.client.findUnique.mockResolvedValue(
+        mockClient({ name: 'John', nextDialAt: new Date(), numbers: [], clientInfo: [] }),
+      );
+      prisma.client.update.mockResolvedValue(
+        mockClient({ name: 'John', nextDialAt: null, numbers: [], clientInfo: [] }),
+      );
+
+      const updated = await service.update(1, { next_dial_at: null });
+      expect(updated.next_dial_at).toBeNull();
     });
 
     it('should throw NotFoundException for non-existent id', async () => {
-      prisma.owner.findUnique.mockResolvedValue(null);
-      await expect(service.update(999, { status: 'done' })).rejects.toThrow('Owner not found');
+      prisma.client.findUnique.mockResolvedValue(null);
+      await expect(service.update(999, { type: 'done' })).rejects.toThrow('Client not found');
     });
   });
 
   describe('remove', () => {
     it('should delete an existing owner', async () => {
-      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
-      prisma.owner.delete.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
+      prisma.client.delete.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
 
       await service.remove(1);
-      expect(prisma.owner.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+      expect(prisma.client.delete).toHaveBeenCalledWith({ where: { id: 1 } });
     });
 
     it('should throw NotFoundException for non-existent id', async () => {
-      prisma.owner.findUnique.mockResolvedValue(null);
-      await expect(service.remove(999)).rejects.toThrow('Owner not found');
+      prisma.client.findUnique.mockResolvedValue(null);
+      await expect(service.remove(999)).rejects.toThrow('Client not found');
     });
   });
 
@@ -405,7 +490,7 @@ describe('OwnersService', () => {
   describe('getNextOwner', () => {
     it('should return owner with lowest attempt_count', async () => {
       prisma.$queryRaw.mockResolvedValue([{ id: 1n }]);
-      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
 
       const next = await service.getNextOwner({ projectId: 1 });
       expect(next).not.toBeNull();
@@ -417,6 +502,5 @@ describe('OwnersService', () => {
       const next = await service.getNextOwner({ projectId: 1 });
       expect(next).toBeNull();
     });
-
   });
 });

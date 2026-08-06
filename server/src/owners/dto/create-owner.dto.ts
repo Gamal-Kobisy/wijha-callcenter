@@ -14,7 +14,7 @@ export class CreateOwnerDto {
 
   @IsOptional()
   @IsString()
-  status?: string;
+  type?: string;
 
   @ValidateNested({ each: true })
   @ArrayMinSize(1)

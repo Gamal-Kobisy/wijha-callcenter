@@ -3,7 +3,7 @@ import { IsOptional, IsString } from 'class-validator';
 export class UpdateOwnerDto {
   @IsOptional()
   @IsString()
-  status?: string;
+  type?: string;
 
   @IsOptional()
   @IsString()

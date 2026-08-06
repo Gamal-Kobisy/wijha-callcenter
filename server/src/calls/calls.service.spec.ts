@@ -3,11 +3,11 @@ import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { CallsService } from './calls.service';
 import { OwnersService } from '@/owners/owners.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { mockCallRecord, mockOwner } from '@/prisma/mock-data';
+import { mockCallRecord } from '@/prisma/mock-data';
 
 const withProjects = (overrides: Record<string, unknown> = {}) => ({
-  owner: {
-    ownerProjects: [
+  client: {
+    clientProjects: [
       { project: { id: 1, name: 'Default Project' } },
     ],
   },
@@ -52,15 +52,15 @@ describe('CallsService', () => {
       expect(result.data[0].projects).toEqual([{ id: 1, name: 'Default Project' }]);
     });
 
-    it('should filter by owner_id', async () => {
+    it('should filter by client_id', async () => {
       prisma.callDetailRecord.findMany.mockResolvedValue([
         mockCallRecord({ ...withProjects() }),
       ]);
       prisma.callDetailRecord.count.mockResolvedValue(1);
 
-      const result = await service.findAll({ owner_id: 1 });
+      const result = await service.findAll({ client_id: 1 });
       expect(result.data).toHaveLength(1);
-      expect(result.data[0].owner_id).toBe(1);
+      expect(result.data[0].client_id).toBe(1);
     });
 
     it('should filter by status', async () => {
@@ -88,7 +88,22 @@ describe('CallsService', () => {
       );
     });
 
-    it('should filter by project_id through owner projects', async () => {
+    it('should filter by agent_id', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([
+        mockCallRecord({ agentId: 2, ...withProjects() }),
+      ]);
+      prisma.callDetailRecord.count.mockResolvedValue(1);
+
+      const result = await service.findAll({ agent_id: 2 });
+      expect(result.data).toHaveLength(1);
+      expect(prisma.callDetailRecord.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ agentId: 2 }),
+        }),
+      );
+    });
+
+    it('should filter by project_id through client projects', async () => {
       prisma.callDetailRecord.findMany.mockResolvedValue([mockCallRecord({ ...withProjects() })]);
       prisma.callDetailRecord.count.mockResolvedValue(1);
 
@@ -97,7 +112,7 @@ describe('CallsService', () => {
       expect(prisma.callDetailRecord.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
-            owner: { ownerProjects: { some: { projectId: 1 } } },
+            client: { clientProjects: { some: { projectId: 1 } } },
           }),
         }),
       );
@@ -126,7 +141,7 @@ describe('CallsService', () => {
       );
 
       const call = await service.submit(
-        { owner_id: 1, status: 'busy', time: '2024-06-01T12:00:00Z', duration: 30, agent_notes: 'Line busy', project_id: 1 },
+        { client_id: 1, status: 'busy', time: '2024-06-01T12:00:00Z', duration: 30, agent_notes: 'Line busy', project_id: 1 },
         1,
       );
       expect(call.status).toBe('busy');
@@ -136,11 +151,11 @@ describe('CallsService', () => {
 
     it('should handle optional fields', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
-        mockCallRecord({ id: 5n, ownerId: 2n, agentId: 2, status: 'no_answer', duration: null }),
+        mockCallRecord({ id: 5n, clientId: 2n, agentId: 2, status: 'no_answer', duration: null }),
       );
 
       const call = await service.submit(
-        { owner_id: 2, status: 'no_answer', time: '2024-06-01T12:00:00Z', project_id: 1 },
+        { client_id: 2, status: 'no_answer', time: '2024-06-01T12:00:00Z', project_id: 1 },
         2,
       );
       expect(call.duration).toBeNull();
@@ -148,53 +163,99 @@ describe('CallsService', () => {
       expect(call.projects).toEqual([]);
     });
 
-    it('should update OwnerProject status and lastDialedAt', async () => {
+    it('should update ClientProject status and lastDialedAt', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
         mockCallRecord({ id: 6n, status: 'answered' }),
       );
 
       await service.submit(
-        { owner_id: 1, status: 'answered', time: '2024-06-01T12:00:00Z', project_id: 1 },
+        { client_id: 1, status: 'answered', time: '2024-06-01T12:00:00Z', project_id: 1 },
         1,
       );
 
-      expect(prisma.ownerProject.update).toHaveBeenCalledWith({
-        where: { ownerId_projectId: { ownerId: 1, projectId: 1 } },
+      expect(prisma.clientProject.update).toHaveBeenCalledWith({
+        where: { clientId_projectId: { clientId: 1, projectId: 1 } },
         data: { status: 'answered', lastDialedAt: expect.any(Date) },
       });
     });
 
-    it('should set Owner.nextDialAt to NOW() for non-callback status', async () => {
+    it('should set Client.nextDialAt to NOW() for non-callback status', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
         mockCallRecord({ id: 7n, status: 'no_answer' }),
       );
 
       await service.submit(
-        { owner_id: 1, status: 'no_answer', time: '2024-06-01T12:00:00Z', project_id: 1 },
+        { client_id: 1, status: 'no_answer', time: '2024-06-01T12:00:00Z', project_id: 1 },
         1,
       );
 
-      expect(prisma.owner.update).toHaveBeenCalledWith({
+      expect(prisma.client.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: { nextDialAt: expect.any(Date) },
       });
     });
 
-    it('should set Owner.nextDialAt to callback time when status is callback', async () => {
+    it('should set Client.nextDialAt to callback time when status is callback', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
         mockCallRecord({ id: 8n, status: 'callback' }),
       );
       const callbackTime = '2024-06-05T14:00:00Z';
 
       await service.submit(
-        { owner_id: 1, status: 'callback', time: '2024-06-01T12:00:00Z', project_id: 1, next_dial_at: callbackTime },
+        { client_id: 1, status: 'callback', time: '2024-06-01T12:00:00Z', project_id: 1, next_dial_at: callbackTime },
         1,
       );
 
-      expect(prisma.owner.update).toHaveBeenCalledWith({
+      expect(prisma.client.update).toHaveBeenCalledWith({
         where: { id: 1 },
         data: { nextDialAt: new Date(callbackTime) },
       });
+    });
+
+    it('should mark client as inactive when status is not_interested', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 9n, status: 'not_interested' }),
+      );
+      jest.spyOn(ownersService, 'update').mockResolvedValue({
+        id: 1, name: 'John', type: 'inactive', next_dial_at: null, phones: [], info: [],
+      });
+
+      await service.submit(
+        { client_id: 1, status: 'not_interested', time: '2024-06-01T12:00:00Z', project_id: 1 },
+        1,
+      );
+
+      expect(ownersService.update).toHaveBeenCalledWith(1, { type: 'inactive' });
+    });
+
+    it('should mark client as inactive when status is contacted', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 10n, status: 'contacted' }),
+      );
+      jest.spyOn(ownersService, 'update').mockResolvedValue({
+        id: 1, name: 'John', type: 'inactive', next_dial_at: null, phones: [], info: [],
+      });
+
+      await service.submit(
+        { client_id: 1, status: 'contacted', time: '2024-06-01T12:00:00Z', project_id: 1 },
+        1,
+      );
+
+      expect(ownersService.update).toHaveBeenCalledWith(1, { type: 'inactive' });
+    });
+
+    it('should NOT mark client inactive for other statuses', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 11n, status: 'busy' }),
+      );
+      const updateSpy = jest.spyOn(ownersService, 'update');
+
+      await service.submit(
+        { client_id: 1, status: 'busy', time: '2024-06-01T12:00:00Z', project_id: 1 },
+        1,
+      );
+
+      expect(updateSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -203,16 +264,13 @@ describe('CallsService', () => {
       jest.spyOn(ownersService, 'getNextOwner').mockResolvedValue({
         id: 1,
         name: 'John Doe',
-        status: 'active',
-        attempt_count: 2,
-        last_dialed_at: null,
         next_dial_at: null,
         phones: [{ phone: '555-0100' }],
         info: [{ key: 'email', value: 'john@example.com' }],
       });
 
       prisma.callDetailRecord.findMany.mockResolvedValue([
-        mockCallRecord({ id: 1n, ownerId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z'), ...withProjects() }),
+        mockCallRecord({ id: 1n, clientId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z'), ...withProjects() }),
       ]);
 
       const result = await service.getNextOwner({ projectId: 1 });
@@ -234,9 +292,6 @@ describe('CallsService', () => {
       const getNextOwnerSpy = jest.spyOn(ownersService, 'getNextOwner').mockResolvedValue({
         id: 1,
         name: 'Scheduled Owner',
-        status: 'active',
-        attempt_count: 0,
-        last_dialed_at: null,
         next_dial_at: date.toISOString(),
         phones: [],
         info: [],
@@ -311,26 +366,36 @@ describe('CallsService', () => {
   describe('notifyCalling', () => {
     it('should not throw', async () => {
       await expect(
-        service.notifyCalling({ owner_id: 1, owner_number: '555-0100', project_id: 1 }),
+        service.notifyCalling({ client_id: 1, client_number: '555-0100', project_id: 1 }),
       ).resolves.toBeUndefined();
     });
 
-    it('should update Owner.lastDialedAt', async () => {
-      await service.notifyCalling({ owner_id: 1, project_id: 1 });
+    it('should update Client.nextDialAt', async () => {
+      await service.notifyCalling({ client_id: 1, project_id: 1 });
 
-      expect(prisma.owner.update).toHaveBeenCalledWith({
+      expect(prisma.client.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { lastDialedAt: expect.any(String) },
+        data: { nextDialAt: expect.any(Date) },
       });
     });
 
-    it('should update OwnerProject lastDialedAt and increment attemptCount', async () => {
-      await service.notifyCalling({ owner_id: 1, project_id: 1 });
+    it('should update ClientProject lastDialedAt and increment attemptCount', async () => {
+      await service.notifyCalling({ client_id: 1, project_id: 1 });
 
-      expect(prisma.ownerProject.update).toHaveBeenCalledWith({
-        where: { ownerId_projectId: { ownerId: 1, projectId: 1 } },
+      expect(prisma.clientProject.update).toHaveBeenCalledWith({
+        where: { clientId_projectId: { clientId: 1, projectId: 1 } },
         data: { lastDialedAt: expect.any(Date), attemptCount: { increment: 1 } },
       });
+    });
+
+    it('should filter by client_number when provided', async () => {
+      await service.notifyCalling({ client_id: 1, client_number: '555-0100', project_id: 1 });
+
+      expect(prisma.client.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 1, numbers: { some: { number: '555-0100' } } },
+        }),
+      );
     });
   });
 });

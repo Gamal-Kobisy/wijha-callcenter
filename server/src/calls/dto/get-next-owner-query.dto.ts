@@ -1,6 +1,6 @@
 import { IsDateString, IsNumberString, IsOptional } from 'class-validator';
 
-export class GetNextOwnerQueryDto {
+export class GetNextClientQueryDto {
   @IsNumberString()
   project_id!: string;
 
