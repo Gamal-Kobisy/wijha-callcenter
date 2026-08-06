@@ -61,6 +61,7 @@ const statusPalette = {
 
 
 export default function DashboardPage() {
+  const ITEMS_PER_PAGE = 10
 
   // Call Volume State
   const [callVolumeData, setCallVolumeData] = useState<{ time: string; calls: number }[]>([])
@@ -313,7 +314,7 @@ export default function DashboardPage() {
     let toDate = new Date(now);
 
     try {
-      const response = await apiFetch(`calls?from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=10&page=${currentPage}`, {
+      const response = await apiFetch(`calls?from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=${ITEMS_PER_PAGE}&page=${currentPage}`, {
         method: "GET",
       })
 
