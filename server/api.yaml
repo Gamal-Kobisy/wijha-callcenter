@@ -780,7 +780,7 @@ paths:
       parameters:
         - name: project_id
           in: query
-          required: true
+          required: false
           schema:
             type: integer
         - name: assigned_only

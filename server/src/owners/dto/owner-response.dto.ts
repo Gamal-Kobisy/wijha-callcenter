@@ -7,6 +7,14 @@ export class OwnerInfoResponse {
   value!: string;
 }
 
+export class ProjectAssignmentResponse {
+  project_id!: number;
+  project_name!: string;
+  status?: string;
+  attempt_count?: number;
+  last_dialed_at?: string | null;
+}
+
 export class OwnerResponseDto {
   id!: number;
   name?: string;
@@ -15,4 +23,5 @@ export class OwnerResponseDto {
   agent_id?: number;
   phones?: OwnerPhoneResponse[];
   info?: OwnerInfoResponse[];
+  projects?: ProjectAssignmentResponse[];
 }

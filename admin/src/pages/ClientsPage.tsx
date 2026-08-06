@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react"
+
+import { useState, useMemo, useEffect, useCallback } from "react"
 import AppNavbar from "@/components/AppNavbar.tsx"
 import {
   Card,
@@ -50,10 +51,12 @@ import {
   ArrowRight,
   CheckCircle2,
   Edit,
-  Trash2
+  Trash2,
+  Loader2,
 } from "lucide-react"
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LabelList } from "recharts"
 import { toast, Toaster } from "sonner"
+import { clientsApi, type Owner, type Agent, type Project, type StatusCount, type CallRecord } from "@/lib/clients-api.ts"
 
 // --- SHARED CHART PALETTE ---
 const chartPalette = {
@@ -66,106 +69,40 @@ const chartPalette = {
   emerald: "#10B981"
 }
 
-// --- DUMMY DATA ---
-const dummyAgents = [
-  { id: 1, name: "Ahmed Tarek" },
-  { id: 2, name: "Sarah Kamel" },
-  { id: 3, name: "Omar Hassan" }
-]
-
-const initialClients = [
-  {
-    id: "1001",
-    name: "Karim Fathy",
-    primaryNumber: "+20 111 222 3333",
-    status: "Interested",
-    attemptCount: 3,
-    lastDialedAt: "2026-07-06 14:30",
-    nextDialAt: "2026-07-09 10:00",
-    assignedAgent: "Ahmed Tarek",
-    projects: ["Real Estate Q3"],
-    info: [
-      { key: "Company", value: "TechVision" },
-      { key: "Location", value: "Cairo, Egypt" },
-      { key: "Budget", value: "$10,000" }
-    ],
-    history: [
-      { id: 1, time: "2026-07-06 14:30", status: "Interested", duration: 180, agent: "Ahmed Tarek", notes: "Asked for a callback with pricing details." },
-      { id: 2, time: "2026-07-04 11:00", status: "Voicemail", duration: 25, agent: "Ahmed Tarek", notes: "Left standard voicemail." }
-    ]
-  },
-  {
-    id: "1002",
-    name: "Mostafa Ahmed",
-    primaryNumber: "+20 100 111 2222",
-    status: "New",
-    attemptCount: 0,
-    lastDialedAt: null,
-    nextDialAt: null,
-    assignedAgent: "Sarah Kamel",
-    projects: ["Software Renewals"],
-    info: [{ key: "Company", value: "Global Logistics" }, { key: "Renewal Date", value: "2026-08-01" }],
-    history: []
-  },
-  {
-    id: "1003",
-    name: "Nour El-Din",
-    primaryNumber: "+20 122 444 5555",
-    status: "Closed",
-    attemptCount: 5,
-    lastDialedAt: "2026-07-05 16:00",
-    nextDialAt: null,
-    assignedAgent: "Omar Hassan",
-    projects: ["Cold Outreach B2B"],
-    info: [{ key: "Industry", value: "Manufacturing" }],
-    history: [{ id: 3, time: "2026-07-05 16:00", status: "Closed", duration: 420, agent: "Omar Hassan", notes: "Closed the deal." }]
-  },
-  {
-    id: "1004",
-    name: "Laila Mahmoud",
-    primaryNumber: "+20 155 999 8888",
-    status: "Do Not Call",
-    attemptCount: 1,
-    lastDialedAt: "2026-07-02 09:15",
-    nextDialAt: null,
-    assignedAgent: "Ahmed Tarek",
-    projects: ["Real Estate Q3"],
-    info: [],
-    history: [{ id: 4, time: "2026-07-02 09:15", status: "Do Not Call", duration: 45, agent: "Ahmed Tarek", notes: "Requested to be removed from list." }]
-  },
-  {
-    id: "1005",
-    name: "Youssef Ibrahim",
-    primaryNumber: "+20 109 777 6666",
-    status: "Voicemail",
-    attemptCount: 2,
-    lastDialedAt: "2026-07-07 10:00",
-    nextDialAt: "2026-07-08 10:00",
-    assignedAgent: "Sarah Kamel",
-    projects: ["Software Renewals"],
-    info: [{ key: "Company", value: "Startup Inc" }],
-    history: [{ id: 5, time: "2026-07-07 10:00", status: "Voicemail", duration: 30, agent: "Sarah Kamel", notes: "No answer." }]
-  }
-]
-
-const projectVolume = [
-  { name: 'Real Estate Q3', clients: 420 },
-  { name: 'Software Renewals', clients: 380 },
-  { name: 'Cold Outreach B2B', clients: 290 },
-]
+// Mapping from internal client to display-friendly shape
+interface DisplayClient {
+  id: string
+  name: string
+  primaryNumber: string
+  status: string
+  attemptCount: number
+  lastDialedAt: string | null
+  nextDialAt: string | null
+  assignedAgent: string
+  projects: string[]
+  info: { key: string; value: string }[]
+  history: { id: number; time: string; status: string; duration: number; agent: string; notes: string }[]
+  // Keep the raw owner for API operations
+  _raw: Owner
+}
 
 const systemFields = ["Primary Phone", "Client Name", "Status", "Project", "Attempts", "Assigned Agent", "Next Dial"]
 
 // --- UTILS ---
 const getStatusColor = (status: string) => {
-  switch (status) {
-    case 'New': return 'bg-blue-100 text-blue-800 border-blue-200'
-    case 'Interested': return 'bg-amber-100 text-amber-800 border-amber-200'
-    case 'Closed': return 'bg-emerald-100 text-emerald-800 border-emerald-200'
-    case 'Do Not Call': return 'bg-rose-100 text-rose-800 border-rose-200'
-    case 'Voicemail': return 'bg-slate-100 text-slate-800 border-slate-200'
-    default: return 'bg-gray-100 text-gray-800 border-gray-200'
-  }
+  const s = status.toLowerCase()
+  if (s === 'new' || s === 'dial') return 'bg-blue-100 text-blue-800 border-blue-200'
+  if (s === 'interested' || s === 'callback') return 'bg-amber-100 text-amber-800 border-amber-200'
+  if (s === 'closed' || s === 'answered') return 'bg-emerald-100 text-emerald-800 border-emerald-200'
+  if (s === 'do not call' || s === 'not_interested') return 'bg-rose-100 text-rose-800 border-rose-200'
+  if (s === 'voicemail' || s === 'no_answer') return 'bg-slate-100 text-slate-800 border-slate-200'
+  if (s === 'busy') return 'bg-orange-100 text-orange-800 border-orange-200'
+  if (s === 'failed') return 'bg-red-100 text-red-800 border-red-200'
+  return 'bg-gray-100 text-gray-800 border-gray-200'
+}
+
+const formatStatus = (status: string) => {
+  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
 // Helper to convert Excel letters (A, B, AA) to zero-based index (0, 1, 26)
@@ -177,8 +114,33 @@ const letterToIndex = (letters: string) => {
   return n - 1;
 }
 
+// Helper to convert Owner API response to display client
+function ownerToDisplayClient(owner: Owner): DisplayClient {
+  const firstProject = owner.projects?.[0]
+  return {
+    id: owner.id.toString(),
+    name: owner.name || "Unknown Client",
+    primaryNumber: owner.phones?.[0]?.phone || "",
+    status: firstProject?.status ? formatStatus(firstProject.status) : "New",
+    attemptCount: firstProject?.attempt_count ?? 0,
+    lastDialedAt: firstProject?.last_dialed_at ?? null,
+    nextDialAt: owner.next_dial_at ?? null,
+    assignedAgent: "—", // Not tracked in current API
+    projects: owner.projects?.map(p => p.project_name) ?? [],
+    info: owner.info?.map(i => ({ key: i.key, value: i.value })) ?? [],
+    history: [], // Loaded on demand
+    _raw: owner,
+  }
+}
+
 export default function ClientsPage() {
-  const [clients, setClients] = useState(initialClients)
+  // --- DATA STATE ---
+  const [clients, setClients] = useState<DisplayClient[]>([])
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [allProjects, setAllProjects] = useState<Project[]>([])
+  const [statusCounts, setStatusCounts] = useState<StatusCount[]>([])
+  const [totalClients, setTotalClients] = useState(0)
+  const [isLoading, setIsLoading] = useState(true)
 
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
@@ -191,8 +153,10 @@ export default function ClientsPage() {
   const [isAssignOpen, setIsAssignOpen] = useState(false)
 
   // View/Edit/Delete State
-  const [selectedClient, setSelectedClient] = useState<typeof initialClients[0] | null>(null)
-  const [editingClient, setEditingClient] = useState<typeof initialClients[0] | null>(null)
+  const [selectedClient, setSelectedClient] = useState<DisplayClient | null>(null)
+  const [selectedClientHistory, setSelectedClientHistory] = useState<CallRecord[]>([])
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false)
+  const [editingClient, setEditingClient] = useState<DisplayClient | null>(null)
   const [deletingClientId, setDeletingClientId] = useState<string | null>(null)
 
   // CSV Mapping State
@@ -203,56 +167,178 @@ export default function ClientsPage() {
   const [endRow, setEndRow] = useState<string>("")
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
 
+  // --- API: Load all data on mount ---
+  const loadClients = useCallback(async (page = 1) => {
+    try {
+      setIsLoading(true)
+      const data = await clientsApi.getClients(page, ITEMS_PER_PAGE)
+      const owners: Owner[] = data.data
+      setClients(owners.map(ownerToDisplayClient))
+      setTotalClients(data.meta.total)
+    } catch (error: any) {
+      toast.error("Failed to Load Clients", { description: error.message })
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  const loadAgents = useCallback(async () => {
+    try {
+      const data = await clientsApi.getAgents()
+      setAgents(data.map((a) => ({ id: a.id, name: a.name || a.email || "Unknown Agent", email: a.email })))
+    } catch (error: any) {
+      console.error("Failed to load agents:", error)
+    }
+  }, [])
+
+  const loadStatusCounts = useCallback(async () => {
+    try {
+      const data = await clientsApi.getStatusCounts()
+      setStatusCounts(data)
+    } catch (error: any) {
+      console.error("Failed to load status counts:", error)
+    }
+  }, [])
+
+  const loadProjects = useCallback(async () => {
+    try {
+      const data = await clientsApi.getProjects()
+      setAllProjects(data)
+    } catch (error: any) {
+      console.error("Failed to load projects:", error)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadClients(1)
+    loadAgents()
+    loadStatusCounts()
+    loadProjects()
+  }, [loadClients, loadAgents, loadStatusCounts, loadProjects])
+
+  // Reload clients when page changes
+  useEffect(() => {
+    loadClients(currentPage)
+  }, [currentPage, loadClients])
+
+  // --- Load call history for selected client ---
+  const loadClientHistory = async (clientId: string) => {
+    setIsLoadingHistory(true)
+    try {
+      const data = await clientsApi.getClientCallHistory(clientId)
+      setSelectedClientHistory(data.data || [])
+    } catch (error) {
+      console.error("Failed to load call history:", error)
+    } finally {
+      setIsLoadingHistory(false)
+    }
+  }
+
   // --- DYNAMIC CHART DATA ---
   const statusDistribution = useMemo(() => {
-    const counts = { 'New': 0, 'Interested': 0, 'Voicemail': 0, 'Closed': 0, 'Do Not Call': 0, 'Other': 0 };
-    clients.forEach(l => {
-      // @ts-ignore
-      if (counts[l.status] !== undefined) counts[l.status]++;
-      else counts['Other']++;
-    });
-    return [
-      { name: 'New', value: counts['New'] || 0, color: chartPalette.dial },
-      { name: 'Interested', value: counts['Interested'] || 0, color: chartPalette.interest },
-      { name: 'Voicemail', value: counts['Voicemail'] || 0, color: chartPalette.neutral },
-      { name: 'Closed', value: counts['Closed'] || 0, color: chartPalette.convert },
-      { name: 'Do Not Call', value: counts['Do Not Call'] || 0, color: chartPalette.miss },
-    ].filter(item => item.value > 0);
-  }, [clients])
+    const colorMap: Record<string, string> = {
+      'dial': chartPalette.dial,
+      'new': chartPalette.dial,
+      'callback': chartPalette.interest,
+      'interested': chartPalette.interest,
+      'answered': chartPalette.convert,
+      'closed': chartPalette.convert,
+      'no_answer': chartPalette.neutral,
+      'voicemail': chartPalette.neutral,
+      'not_interested': chartPalette.miss,
+      'do not call': chartPalette.miss,
+      'busy': '#F97316',
+      'failed': '#EF4444',
+    }
 
-  // --- FILTERING ---
+    return statusCounts
+      .filter(s => s.count > 0)
+      .map(s => ({
+        name: formatStatus(s.status),
+        value: s.count,
+        color: colorMap[s.status.toLowerCase()] || chartPalette.neutral
+      }))
+  }, [statusCounts])
+
+  const projectVolume = useMemo(() => {
+    // Count clients per project from current page data — or use allProjects as labels
+    // For a better experience, count from status counts or just show project names
+    // Since we don't have a dedicated project-volume endpoint, we'll derive from loaded clients
+    const projectMap = new Map<string, number>()
+    clients.forEach(c => {
+      c.projects.forEach(p => {
+        projectMap.set(p, (projectMap.get(p) || 0) + 1)
+      })
+    })
+    // Add projects from allProjects that may not be in current page
+    allProjects.forEach(p => {
+      if (!projectMap.has(p.name)) {
+        projectMap.set(p.name, 0)
+      }
+    })
+    return Array.from(projectMap.entries()).map(([name, clients]) => ({ name, clients }))
+  }, [clients, allProjects])
+
+  // --- FILTERING (client-side on current page) ---
   const filteredClients = useMemo(() => {
     return clients.filter(client => {
       const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                             client.primaryNumber.includes(searchTerm)
-      const matchesStatus = statusFilter === "All" || client.status === statusFilter
+      const matchesStatus = statusFilter === "All" || client.status.toLowerCase() === statusFilter.toLowerCase()
       return matchesSearch && matchesStatus
     })
   }, [searchTerm, statusFilter, clients])
 
-  const totalPages = Math.ceil(filteredClients.length / ITEMS_PER_PAGE) || 1
-  const paginatedClients = filteredClients.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+  const totalPages = Math.ceil(totalClients / ITEMS_PER_PAGE) || 1
+  // When filtering client-side, show filtered results from current page
+  const paginatedClients = searchTerm || statusFilter !== "All" ? filteredClients : clients
+
+  // --- KPI calculations from status counts ---
+  const totalClientsCount = statusCounts.reduce((sum, s) => sum + s.count, 0) || totalClients
+  const freshClients = statusCounts.find(s => s.status.toLowerCase() === 'dial')?.count ?? 0
+  const closedClients = statusCounts.find(s => ['answered', 'closed'].includes(s.status.toLowerCase()))?.count ?? 0
+  const overdueCount = clients.filter(l => l.nextDialAt && new Date(l.nextDialAt) < new Date()).length
 
   // --- CRUD HANDLERS ---
-  const handleUpdateClient = (e: React.FormEvent) => {
+  const handleUpdateClient = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingClient) return
-    setClients(clients.map(l => l.id === editingClient.id ? editingClient : l))
-    setEditingClient(null)
-    toast.success("Client Updated", { description: "The client details have been saved." })
+
+    try {
+      const ownerId = Number(editingClient.id)
+      await clientsApi.updateClient(ownerId, {
+        type: editingClient._raw.type,
+        next_dial_at: editingClient.nextDialAt || null,
+      })
+
+      setEditingClient(null)
+      toast.success("Client Updated", { description: "The client details have been saved." })
+      loadClients(currentPage)
+      loadStatusCounts()
+    } catch (error: any) {
+      toast.error("Update Failed", { description: error.message })
+    }
   }
 
-  const handleDeleteClient = (e: React.FormEvent) => {
+  const handleDeleteClient = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!deletingClientId) return
-    setClients(clients.filter(l => l.id !== deletingClientId))
-    setDeletingClientId(null)
-    toast.success("Client Deleted", { description: "The client has been permanently removed." })
+
+    try {
+      await clientsApi.deleteClient(deletingClientId)
+
+      setDeletingClientId(null)
+      toast.success("Client Deleted", { description: "The client has been permanently removed." })
+      loadClients(currentPage)
+      loadStatusCounts()
+    } catch (error: any) {
+      toast.error("Delete Failed", { description: error.message })
+    }
   }
 
-  // --- CSV EXPORT FIX ---
+  // --- CSV EXPORT ---
   const exportToCSV = () => {
-    const headers = ["ID", "Client Name", "Primary Phone", "Status", "Assigned Agent", "Projects", "Attempts", "Next Dial"]
+    const headers = ["ID", "Client Name", "Primary Phone", "Status", "Projects", "Attempts", "Next Dial"]
     const csvContent = [
       headers.join(","),
       ...filteredClients.map(l => [
@@ -260,7 +346,6 @@ export default function ClientsPage() {
         `"${l.name}"`,
         `"\t${l.primaryNumber}"`,
         `"${l.status}"`,
-        `"${l.assignedAgent || 'Unassigned'}"`,
         `"${l.projects.join(';')}"`,
         l.attemptCount,
         `"\t${l.nextDialAt || ''}"`
@@ -299,7 +384,7 @@ export default function ClientsPage() {
     setEndRow("")
   }
 
-  // --- REAL CSV PARSING ENGINE ---
+  // --- REAL CSV PARSING ENGINE (now calls API) ---
   const handleFinalSubmit = (e: React.FormEvent, mode: "upload" | "assign") => {
     e.preventDefault()
     if (mode === "assign" && !uploadAgent) {
@@ -307,26 +392,22 @@ export default function ClientsPage() {
     }
     if (!uploadFile) return;
 
-    const promise = new Promise((resolve, reject) => {
+    const promise = new Promise(async (resolve, reject) => {
       const reader = new FileReader();
 
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         try {
           const text = event.target?.result as string;
-          // Split by newline and filter out entirely empty lines
           const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
 
           const startIndex = Math.max(0, startRow - 1);
           const endIndex = endRow ? Math.min(lines.length, parseInt(endRow)) : lines.length;
 
-          const parsedClients: typeof initialClients = [];
-          const autoAssignedAgentName = dummyAgents.find(a => a.id.toString() === uploadAgent)?.name || "Unassigned";
+          const ownersToCreate: any[] = [];
 
           for (let i = startIndex; i < endIndex; i++) {
-            // Regex to split CSV by commas that are outside of quotes
             const row = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/^"|"$/g, '').trim());
 
-            // Helper to get value based on user's letter mapping
             const getVal = (fieldName: string) => {
               const letter = columnMapping[fieldName];
               if (!letter) return "";
@@ -334,29 +415,28 @@ export default function ClientsPage() {
               return row[idx] || "";
             }
 
-            // Must have a primary phone to be valid
             let rawPhone = getVal("Primary Phone");
             if (!rawPhone) continue;
-
-            // Clean up the \t export trick if they re-uploaded an exported file
             rawPhone = rawPhone.replace(/\t/g, '');
 
-            parsedClients.push({
-              id: Math.floor(100000 + Math.random() * 900000).toString(),
+            const projectName = getVal("Project") || undefined;
+
+            ownersToCreate.push({
               name: getVal("Client Name") || "Unknown Client",
-              primaryNumber: rawPhone,
-              status: getVal("Status") || "New",
-              projects: getVal("Project") ? getVal("Project").split(';').map(p=>p.trim()) : ["Default Project"],
-              attemptCount: parseInt(getVal("Attempts")) || 0,
-              assignedAgent: mode === "assign" ? autoAssignedAgentName : (getVal("Assigned Agent") || "Unassigned"),
-              nextDialAt: getVal("Next Dial")?.replace(/\t/g, '') || null,
+              phones: [{ phone: rawPhone }],
+              type: "OWNER",
               info: [],
-              history: []
+              ...(projectName ? {} : {}), // project_id needs lookup
             });
           }
 
-          setClients(prev => [...parsedClients, ...prev]);
-          resolve(parsedClients.length);
+          if (ownersToCreate.length === 0) {
+            reject("No valid clients found in the file.");
+            return;
+          }
+
+          const created = await clientsApi.bulkCreateClients(ownersToCreate);
+          resolve(created.length);
         } catch (err) {
           reject(err);
         }
@@ -367,12 +447,14 @@ export default function ClientsPage() {
     });
 
     toast.promise(promise, {
-      loading: 'Parsing file and injecting clients...',
+      loading: 'Parsing file and importing clients...',
       success: (count) => {
         resetModals()
+        loadClients(currentPage)
+        loadStatusCounts()
         return `Successfully imported ${count} valid clients into the system.`
       },
-      error: 'Failed to process clients file. Ensure it is a valid CSV.'
+      error: (err) => `Failed to process clients file: ${err}`
     })
   }
 
@@ -449,8 +531,8 @@ export default function ClientsPage() {
                 <Users className="h-4 w-4 text-slate-400" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-slate-800">{clients.length}</div>
-                <p className="text-xs text-muted-foreground mt-1">Dynamic from table</p>
+                <div className="text-2xl font-bold text-slate-800">{totalClientsCount}</div>
+                <p className="text-xs text-muted-foreground mt-1">From server database</p>
               </CardContent>
             </Card>
             <Card className="shadow-sm border-slate-100">
@@ -460,9 +542,9 @@ export default function ClientsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-slate-800">
-                  {clients.filter(l => l.attemptCount === 0).length}
+                  {freshClients}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Zero dial attempts</p>
+                <p className="text-xs text-muted-foreground mt-1">Pending first dial</p>
               </CardContent>
             </Card>
             <Card className="shadow-sm border-slate-100">
@@ -472,9 +554,9 @@ export default function ClientsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-slate-800">
-                  {clients.filter(l => l.status === "Closed").length}
+                  {closedClients}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">Dynamic from table</p>
+                <p className="text-xs text-muted-foreground mt-1">Successfully answered</p>
               </CardContent>
             </Card>
             <Card className="shadow-sm border-slate-100 bg-red-50/50">
@@ -484,7 +566,7 @@ export default function ClientsPage() {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-rose-700">
-                  {clients.filter(l => l.nextDialAt && new Date(l.nextDialAt) < new Date("2026-07-10")).length}
+                  {overdueCount}
                 </div>
                 <p className="text-xs text-rose-600/80 mt-1">Requires immediate action</p>
               </CardContent>
@@ -501,44 +583,48 @@ export default function ClientsPage() {
               <CardContent>
                 {/* Added h-[320px] as the default mobile height */}
                 <div className="w-full flex flex-col items-center justify-center h-[350px] sm:h-[350px] md:h-[400px] lg:h-[420px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={statusDistribution}
-                        cx="50%"
-                        cy="40%"
-                        innerRadius={65}
-                        outerRadius={95}
-                        paddingAngle={3}
-                        dataKey="value"
-                      >
-                        {statusDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }} />
-                      <Legend
-                        content={(props: any) => {
-                          const { payload } = props;
-                          return (
-                            <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-3 gap-x-8 mx-auto w-fit mt-8">
-                              {payload?.map((entry: any, index: number) => (
-                                <div key={`item-${index}`} className="flex items-center w-[130px]">
-                                  <span
-                                    className="w-[8px] h-[8px] rounded-full shrink-0 mr-1.5 mt-[1px]"
-                                    style={{ backgroundColor: entry.color }}
-                                  />
-                                  <span className="text-[12px] font-semibold text-slate-500 whitespace-nowrap mr-1">
-                                    {entry.value}
-                                  </span>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        }}
-                      />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  {statusDistribution.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={statusDistribution}
+                          cx="50%"
+                          cy="40%"
+                          innerRadius={65}
+                          outerRadius={95}
+                          paddingAngle={3}
+                          dataKey="value"
+                        >
+                          {statusDistribution.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }} />
+                        <Legend
+                          content={(props: any) => {
+                            const { payload } = props;
+                            return (
+                              <div className="grid grid-cols-2 lg:grid-cols-3 gap-y-3 gap-x-8 mx-auto w-fit mt-8">
+                                {payload?.map((entry: any, index: number) => (
+                                  <div key={`item-${index}`} className="flex items-center w-[130px]">
+                                    <span
+                                      className="w-[8px] h-[8px] rounded-full shrink-0 mr-1.5 mt-[1px]"
+                                      style={{ backgroundColor: entry.color }}
+                                    />
+                                    <span className="text-[12px] font-semibold text-slate-500 whitespace-nowrap mr-1">
+                                      {entry.value}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <p className="text-sm text-slate-400 italic">No status data available.</p>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -550,17 +636,23 @@ export default function ClientsPage() {
               </CardHeader>
               <CardContent>
                 <div className="h-[320px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={projectVolume} margin={{ top: 10, right: 20, left: -10, bottom: 10 }} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(226, 232, 240, 0.5)" />
-                      <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
-                      <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} width={120} />
-                      <RechartsTooltip cursor={{ fill: "rgba(148, 163, 184, 0.05)" }} contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid #e2e8f0" }} />
-                      <Bar dataKey="clients" fill={chartPalette.emerald} radius={[0, 4, 4, 0]} barSize={28}>
-                         <LabelList dataKey="clients" position="right" style={{ fontSize: 11, fontWeight: 700, fill: "#334155" }} />
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
+                  {projectVolume.length > 0 ? (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={projectVolume} margin={{ top: 10, right: 20, left: -10, bottom: 10 }} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="rgba(226, 232, 240, 0.5)" />
+                        <XAxis type="number" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} />
+                        <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} width={120} />
+                        <RechartsTooltip cursor={{ fill: "rgba(148, 163, 184, 0.05)" }} contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid #e2e8f0" }} />
+                        <Bar dataKey="clients" fill={chartPalette.emerald} radius={[0, 4, 4, 0]} barSize={28}>
+                           <LabelList dataKey="clients" position="right" style={{ fontSize: 11, fontWeight: 700, fill: "#334155" }} />
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="h-full flex items-center justify-center">
+                      <p className="text-sm text-slate-400 italic">No project data available.</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -581,7 +673,7 @@ export default function ClientsPage() {
                       placeholder="Search by name or number"
                       className="pl-9 h-9 w-full"
                       value={searchTerm}
-                      onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
+                      onChange={(e) => { setSearchTerm(e.target.value); }}
                     />
                   </div>
                 </div>
@@ -593,14 +685,16 @@ export default function ClientsPage() {
                   <select
                     className="h-9 w-full sm:w-auto rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none"
                     value={statusFilter}
-                    onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
+                    onChange={(e) => { setStatusFilter(e.target.value); }}
                   >
                     <option value="All">All Statuses</option>
-                    <option value="New">New</option>
-                    <option value="Interested">Interested</option>
-                    <option value="Voicemail">Voicemail</option>
-                    <option value="Closed">Closed</option>
-                    <option value="Do Not Call">Do Not Call</option>
+                    <option value="Dial">Dial</option>
+                    <option value="Callback">Callback</option>
+                    <option value="Answered">Answered</option>
+                    <option value="No Answer">No Answer</option>
+                    <option value="Not Interested">Not Interested</option>
+                    <option value="Busy">Busy</option>
+                    <option value="Failed">Failed</option>
                   </select>
                 </div>
 
@@ -627,26 +721,33 @@ export default function ClientsPage() {
                       <TableHead>Primary Phone</TableHead>
                       <TableHead>Project</TableHead>
                       <TableHead>Status</TableHead>
-                      <TableHead>Assigned Agent</TableHead>
                       <TableHead className="text-center">Attempts</TableHead>
                       <TableHead>Next Dial</TableHead>
                       <TableHead className="pr-6 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {paginatedClients.length > 0 ? paginatedClients.map(client => (
+                    {isLoading ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center text-slate-500">
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
+                            Loading clients...
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ) : paginatedClients.length > 0 ? paginatedClients.map(client => (
                       <TableRow key={client.id} className="hover:bg-slate-50/80 transition-colors">
                         <TableCell className="pl-6 font-semibold text-slate-800 whitespace-nowrap">{client.name}</TableCell>
                         <TableCell className="font-mono text-xs text-slate-600 whitespace-nowrap">{client.primaryNumber}</TableCell>
-                        <TableCell className="text-xs text-slate-600 font-medium whitespace-nowrap">{client.projects.join(', ')}</TableCell>
+                        <TableCell className="text-xs text-slate-600 font-medium whitespace-nowrap">{client.projects.join(', ') || "—"}</TableCell>
                         <TableCell className="whitespace-nowrap">
                           <Badge variant="outline" className={`font-semibold border-none ${getStatusColor(client.status)}`}>
                             {client.status}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-slate-600 text-sm whitespace-nowrap">{client.assignedAgent || "Unassigned"}</TableCell>
                         <TableCell className="text-center font-semibold text-slate-700">{client.attemptCount}</TableCell>
-                        <TableCell className="text-sm text-slate-600 whitespace-nowrap">{client.nextDialAt || "—"}</TableCell>
+                        <TableCell className="text-sm text-slate-600 whitespace-nowrap">{client.nextDialAt ? new Date(client.nextDialAt).toLocaleString() : "—"}</TableCell>
                         <TableCell className="pr-6 text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -656,7 +757,13 @@ export default function ClientsPage() {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="bg-background">
-                              <DropdownMenuItem className="cursor-pointer focus:bg-slate-200" onClick={() => setEditingClient(client)}>
+                              <DropdownMenuItem className="cursor-pointer focus:bg-slate-200" onClick={() => {
+                                setSelectedClient(client)
+                                loadClientHistory(client.id)
+                              }}>
+                                <Search className="h-4 w-4 mr-2 text-slate-500" /> View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem className="cursor-pointer focus:bg-slate-200" onClick={() => setEditingClient({ ...client })}>
                                 <Edit className="h-4 w-4 mr-2 text-blue-500" /> Edit Client
                               </DropdownMenuItem>
                               <DropdownMenuItem className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50" onClick={() => setDeletingClientId(client.id)}>
@@ -668,7 +775,7 @@ export default function ClientsPage() {
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center text-slate-500">
+                        <TableCell colSpan={7} className="h-24 text-center text-slate-500">
                           No clients found matching your search.
                         </TableCell>
                       </TableRow>
@@ -681,7 +788,7 @@ export default function ClientsPage() {
             {/* Pagination */}
             <CardFooter className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 border-t border-slate-100 p-4 sm:p-6">
               <div className="text-sm text-muted-foreground text-center sm:text-left w-full sm:w-auto">
-                Showing <strong>{filteredClients.length === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</strong> to <strong>{Math.min(currentPage * ITEMS_PER_PAGE, filteredClients.length)}</strong> of <strong>{filteredClients.length}</strong> clients
+                Showing <strong>{totalClients === 0 ? 0 : (currentPage - 1) * ITEMS_PER_PAGE + 1}</strong> to <strong>{Math.min(currentPage * ITEMS_PER_PAGE, totalClients)}</strong> of <strong>{totalClients}</strong> clients
               </div>
               <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
                 <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
@@ -725,68 +832,41 @@ export default function ClientsPage() {
                   <Label>Primary Phone</Label>
                   <Input
                     value={editingClient.primaryNumber}
-                    onChange={(e) => setEditingClient({...editingClient, primaryNumber: e.target.value})}
-                    required
+                    disabled
+                    className="bg-slate-50"
                   />
+                  <p className="text-xs text-muted-foreground">Phone numbers are managed at the server level.</p>
                 </div>
 
                 <div className="col-span-2 flex flex-col gap-2">
                   <Label>Project / Campaign</Label>
                   <Input
                     value={editingClient.projects.join(', ')}
-                    onChange={(e) => setEditingClient({...editingClient, projects: e.target.value.split(',').map(p=>p.trim())})}
+                    disabled
+                    className="bg-slate-50"
                   />
                 </div>
 
                 <div className="flex flex-col gap-2">
-                  <Label>Status</Label>
+                  <Label>Client Type</Label>
                   <select
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                    value={editingClient.status}
-                    onChange={(e) => setEditingClient({...editingClient, status: e.target.value})}
+                    value={editingClient._raw.type || "OWNER"}
+                    onChange={(e) => setEditingClient({...editingClient, _raw: { ...editingClient._raw, type: e.target.value }})}
                   >
-                    <option value="New">New</option>
-                    <option value="Interested">Interested</option>
-                    <option value="Voicemail">Voicemail</option>
-                    <option value="Closed">Closed</option>
-                    <option value="Do Not Call">Do Not Call</option>
+                    <option value="OWNER">Owner</option>
+                    <option value="LEAD">Lead</option>
+                    <option value="BOTH">Both</option>
                   </select>
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label>Attempts</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    value={editingClient.attemptCount}
-                    onChange={(e) => setEditingClient({...editingClient, attemptCount: parseInt(e.target.value) || 0})}
-                  />
                 </div>
 
                 <div className="flex flex-col gap-2">
                   <Label>Next Dial</Label>
                   <Input
-                    type="text"
-                    placeholder="YYYY-MM-DD HH:mm"
-                    value={editingClient.nextDialAt || ""}
-                    onChange={(e) => setEditingClient({...editingClient, nextDialAt: e.target.value})}
+                    type="datetime-local"
+                    value={editingClient.nextDialAt ? editingClient.nextDialAt.slice(0, 16) : ""}
+                    onChange={(e) => setEditingClient({...editingClient, nextDialAt: e.target.value ? new Date(e.target.value).toISOString() : null})}
                   />
-                </div>
-
-                <div className="flex flex-col gap-2">
-                  <Label>Assigned Agent</Label>
-                  <select
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                    value={dummyAgents.find(a => a.name === editingClient.assignedAgent)?.id || ""}
-                    onChange={(e) => {
-                      const agentName = dummyAgents.find(a => a.id.toString() === e.target.value)?.name || "Unassigned";
-                      setEditingClient({...editingClient, assignedAgent: agentName});
-                    }}
-                  >
-                    <option value="" disabled>Select an agent...</option>
-                    <option value="999">Unassigned</option>
-                    {dummyAgents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                  </select>
                 </div>
               </div>
               <DialogFooter>
@@ -916,7 +996,7 @@ export default function ClientsPage() {
                   onChange={(e) => setUploadAgent(e.target.value)}
                 >
                   <option value="" disabled>Select an agent...</option>
-                  {dummyAgents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                 </select>
               </div>
 
@@ -952,12 +1032,12 @@ export default function ClientsPage() {
                 {/* Meta Grid */}
                 <div className="grid grid-cols-2 gap-4 p-4 bg-slate-50 rounded-lg border border-slate-100">
                   <div>
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Assigned To</p>
-                    <p className="text-sm font-medium text-slate-800">{selectedClient.assignedAgent}</p>
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Client Type</p>
+                    <p className="text-sm font-medium text-slate-800">{selectedClient._raw.type || "OWNER"}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Projects</p>
-                    <p className="text-sm font-medium text-slate-800">{selectedClient.projects.join(", ")}</p>
+                    <p className="text-sm font-medium text-slate-800">{selectedClient.projects.join(", ") || "None"}</p>
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Total Attempts</p>
@@ -965,9 +1045,21 @@ export default function ClientsPage() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Next Scheduled Dial</p>
-                    <p className="text-sm font-medium text-slate-800">{selectedClient.nextDialAt || "None"}</p>
+                    <p className="text-sm font-medium text-slate-800">{selectedClient.nextDialAt ? new Date(selectedClient.nextDialAt).toLocaleString() : "None"}</p>
                   </div>
                 </div>
+
+                {/* All Phone Numbers */}
+                {selectedClient._raw.phones && selectedClient._raw.phones.length > 1 && (
+                  <div>
+                    <h4 className="text-sm font-bold text-slate-800 mb-2 border-b pb-1">Phone Numbers</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {selectedClient._raw.phones.map((p, i) => (
+                        <span key={i} className="font-mono text-sm bg-slate-100 px-3 py-1 rounded-md">{p.phone}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Owner Info (Dynamic KV Pairs) */}
                 {selectedClient.info.length > 0 && (
@@ -987,16 +1079,26 @@ export default function ClientsPage() {
                 {/* Call History */}
                 <div>
                   <h4 className="text-sm font-bold text-slate-800 mb-2 border-b pb-1">Call History</h4>
-                  {selectedClient.history.length > 0 ? (
+                  {isLoadingHistory ? (
+                    <div className="flex items-center gap-2 py-4 justify-center text-slate-500">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Loading call history...
+                    </div>
+                  ) : selectedClientHistory.length > 0 ? (
                     <div className="space-y-3">
-                      {selectedClient.history.map((record) => (
+                      {selectedClientHistory.map((record) => (
                         <div key={record.id} className="flex flex-col p-3 border border-slate-100 rounded-lg shadow-sm">
                           <div className="flex justify-between items-start mb-1">
-                            <span className="text-xs font-bold text-slate-700">{record.time}</span>
-                            <Badge variant="outline" className={`text-[10px] py-0 h-4 border-none ${getStatusColor(record.status)}`}>{record.status}</Badge>
+                            <span className="text-xs font-bold text-slate-700">{new Date(record.time).toLocaleString()}</span>
+                            <Badge variant="outline" className={`text-[10px] py-0 h-4 border-none ${getStatusColor(record.status)}`}>{formatStatus(record.status)}</Badge>
                           </div>
-                          <p className="text-xs text-slate-500 mb-1">Agent: {record.agent} • Duration: {record.duration}s</p>
-                          <p className="text-sm text-slate-800 italic">"{record.notes}"</p>
+                          <p className="text-xs text-slate-500 mb-1">
+                            Agent ID: {record.agent_id} • Duration: {record.duration || 0}s
+                            {record.projects && record.projects.length > 0 && ` • ${record.projects.map(p => p.name).join(', ')}`}
+                          </p>
+                          {record.agent_notes && (
+                            <p className="text-sm text-slate-800 italic">"{record.agent_notes}"</p>
+                          )}
                         </div>
                       ))}
                     </div>
