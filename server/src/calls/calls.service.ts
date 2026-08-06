@@ -108,9 +108,6 @@ export class CallsService {
       },
     });
 
-    if (call.clientId && (['not_interested', 'contacted'].includes(call.status??""))) 
-      await this.ownersService.update(Number(call.clientId), { type: 'inactive' });
-
     await this.prisma.clientProject.update({
       where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
       data: { status: dto.status, lastDialedAt: new Date() },
@@ -137,7 +134,7 @@ export class CallsService {
     };
   }
 
-  async getNextOwner(args: { projectId: number, date?: Date }): Promise<NextOwnerResponseDto | null> {
+  async getNextOwner(args: { projectId?: number, date?: Date }): Promise<NextOwnerResponseDto | null> {
     const owner = await this.ownersService.getNextOwner(args);
     if (!owner) return null;
 

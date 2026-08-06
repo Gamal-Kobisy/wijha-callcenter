@@ -182,20 +182,26 @@ export class OwnersService {
     return toOwnerResponse(client);
   }
 
-  async getNextOwner(args?: { projectId?: number, date?: Date}): Promise<OwnerResponseDto | null> {
+  async getNextOwner(args?: { projectId?: number, date?: Date }): Promise<OwnerResponseDto | null> {
     const { projectId } = args || {};
-    const where: Prisma.OwnerWhereInput = { status: 'active' };
+
+    const conditions: Prisma.Sql[] = [
+      Prisma.sql`cp.status IN ('dial', 'callback', 'not_answered')`,
+      Prisma.sql`(c.next_dial_at IS NULL OR c.next_dial_at <= NOW())`,
+    ];
     if (projectId !== undefined) {
-      where.ownerProjects = { some: { projectId } };
+      conditions.push(Prisma.sql`cp.project_id = ${projectId}`);
     }
-    const owners = await this.prisma.owner.findMany({
-      where,
-      orderBy: {
-        attemptCount: 'asc',
-        lastDialedAt: 'asc',
-      },
-      include: { numbers: true, ownerInfo: true },
-    });
+
+    const rows = await this.prisma.$queryRaw<{ id: bigint }[]>`
+      SELECT c.id
+      FROM client c
+      JOIN client_project cp ON cp.client_id = c.id
+      WHERE ${Prisma.join(conditions, ' AND ')}
+      GROUP BY c.id
+      ORDER BY MIN(c.next_dial_at) ASC NULLS FIRST
+      LIMIT 1
+    `;
 
     if (rows.length === 0) return null;
 

@@ -64,7 +64,7 @@ export class CallsController {
   @Get('next')
   async getNext(@Query() query: GetNextClientQueryDto): Promise<NextOwnerResponseDto | null> {
     return this.callsService.getNextOwner({
-      projectId: Number(query.project_id),
+      projectId: query.project_id !== undefined ? Number(query.project_id) : undefined,
       date: query.date ? new Date(query.date) : undefined,
     });
   }
