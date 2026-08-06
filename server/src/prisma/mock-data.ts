@@ -1,14 +1,4 @@
-export function mockUser(overrides?: Partial<{
-  id: number;
-  email: string;
-  phoneNumber: string;
-  passwordHash: string;
-  name: string | null;
-  role: string;
-  otp: string | null;
-  otpExpiry: Date | null;
-  jwtToken: string | null;
-}>) {
+export function mockUser(overrides?: Record<string, any>) {
   return {
     id: 1,
     email: 'test@example.com',
@@ -19,53 +9,50 @@ export function mockUser(overrides?: Partial<{
     otp: null,
     otpExpiry: null,
     jwtToken: null,
+    profileImage: null,
+    profileMime: null,
     ...overrides,
   };
 }
 
-export function mockOwner(overrides?: Partial<{
+export function mockClient(overrides?: Partial<{
   id: bigint;
   name: string | null;
-  status: string | null;
-  attemptCount: number | null;
-  lastDialedAt: Date | null;
+  type: string;
   nextDialAt: Date | null;
-  projectId: number | null;
-  numbers: { number: string; ownerId: bigint }[];
-  ownerInfo: { key: string; ownerId: bigint; value: string }[];
+  numbers: { number: string; clientId: bigint }[];
+  clientInfo: { key: string; clientId: bigint; value: string }[];
 }>) {
   return {
     id: 1n,
     name: 'John Doe',
-    status: 'active',
-    attemptCount: 0,
-    lastDialedAt: null,
+    type: 'OWNER',
     nextDialAt: null,
-    numbers: [] as { number: string; ownerId: bigint }[],
-    ownerInfo: [] as { key: string; ownerId: bigint; value: string }[],
+    numbers: [] as { number: string; clientId: bigint }[],
+    clientInfo: [] as { key: string; clientId: bigint; value: string }[],
     ...overrides,
   };
 }
 
 export function mockNumber(overrides?: Partial<{
   number: string;
-  ownerId: bigint;
+  clientId: bigint;
 }>) {
   return {
     number: '555-0100',
-    ownerId: 1n,
+    clientId: 1n,
     ...overrides,
   };
 }
 
-export function mockOwnerInfo(overrides?: Partial<{
+export function mockClientInfo(overrides?: Partial<{
   key: string;
-  ownerId: bigint;
+  clientId: bigint;
   value: string;
 }>) {
   return {
     key: 'email',
-    ownerId: 1n,
+    clientId: 1n,
     value: 'john@example.com',
     ...overrides,
   };
@@ -73,16 +60,16 @@ export function mockOwnerInfo(overrides?: Partial<{
 
 export function mockCallRecord(overrides?: Partial<{
   id: bigint;
-  ownerId: bigint | null;
+  clientId: bigint | null;
   agentId: number | null;
   status: string | null;
   time: Date;
   duration: number | null;
   agentNotes: string | null;
-}> & { owner?: Record<string, unknown> }) {
+}> & { client?: Record<string, unknown> }) {
   return {
     id: 1n,
-    ownerId: 1n,
+    clientId: 1n,
     agentId: 1,
     status: 'completed',
     time: new Date('2024-06-01T12:00:00Z'),
@@ -119,4 +106,3 @@ export function mockUserSession(overrides?: Partial<{
     ...overrides,
   };
 }
-

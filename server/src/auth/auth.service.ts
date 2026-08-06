@@ -44,6 +44,7 @@ export class AuthService {
         name: user.name,
         phone: user.phoneNumber,
         role: user.role,
+        has_profile_image: !!user.profileImage,
       },
     };
   }
@@ -88,6 +89,6 @@ export class AuthService {
   async getMe(user: AuthenticatedUser): Promise<UserResponse | null> {
     const existingUser = await this.prisma.user.findUnique({ where: { id: user.id } });
     if (!existingUser) return null;
-    return { id: existingUser.id, email: existingUser.email, role: existingUser.role, name: existingUser.name, phone: existingUser.phoneNumber };
+    return { id: existingUser.id, email: existingUser.email, role: existingUser.role, name: existingUser.name, phone: existingUser.phoneNumber, has_profile_image: !!existingUser.profileImage };
   }
 }

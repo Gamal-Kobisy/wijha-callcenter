@@ -13,11 +13,23 @@ import { SessionsService } from '@/sessions/sessions.service';
 export class UsersService {
   constructor(private prisma: PrismaService, private sessionService: SessionsService) {}
 
+  private toResponse(user: any, isOnline = false): UserResponseDto {
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name ?? null,
+      phone: user.phoneNumber ?? null,
+      role: user.role,
+      has_profile_image: !!user.profileImage,
+      is_online: isOnline,
+    };
+  }
+
   async findAll(role?: string, online?: string): Promise<UserResponseDto[]> {
     const users = await this.prisma.user.findMany({
       where: role ? { role } : undefined,
       omit: { passwordHash: true },
-    }) as unknown as (UserResponseDto & { id: number })[];
+    });
 
     const agentIds = users.map(u => u.id);
     let activeAgentIds: number[] = [];
@@ -30,8 +42,7 @@ export class UsersService {
     }
 
     let filtered = users.map(u => ({
-      ...u,
-      is_online: activeAgentIds.includes(u.id),
+      ...this.toResponse(u, activeAgentIds.includes(u.id)),
     }));
 
     if (online === 'true') {
@@ -54,10 +65,7 @@ export class UsersService {
       where: { agentId: id },
     });
 
-    return {
-      ...(user as unknown as UserResponseDto),
-      is_online: !!activeSession,
-    } as UserResponseDto;
+    return this.toResponse(user, !!activeSession);
   }
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
@@ -73,7 +81,7 @@ export class UsersService {
         },
         omit: { passwordHash: true },
       });
-      return { ...(user as unknown as UserResponseDto), is_online: false };
+      return this.toResponse(user);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException('Email already exists');
@@ -104,7 +112,7 @@ export class UsersService {
         },
         omit: { passwordHash: true },
       });
-      return { ...(user as unknown as UserResponseDto), is_online: false };
+      return this.toResponse(user);
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         throw new ConflictException('Email already exists');
@@ -124,7 +132,7 @@ export class UsersService {
       data: { role: 'deactivated', passwordHash: '!deactivated!' },
       omit: { passwordHash: true },
     });
-    return { ...(user as unknown as UserResponseDto), is_online: false };
+    return this.toResponse(user);
   }
 
   async createBulk(dtos: CreateUserDto[]): Promise<UserResponseDto[]> {
@@ -155,11 +163,60 @@ export class UsersService {
           },
           omit: { passwordHash: true },
         });
-        users.push({ ...(user as unknown as UserResponseDto), is_online: false });
+        users.push(this.toResponse(user));
       }
 
       return users;
     });
+  }
+
+  async uploadProfileImage(userId: number, buffer: Buffer, mime: string): Promise<UserResponseDto> {
+    const existing = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { profileImage: buffer as any, profileMime: mime },
+      omit: { passwordHash: true },
+    });
+
+    const activeSession = await this.prisma.activeSession.findUnique({
+      where: { agentId: userId },
+    });
+
+    return this.toResponse(user, !!activeSession);
+  }
+
+  async deleteProfileImage(userId: number): Promise<UserResponseDto> {
+    const existing = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!existing) {
+      throw new NotFoundException('User not found');
+    }
+
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: { profileImage: null, profileMime: null },
+      omit: { passwordHash: true },
+    });
+
+    const activeSession = await this.prisma.activeSession.findUnique({
+      where: { agentId: userId },
+    });
+
+    return this.toResponse(user, !!activeSession);
+  }
+
+  async getProfileImage(userId: number): Promise<{ data: Buffer; mime: string } | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { profileImage: true, profileMime: true },
+    });
+
+    if (!user?.profileImage || !user?.profileMime) return null;
+
+    return { data: Buffer.from(user.profileImage), mime: user.profileMime };
   }
 
   async getStats(userId: number, _from?: string, _to?: string): Promise<UserStatsDto | null> {

@@ -12,7 +12,7 @@ model Project {
   name      String  @db.VarChar(100) @unique
   description String? @db.Text
 
-  ownerProjects           OwnerProject[]
+  clientProjects           ClientProject[]
   projectCallDetailRecords ProjectCallDetailRecord[]
 
   @@map("project")
@@ -28,6 +28,8 @@ model User {
   otp          String?  @db.VarChar(6)
   otpExpiry    DateTime? @map("otp_expiry")
   jwtToken     String?  @map("jwt_token") @db.Text
+  profileImage Bytes?   @map("profile_image")
+  profileMime  String?  @map("profile_mime") @db.VarChar(20)
 
   userSessions      UserSession[]
   callDetailRecords CallDetailRecord[]
@@ -58,53 +60,51 @@ model ActiveSession {
   @@map("active_session")
 }
 
-model Owner {
-  id           BigInt    @id @default(autoincrement())
-  name         String?   @db.VarChar(50)
-  status       String?   @db.VarChar(50)
-  attemptCount Int?      @map("attempt_count")
-  lastDialedAt DateTime? @map("last_dialed_at")
-  nextDialAt   DateTime? @map("next_dial_at")
+model Client {
+  id         BigInt    @id @default(autoincrement())
+  name       String?   @db.VarChar(50)
+  type       String    @db.VarChar(10)       // "OWNER" | "LEAD" | "BOTH"
+  nextDialAt DateTime? @map("next_dial_at")
 
   numbers           Number[]
-  ownerInfo         OwnerInfo[]
+  clientInfo        ClientInfo[]
   callDetailRecords CallDetailRecord[]
-  ownerProjects     OwnerProject[]
+  clientProjects    ClientProject[]
 
-  @@map("owner")
+  @@map("client")
 }
 
 model Number {
-  number  String @db.VarChar(20) @unique
-  ownerId BigInt @map("owner_id")
+  number   String @db.VarChar(20) @unique
+  clientId BigInt @map("client_id")
 
-  owner Owner @relation(fields: [ownerId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
 
-  @@id([number, ownerId])
+  @@id([number])
   @@map("numbers")
 }
 
-model OwnerInfo {
-  key     String @db.VarChar(60)
-  ownerId BigInt @map("owner_id")
-  value   String @db.VarChar(60)
+model ClientInfo {
+  key      String @db.VarChar(60)
+  clientId BigInt @map("client_id")
+  value    String @db.VarChar(60)
 
-  owner Owner @relation(fields: [ownerId], references: [id])
+  client Client @relation(fields: [clientId], references: [id])
 
-  @@id([key, ownerId])
-  @@map("owner_info")
+  @@id([key, clientId])
+  @@map("client_info")
 }
 
 model CallDetailRecord {
   id         BigInt   @id @default(autoincrement())
-  ownerId    BigInt?  @map("owner_id")
+  clientId   BigInt?  @map("client_id")
   agentId    Int?     @map("agent_id")
   status     String?  @db.VarChar(50)
   time       DateTime
   duration   Int?
   agentNotes String?  @map("agent_notes") @db.Text
 
-  owner        Owner?                       @relation(fields: [ownerId], references: [id])
+  client       Client?                      @relation(fields: [clientId], references: [id])
   agent        User?                        @relation(fields: [agentId], references: [id])
   projectLinks ProjectCallDetailRecord[]
 
@@ -122,13 +122,16 @@ model ProjectCallDetailRecord {
   @@map("project_call_detail_record")
 }
 
-model OwnerProject {
-  ownerId   BigInt @map("owner_id")
-  projectId Int    @map("project_id")
+model ClientProject {
+  clientId     BigInt    @map("client_id")
+  projectId    Int       @map("project_id")
+  status       String?   @default("dial") @db.VarChar(50)
+  lastDialedAt DateTime? @map("last_dialed_at")
+  attemptCount Int?      @default(0) @map("attempt_count")
 
-  owner   Owner   @relation(fields: [ownerId], references: [id])
+  client  Client  @relation(fields: [clientId], references: [id])
   project Project @relation(fields: [projectId], references: [id])
 
-  @@id([ownerId, projectId])
-  @@map("owner_project")
+  @@id([clientId, projectId])
+  @@map("client_project")
 }

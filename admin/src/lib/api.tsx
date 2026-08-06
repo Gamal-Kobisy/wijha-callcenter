@@ -1,5 +1,6 @@
 
 export async function apiFetch(endpoint: string, options: RequestInit = {}) {
+  const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api/v1";
   // Automatically grab the token
   const token = localStorage.getItem("userToken") || sessionStorage.getItem("userToken");
   const expiry = localStorage.getItem("tokenExpiry");
@@ -20,7 +21,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   };
 
   // Make the actual request
-  const response = await fetch(`http://localhost:3000/api/v1/${endpoint}`, {
+  const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
     ...options,
     headers,
   });

@@ -1,5 +1,5 @@
 import { Menu, BarChart3, Target, Headset, BadgeCheck, LogOut, LayoutDashboard } from "lucide-react"
-import {Link, useLocation, useNavigate,} from "react-router-dom"
+import { Link, useLocation, useNavigate } from "react-router-dom"
 import Logo from "@/components/Logo"
 import NavbarUserButton from "@/components/NavbarUserButton.tsx"
 import {
@@ -10,7 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 // @ts-ignore
-import avatar from "../assets/avatar.jpg"
+import defaultAvatar from "../assets/avatar.jpg"
 import { useAuth } from "@/contexts/AuthContext"
 
 interface AppNavbarProps {
@@ -30,6 +30,11 @@ export default function AppNavbar({
 
   const { user, logout } = useAuth()
 
+  // 1. Setup fallback variables for the mobile menu
+  const displayName = user?.name || "Loading..."
+  const displayEmail = user?.email || ""
+  const displayAvatar = user?.avatarUrl || defaultAvatar
+
   // Helper to map icons to specific link names
   const getIcon = (name: string) => {
     switch (name.toLowerCase()) {
@@ -40,8 +45,6 @@ export default function AppNavbar({
       default: return <BarChart3 className="size-5 shrink-0" />
     }
   }
-
-
 
   const NavLink = ({ name }: { name: string }) => (
     <Link
@@ -83,13 +86,8 @@ export default function AppNavbar({
 
       <div className="flex items-center justify-end shrink-0 gap-2 sm:gap-4 w-auto lg:w-64">
         <div className="hidden md:block w-40 sm:w-auto lg:w-full">
-          <NavbarUserButton
-            name={user?.name || "Loading..."}
-            email={user?.email || ""}
-            avatarSrc={avatar}
-            onAccountClick={handleAccountNavigation}
-            onLogout={logout}
-          />
+          {/* Because we made NavbarUserButton smart, we only need to pass the navigation prop! */}
+          <NavbarUserButton onAccountClick={handleAccountNavigation} />
         </div>
 
         <div className="md:hidden">
@@ -102,10 +100,15 @@ export default function AppNavbar({
 
             <DropdownMenuContent align="end" className="w-64 mt-2 border-border bg-background shadow-md">
               <DropdownMenuItem className="pointer-events-none">
-                <img alt="Avatar" className="aspect-square size-10 rounded-lg object-cover bg-muted" src={avatar} />
+                <img
+                  alt="Avatar"
+                  className="aspect-square size-10 rounded-lg object-cover bg-muted"
+                  src={displayAvatar}
+                  onError={(e) => { e.currentTarget.src = defaultAvatar }}
+                />
                 <div className="grid flex-1 text-left text-sm leading-tight ml-2">
-                  <span className="truncate font-medium">Youssef Elkhatib</span>
-                  <span className="truncate text-xs text-muted-foreground">admin@wijhawest.com</span>
+                  <span className="truncate font-medium">{displayName}</span>
+                  <span className="truncate text-xs text-muted-foreground">{displayEmail}</span>
                 </div>
               </DropdownMenuItem>
 

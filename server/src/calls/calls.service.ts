@@ -11,9 +11,9 @@ import { DEFAULT_PAGE_LIMIT } from './config';
 
 const callWithProjects = Prisma.validator<Prisma.CallDetailRecordDefaultArgs>()({
   include: {
-    owner: {
+    client: {
       include: {
-        ownerProjects: {
+        clientProjects: {
           include: { project: true },
         },
       },
@@ -33,21 +33,21 @@ export class CallsService {
   private toCallResponse(call: CallWithProjects): CallResponseDto {
     return {
       id: Number(call.id),
-      owner_id: Number(call.ownerId),
+      client_id: Number(call.clientId),
       agent_id: call.agentId ?? 0,
       status: call.status ?? '',
       time: call.time.toISOString(),
       duration: call.duration,
       agent_notes: call.agentNotes,
-      projects: call.owner?.ownerProjects.map(op => ({
-        id: op.project.id,
-        name: op.project.name,
+      projects: call.client?.clientProjects.map(cp => ({
+        id: cp.project.id,
+        name: cp.project.name,
       })) ?? [],
     };
   }
 
   async findAll(filters: {
-    owner_id?: number;
+    client_id?: number;
     agent_id?: number;
     status?: string;
     page?: number;
@@ -57,13 +57,13 @@ export class CallsService {
     project_id?: number;
   }): Promise<{ data: CallResponseDto[]; meta: { total: number; page: number; limit: number } }> {
     const where: any = {};
-    if (filters.owner_id !== undefined) where.ownerId = filters.owner_id;
+    if (filters.client_id !== undefined) where.clientId = filters.client_id;
     if (filters.agent_id !== undefined) where.agentId = filters.agent_id;
     if (filters.status) where.status = filters.status;
     if (filters.from) where.time = { ...where.time, gte: filters.from };
     if (filters.to) where.time = { ...where.time, lte: filters.to };
     if (filters.project_id !== undefined) {
-      where.owner = { ownerProjects: { some: { projectId: filters.project_id } } };
+      where.client = { clientProjects: { some: { projectId: filters.project_id } } };
     }
 
     const page = filters.page ?? 1;
@@ -99,7 +99,7 @@ export class CallsService {
   async submit(dto: SubmitCallDto, agentId: number): Promise<CallResponseDto> {
     const call = await this.prisma.callDetailRecord.create({
       data: {
-        ownerId: dto.owner_id,
+        clientId: dto.client_id,
         agentId,
         status: dto.status,
         time: new Date(dto.time),
@@ -108,12 +108,26 @@ export class CallsService {
       },
     });
 
-    if (call.ownerId && (['not_interested', 'contacted'].includes(call.status??""))) 
-      await this.ownersService.update(Number(call.ownerId), { status: 'inactive' });
+    if (call.clientId && (['not_interested', 'contacted'].includes(call.status??""))) 
+      await this.ownersService.update(Number(call.clientId), { type: 'inactive' });
+
+    await this.prisma.clientProject.update({
+      where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
+      data: { status: dto.status, lastDialedAt: new Date() },
+    });
+
+    await this.prisma.client.update({
+      where: { id: dto.client_id },
+      data: {
+        nextDialAt: dto.status === 'callback' && dto.next_dial_at
+          ? new Date(dto.next_dial_at)
+          : new Date(),
+      },
+    });
 
     return {
       id: Number(call.id),
-      owner_id: Number(call.ownerId),
+      client_id: Number(call.clientId),
       agent_id: call.agentId ?? 0,
       status: call.status ?? '',
       time: call.time.toISOString(),
@@ -123,12 +137,12 @@ export class CallsService {
     };
   }
 
-  async getNextOwner(args?: { projectId?: number, date?: Date }): Promise<NextOwnerResponseDto | null> {
+  async getNextOwner(args: { projectId: number, date?: Date }): Promise<NextOwnerResponseDto | null> {
     const owner = await this.ownersService.getNextOwner(args);
     if (!owner) return null;
 
     const calls = await this.prisma.callDetailRecord.findMany({
-      where: { ownerId: owner.id },
+      where: { clientId: owner.id },
       orderBy: { time: 'desc' },
       include: callWithProjects.include,
     });
@@ -174,16 +188,20 @@ export class CallsService {
   }
 
   async notifyCalling(dto: NotifyCallingDto): Promise<void> {
-    const where:any = {};
-    where.id = dto.owner_id;
-    if (dto.owner_number) {
-      where.ownerNumbers = { some: { number: dto.owner_number } };
+    const where: any = {};
+    where.id = dto.client_id;
+    if (dto.client_number) {
+      where.numbers = { some: { number: dto.client_number } };
     }
 
-    await
-    this.prisma.owner.update({
+    await this.prisma.client.update({
       where,
-      data: { lastDialedAt: new Date().toISOString() },
+      data: { nextDialAt: new Date() },
     })
+
+    await this.prisma.clientProject.update({
+      where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
+      data: { lastDialedAt: new Date(), attemptCount: { increment: 1 } },
+    });
   }
 }

@@ -3,7 +3,7 @@ import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { OwnersController } from './owners.controller';
 import { OwnersService } from './owners.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo, mockProject } from '@/prisma/mock-data';
+import { mockClient, mockNumber, mockClientInfo, mockProject } from '@/prisma/mock-data';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 describe('OwnersController', () => {
@@ -13,31 +13,31 @@ describe('OwnersController', () => {
   beforeEach(async () => {
     prisma = mockDeep<PrismaService>();
     prisma.$transaction.mockImplementation(async (cb: any) => cb(prisma));
-    prisma.owner.findMany.mockResolvedValue([
-      mockOwner({
+    prisma.client.findMany.mockResolvedValue([
+      mockClient({
         name: 'John Doe',
         numbers: [mockNumber({ number: '555-0100' })],
-        ownerInfo: [mockOwnerInfo({ key: 'email', value: 'john@example.com' })],
+        clientInfo: [mockClientInfo({ key: 'email', value: 'john@example.com' })],
       }),
-      mockOwner({ id: 2n, name: 'Jane Smith', numbers: [], ownerInfo: [] }),
+      mockClient({ id: 2n, name: 'Jane Smith', numbers: [], clientInfo: [] }),
     ]);
-    prisma.owner.count.mockResolvedValue(2);
-    prisma.owner.create.mockResolvedValue(
-      mockOwner({ id: 3n, name: 'New Owner', status: 'pending', numbers: [mockNumber({ number: '555-9999' })], ownerInfo: [mockOwnerInfo()] }),
+    prisma.client.count.mockResolvedValue(2);
+    prisma.client.create.mockResolvedValue(
+      mockClient({ id: 3n, name: 'New Owner', type: 'LEAD', numbers: [mockNumber({ number: '555-9999' })], clientInfo: [mockClientInfo()] }),
     );
-    prisma.owner.findUnique.mockResolvedValue(
-      mockOwner({
+    prisma.client.findUnique.mockResolvedValue(
+      mockClient({
         numbers: [mockNumber({ number: '555-0100' })],
-        ownerInfo: [mockOwnerInfo({ key: 'email', value: 'john@example.com' })],
+        clientInfo: [mockClientInfo({ key: 'email', value: 'john@example.com' })],
       }),
     );
-    prisma.owner.update.mockResolvedValue(
-      mockOwner({ status: 'completed', numbers: [], ownerInfo: [] }),
+    prisma.client.update.mockResolvedValue(
+      mockClient({ type: 'BOTH', numbers: [], clientInfo: [] }),
     );
-    prisma.owner.findFirst.mockResolvedValue(
-      mockOwner({
+    prisma.client.findFirst.mockResolvedValue(
+      mockClient({
         numbers: [mockNumber({ number: '555-0100' })],
-        ownerInfo: [mockOwnerInfo({ key: 'email', value: 'john@example.com' })],
+        clientInfo: [mockClientInfo({ key: 'email', value: 'john@example.com' })],
       }),
     );
 
@@ -72,10 +72,10 @@ describe('OwnersController', () => {
     });
 
     it('should respect pagination params', async () => {
-      prisma.owner.findMany.mockResolvedValue([
-        mockOwner({ numbers: [], ownerInfo: [] }),
+      prisma.client.findMany.mockResolvedValue([
+        mockClient({ numbers: [], clientInfo: [] }),
       ]);
-      prisma.owner.count.mockResolvedValue(1);
+      prisma.client.count.mockResolvedValue(1);
       const result = await controller.findAll({ limit: '1', page: '1' });
       expect(result.data).toHaveLength(1);
       expect(result.meta.limit).toBe(1);
@@ -95,17 +95,32 @@ describe('OwnersController', () => {
       expect(result.phones).toHaveLength(1);
       expect(result.info).toHaveLength(1);
     });
+
+    it('should create an owner with explicit type', async () => {
+      prisma.client.create.mockResolvedValue(
+        mockClient({ id: 4n, name: 'Lead Owner', type: 'LEAD', numbers: [mockNumber({ number: '555-8888' })], clientInfo: [] }),
+      );
+
+      const result = await controller.create({
+        name: 'Lead Owner',
+        type: 'LEAD',
+        project_id: 1,
+        phones: [{ phone: '555-8888' }],
+      });
+
+      expect(result.type).toBe('LEAD');
+    });
   });
 
   describe('POST /owners/bulk', () => {
     it('should create multiple owners', async () => {
       prisma.number.findFirst.mockResolvedValue(null);
-      prisma.owner.create
+      prisma.client.create
         .mockResolvedValueOnce(
-          mockOwner({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], ownerInfo: [] }),
+          mockClient({ id: 3n, name: 'Alice', numbers: [mockNumber({ number: '555-1111' })], clientInfo: [] }),
         )
         .mockResolvedValueOnce(
-          mockOwner({ id: 4n, name: 'Bob', numbers: [mockNumber({ number: '555-2222' })], ownerInfo: [] }),
+          mockClient({ id: 4n, name: 'Bob', numbers: [mockNumber({ number: '555-2222' })], clientInfo: [] }),
         );
 
       const result = await controller.createBulk({
@@ -129,24 +144,24 @@ describe('OwnersController', () => {
     });
 
     it('should return null for non-existent', async () => {
-      prisma.owner.findUnique.mockResolvedValue(null);
+      prisma.client.findUnique.mockResolvedValue(null);
       const result = await controller.findOne(999);
       expect(result).toBeNull();
     });
   });
 
   describe('PATCH /owners/:ownerId', () => {
-    it('should update owner', async () => {
-      const result = await controller.patch(1, { status: 'completed' });
-      expect(result.status).toBe('completed');
+    it('should update owner type', async () => {
+      const result = await controller.patch(1, { type: 'BOTH' });
+      expect(result.type).toBe('BOTH');
     });
   });
 
   describe('POST /owners/:ownerId/projects', () => {
     it('should assign owner to a project', async () => {
-      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
       prisma.project.findFirst.mockResolvedValue(mockProject({ name: 'Default Project' }));
-      prisma.ownerProject.upsert.mockResolvedValue({ ownerId: 1n, projectId: 1 });
+      prisma.clientProject.upsert.mockResolvedValue({ clientId: 1n, projectId: 1, status: 'dial', lastDialedAt: null, attemptCount: 0 });
 
       const result = await controller.assignProject(1, { project_name: 'Default Project' });
       expect(result).toHaveProperty('id');
@@ -171,11 +186,11 @@ describe('OwnersController', () => {
 
   describe('DELETE /owners/:ownerId', () => {
     it('should delete an owner', async () => {
-      prisma.owner.findUnique.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
-      prisma.owner.delete.mockResolvedValue(mockOwner({ name: 'John', numbers: [], ownerInfo: [] }));
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
+      prisma.client.delete.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
 
       await expect(controller.remove(1)).resolves.toBeUndefined();
-      expect(prisma.owner.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+      expect(prisma.client.delete).toHaveBeenCalledWith({ where: { id: 1 } });
     });
   });
 });

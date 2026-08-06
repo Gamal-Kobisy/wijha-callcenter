@@ -52,6 +52,7 @@ const heatmapHours = ["9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm",
 export default function AgentPerformancePage() {
   // --- INITIALIZATION ---
   const { id } = useParams()
+  const ITEMS_PER_PAGE = 10
   const [Agent, setAgent] = useState<any>({})
 
   const [dateRange, setDateRange] = useState("Today")
@@ -176,10 +177,10 @@ export default function AgentPerformancePage() {
   const displayRecords = callRecords.filter(log => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
-    const ownerInfo = ownerDetails[log.owner_id] || { name: "", phone: "" };
+    const ownerInfo = ownerDetails[log.client_id] || { name: "", phone: "" };
     const projectName = projectDetails[log.project_id] || "";
 
-    return String(log.owner_id).includes(term) ||
+    return String(log.client_id).includes(term) ||
            (log.agent_notes || "").toLowerCase().includes(term) ||
            ownerInfo.name.toLowerCase().includes(term) ||
            ownerInfo.phone.toLowerCase().includes(term) ||
@@ -227,7 +228,7 @@ export default function AgentPerformancePage() {
       }
 
       // 3. Fetch any missing Owner/Project names for this massive list
-      const uniqueOwnerIds = allCalls.map((r: any) => r.owner_id).filter((id: any, index: number, arr: any[]) => id && arr.indexOf(id) === index);
+      const uniqueOwnerIds = allCalls.map((r: any) => r.client_id).filter((id: any, index: number, arr: any[]) => id && arr.indexOf(id) === index);
       const missingOwners = uniqueOwnerIds.filter((id: any) => !ownerDetails[id]);
 
       const tempOwnerMap = { ...ownerDetails };
@@ -253,8 +254,8 @@ export default function AgentPerformancePage() {
       const csvContent = [
         headers.join(","),
         ...allCalls.map((l: any) => {
-          const ownerName = tempOwnerMap[l.owner_id]?.name || `Owner #${l.owner_id}`;
-          const ownerPhone = tempOwnerMap[l.owner_id]?.phone || "";
+          const ownerName = tempOwnerMap[l.client_id]?.name || `Owner #${l.client_id}`;
+          const ownerPhone = tempOwnerMap[l.client_id]?.phone || "";
           const projectName = projectDetails[l.project_id] || `Project #${l.project_id}`;
 
           return [
@@ -415,7 +416,7 @@ export default function AgentPerformancePage() {
   // EFFECT 3: Whenever callRecords updates, check if we need to fetch missing owner or project names
   useEffect(() => {
     const fetchMissingDetails = async () => {
-      const uniqueOwnerIds = callRecords.map(r => r.owner_id).filter((id, index, arr) => id && arr.indexOf(id) === index);
+      const uniqueOwnerIds = callRecords.map(r => r.client_id).filter((id, index, arr) => id && arr.indexOf(id) === index);
       const uniqueProjectIds = callRecords.map(r => r.project_id).filter((id, index, arr) => id && arr.indexOf(id) === index);
 
       const missingOwners = uniqueOwnerIds.filter(id => !ownerDetails[id]);
@@ -597,7 +598,7 @@ export default function AgentPerformancePage() {
     }
 
     try {
-      const response = await apiFetch(`calls?agent_id=${id}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=10`, {
+      const response = await apiFetch(`calls?agent_id=${id}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}&limit=${ITEMS_PER_PAGE}&page=${currentPage}`, {
         method: "GET",
       })
 
@@ -753,7 +754,7 @@ export default function AgentPerformancePage() {
 
         // 2. Safely grab unique owner IDs
         const uniqueOwnerIds = json.data
-          .map((c: any) => c.owner_id)
+          .map((c: any) => c.client_id)
           .filter((id: any, index: number, arr: any[]) => id && arr.indexOf(id) === index);
 
         // 3. Fetch missing owner names and phone numbers in parallel
@@ -783,8 +784,8 @@ export default function AgentPerformancePage() {
 
            return {
              id: call.id,
-             owner: ownerMap[call.owner_id]?.name || `Owner #${call.owner_id}`,
-             number: ownerMap[call.owner_id]?.phone || "N/A",
+             owner: ownerMap[call.client_id]?.name || `Owner #${call.client_id}`,
+             number: ownerMap[call.client_id]?.phone || "N/A",
              attempts: 1, // Without a historical count API, we default to 1 attempt
              nextDial: callDate.toISOString().split("T")[0]
            }
@@ -880,14 +881,14 @@ export default function AgentPerformancePage() {
                   <span
                     className="h-2.5 w-2.5 rounded-full shrink-0"
                     style={{
-                      backgroundColor: Agent.isOnline
+                      backgroundColor: Agent.is_online
                         ? chartPalette.emerald
                         : "#cbd5e1",
-                      boxShadow: Agent.isOnline
+                      boxShadow: Agent.is_online
                         ? `0 0 6px ${hexToRgba(chartPalette.emerald, 0.6)}`
                         : "none",
                     }}
-                    title={Agent.isOnline ? "Online" : "Offline"}
+                    title={Agent.is_online ? "Online" : "Offline"}
                   />
                 </div>
 
@@ -1297,10 +1298,10 @@ export default function AgentPerformancePage() {
                         </TableCell>
                         <TableCell className="whitespace-nowrap font-mono text-xs">{log.duration}s</TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <span className="font-semibold text-slate-800">{ownerDetails[log.owner_id]?.name || `Owner #${log.owner_id}`}</span>
+                          <span className="font-semibold text-slate-800">{ownerDetails[log.client_id]?.name || `Owner #${log.client_id}`}</span>
                           <br/>
-                          <span className="text-xs text-muted-foreground">{ownerDetails[log.owner_id]?.phone || ""}</span>                        </TableCell>
-                        <TableCell className="max-w-xs truncate pr-4 sm:pr-6 text-slate-600">{log.agent_notes || "—"}</TableCell>
+                          <span className="text-xs text-muted-foreground">{ownerDetails[log.client_id]?.phone || ""}</span>                        </TableCell>
+                        <TableCell className="max-w-xs truncate pr-4 sm:pr-6 text-slate-600">{log.agent_notes || "ï¿½"}</TableCell>
                       </TableRow>
                     )}) : (
                       <TableRow>

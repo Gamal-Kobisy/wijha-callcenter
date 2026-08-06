@@ -194,21 +194,20 @@ export default function AgentsPage() {
 
   const loadAllAgents = async () => {
     try {
-      // deactivatedRes
-      const [activeRes] = await Promise.all([
+      const [activeRes,deactivatedRes] = await Promise.all([
         apiFetch("users?role=user", { method: "GET" }),
-        // apiFetch("users?role=deactivated", { method: "GET" })
+        apiFetch("users?role=deactivated", { method: "GET" })
       ]);
 
-      // if (!activeRes.ok || !deactivatedRes.ok) {
-      //   throw new Error("Failed to load agents.")
-      // }
+      if (!activeRes.ok || !deactivatedRes.ok) {
+        throw new Error("Failed to load agents.")
+      }
 
       const activeData = await activeRes.json()
-      // const deactivatedData = await deactivatedRes.json()
+      const deactivatedData = await deactivatedRes.json()
 
-      // Merge both arrays into one master list ...deactivatedData
-      const combinedData = [...activeData];
+      // Merge both arrays into one master list
+      const combinedData = [...activeData, ...deactivatedData];
 
       const mappedData = combinedData.map((agent: any) => ({
         ...agent,
@@ -349,8 +348,8 @@ export default function AgentsPage() {
     setDeactivateAgentId(null)
 
     try {
-      const response = await apiFetch("deactivate-agent", {
-        method: "PUT",
+      const response = await apiFetch(`users/${targetId}/deactivate`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ targetId })
       })
@@ -363,7 +362,6 @@ export default function AgentsPage() {
 
       loadAllAgents()
     } catch (error) {
-      console.error("Error deleting agent:", error)
       toast.error("Deactivation Failed", {
         description: "An error occurred while trying to deactivate this agent.",
       })
@@ -399,10 +397,10 @@ export default function AgentsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {agents.filter(a => a.isOnline).length}
+                {agents.filter(a => a.is_online).length}
               </div>
               <p className="text-xs text-muted-foreground">
-                {agents.filter(a => a.role?.toLowerCase() !== "deactivated" && !a.isOnline).length} currently offline
+                {agents.filter(a => a.role?.toLowerCase() !== "deactivated" && !a.is_online).length} currently offline
               </p>
             </CardContent>
           </Card>
@@ -529,8 +527,8 @@ export default function AgentsPage() {
                         <TableCell className="font-medium whitespace-nowrap pl-4 sm:pl-6">
                           <div className="flex items-center gap-2">
                             <span
-                              className={`h-2.5 w-2.5 rounded-full shrink-0 ${agent.isOnline ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}
-                              title={agent.isOnline ? "Online" : "Offline"}
+                              className={`h-2.5 w-2.5 rounded-full shrink-0 ${agent.is_online ? 'bg-emerald-500 shadow-[0_0_5px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}
+                              title={agent.is_online ? "Online" : "Offline"}
                             />
                             {agent.name}
                           </div>

@@ -4,21 +4,21 @@ import { CallsController } from './calls.controller';
 import { CallsService } from './calls.service';
 import { OwnersService } from '@/owners/owners.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { mockOwner, mockNumber, mockOwnerInfo, mockCallRecord } from '@/prisma/mock-data';
+import { mockClient, mockNumber, mockClientInfo, mockCallRecord } from '@/prisma/mock-data';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
-const recordWithOwner = (overrides: Record<string, unknown> = {}) => ({
+const recordWithClient = (overrides: Record<string, unknown> = {}) => ({
   id: 1n,
-  ownerId: 1n,
+  clientId: 1n,
   agentId: 1,
   status: 'completed',
   time: new Date('2024-06-01T12:00:00Z'),
   duration: 60,
   agentNotes: null,
-  owner: {
+  client: {
     id: 1n,
     name: 'John Doe',
-    ownerProjects: [{ project: { id: 1, name: 'Default Project' } }],
+    clientProjects: [{ project: { id: 1, name: 'Default Project' } }],
   },
   ...overrides,
 });
@@ -31,23 +31,31 @@ describe('CallsController', () => {
     prisma = mockDeep<PrismaService>();
 
     prisma.callDetailRecord.findMany.mockResolvedValue([
-      recordWithOwner(),
-      recordWithOwner({ id: 2n, ownerId: 2n, status: 'completed', duration: null, owner: { id: 2n, name: 'Jane Smith', ownerProjects: [{ project: { id: 2, name: 'Other Project' } }] } }),
-      recordWithOwner({ id: 3n, ownerId: 3n, status: 'pending', duration: null, owner: { id: 3n, name: 'Bob Wilson', ownerProjects: [] } }),
+      recordWithClient(),
+      recordWithClient({ id: 2n, clientId: 2n, status: 'completed', duration: null, client: { id: 2n, name: 'Jane Smith', clientProjects: [{ project: { id: 2, name: 'Other Project' } }] } }),
+      recordWithClient({ id: 3n, clientId: 3n, status: 'pending', duration: null, client: { id: 3n, name: 'Bob Wilson', clientProjects: [] } }),
     ]);
     prisma.callDetailRecord.count.mockResolvedValue(3);
-    prisma.callDetailRecord.findUnique.mockResolvedValue(recordWithOwner());
+    prisma.callDetailRecord.findUnique.mockResolvedValue(recordWithClient());
 
-    prisma.owner.findMany.mockResolvedValue([
-      mockOwner({
+    prisma.client.findMany.mockResolvedValue([
+      mockClient({
         numbers: [mockNumber({ number: '555-0100' })],
-        ownerInfo: [mockOwnerInfo({ key: 'email', value: 'john@example.com' })],
+        clientInfo: [mockClientInfo({ key: 'email', value: 'john@example.com' })],
       }),
     ]);
 
-    prisma.callDetailRecord.create.mockResolvedValue(recordWithOwner({ id: 4n }));
+    prisma.callDetailRecord.create.mockResolvedValue(recordWithClient({ id: 4n }));
 
     (prisma.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(prisma));
+
+    prisma.$queryRaw.mockResolvedValue([{ id: 1n }]);
+    prisma.client.findUnique.mockResolvedValue(
+      mockClient({
+        numbers: [mockNumber({ number: '555-0100' })],
+        clientInfo: [mockClientInfo({ key: 'email', value: 'john@example.com' })],
+      }),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CallsController],
@@ -74,13 +82,18 @@ describe('CallsController', () => {
       expect(result.data).toHaveLength(3);
     });
 
-    it('should filter by owner_id', async () => {
-      const result = await controller.findAll({ owner_id: '1' });
+    it('should filter by client_id', async () => {
+      const result = await controller.findAll({ client_id: '1' });
       expect(result.data).toHaveLength(3);
     });
 
     it('should filter by status', async () => {
       const result = await controller.findAll({ status: 'completed' });
+      expect(result.data).toHaveLength(3);
+    });
+
+    it('should filter by agent_id', async () => {
+      const result = await controller.findAll({ agent_id: '1' });
       expect(result.data).toHaveLength(3);
     });
   });
@@ -90,15 +103,16 @@ describe('CallsController', () => {
       const user = { id: 1, email: 'agent', role: 'user' as const };
       const result = await controller.submit(
         {
-          owner_id: 1,
+          client_id: 1,
           status: 'completed',
           time: '2024-06-01T12:00:00Z',
           duration: 60,
+          project_id: 1,
         },
         user,
       );
 
-      expect(result.owner_id).toBe(1);
+      expect(result.client_id).toBe(1);
       expect(result.agent_id).toBe(1);
       expect(result.status).toBe('completed');
     });
@@ -107,8 +121,8 @@ describe('CallsController', () => {
   describe('GET /calls/next', () => {
     it('should return next owner with past calls', async () => {
       prisma.callDetailRecord.findMany.mockResolvedValue([
-        mockCallRecord({ id: 1n, ownerId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z'), owner: { ownerProjects: [{ project: { id: 1, name: 'Default Project' } }] } }),
-        mockCallRecord({ id: 2n, ownerId: 1n, status: 'no_answer', time: new Date('2024-05-02T14:00:00Z'), owner: { ownerProjects: [{ project: { id: 1, name: 'Default Project' } }] } }),
+        mockCallRecord({ id: 1n, clientId: 1n, status: 'completed', time: new Date('2024-05-01T10:00:00Z'), client: { clientProjects: [{ project: { id: 1, name: 'Default Project' } }] } }),
+        mockCallRecord({ id: 2n, clientId: 1n, status: 'no_answer', time: new Date('2024-05-02T14:00:00Z'), client: { clientProjects: [{ project: { id: 1, name: 'Default Project' } }] } }),
       ]);
 
       const result = await controller.getNext({ project_id: '1' });
@@ -164,7 +178,13 @@ describe('CallsController', () => {
   describe('POST /calls/calling', () => {
     it('should notify calling', async () => {
       await expect(
-        controller.notifyCalling({ owner_id: 1 }),
+        controller.notifyCalling({ client_id: 1, project_id: 1 }),
+      ).resolves.toBeUndefined();
+    });
+
+    it('should notify calling with client_number', async () => {
+      await expect(
+        controller.notifyCalling({ client_id: 1, client_number: '555-0100', project_id: 1 }),
       ).resolves.toBeUndefined();
     });
   });
