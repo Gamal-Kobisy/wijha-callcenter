@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect} from "react"
+ï»¿import { useState, useMemo, useEffect} from "react"
 import {
   LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip as RechartsTooltip,
   ResponsiveContainer, CartesianGrid, Legend
@@ -938,7 +938,7 @@ export default function AgentDashboardPage() {
                           <span className="font-semibold text-slate-800">{ownerDetails[log.owner_id]?.name || `Owner #${log.owner_id}`}</span><br/>
                           <span className="text-xs text-muted-foreground">{ownerDetails[log.owner_id]?.phone || ""}</span>
                         </TableCell>
-                        <TableCell className="max-w-xs truncate pr-6 text-slate-600">{log.agent_notes || "—"}</TableCell>
+                        <TableCell className="max-w-xs truncate pr-6 text-slate-600">{log.agent_notes || "ï¿½"}</TableCell>
                       </TableRow>
                     )}) : (
                       <TableRow>
@@ -1040,7 +1040,7 @@ export default function AgentDashboardPage() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center font-semibold text-slate-700">{client.attemptCount || 0}</TableCell>
-                        <TableCell className="text-sm text-slate-600 whitespace-nowrap">{client.nextDialAt || "—"}</TableCell>
+                        <TableCell className="text-sm text-slate-600 whitespace-nowrap">{client.nextDialAt || "ï¿½"}</TableCell>
                       </TableRow>
                     )) : (
                       <TableRow>

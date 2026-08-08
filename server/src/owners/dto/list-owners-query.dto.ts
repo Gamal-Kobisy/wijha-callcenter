@@ -5,6 +5,10 @@ export class ListOwnersQueryDto {
   @IsOptional()
   project_id?: string;
 
+  @IsNumberString()
+  @IsOptional()
+  agent_id?: string;
+
   @IsOptional()
   @IsString()
   status?: string;

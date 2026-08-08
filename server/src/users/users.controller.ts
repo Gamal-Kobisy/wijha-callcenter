@@ -66,13 +66,15 @@ export class UsersController {
   }
 
   @Patch(':userId')
-  @UseGuards(RolesGuard)
-  @Roles('admin')
   async update(
     @Param('userId', ParseIntPipe) userId: number,
     @Body() dto: UpdateUserDto,
+    @CurrentUser() currentUser: AuthenticatedUser,
   ): Promise<UserResponseDto> {
-    return this.usersService.update(userId, dto);
+    if (currentUser.role !== 'admin' && currentUser.id !== userId) {
+      throw new ForbiddenException('You can only update your own profile');
+    }
+    return this.usersService.update(userId, dto, currentUser.role === 'admin');
   }
 
   @Patch(':userId/deactivate')

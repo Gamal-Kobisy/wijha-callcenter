@@ -11,8 +11,10 @@ type ClientWithRelations = {
   name?: string | null;
   type?: string | null;
   nextDialAt?: Date | null;
+  agentId?: number | null;
   numbers: { number: string }[];
   clientInfo?: { key: string; value: string }[];
+  clientProjects?: { projectId: number; status: string | null; attemptCount: number | null; lastDialedAt: Date | null; project: { id: number; name: string } }[];
 };
 
 function toOwnerResponse(client: ClientWithRelations): OwnerResponseDto {
@@ -21,8 +23,16 @@ function toOwnerResponse(client: ClientWithRelations): OwnerResponseDto {
     name: client.name ?? undefined,
     type: client.type ?? undefined,
     next_dial_at: client.nextDialAt?.toISOString() ?? null,
+    agent_id: client.agentId ?? undefined,
     phones: client.numbers.map(n => ({ phone: n.number })),
     info: client.clientInfo?.map(i => ({ key: i.key, value: i.value })),
+    projects: client.clientProjects?.map(cp => ({
+      project_id: cp.projectId,
+      project_name: cp.project.name,
+      status: cp.status ?? undefined,
+      attempt_count: cp.attemptCount ?? 0,
+      last_dialed_at: cp.lastDialedAt?.toISOString() ?? null,
+    })),
   };
 }
 
@@ -35,15 +45,17 @@ export class OwnersService {
     type?: string,
     page = 1,
     limit = 20,
+    agent_id?: number,
   ): Promise<{ data: OwnerResponseDto[]; meta: { total: number; page: number; limit: number } }> {
     const where: any = {};
     if (type) where.type = type;
+    if (agent_id) where.agentId = agent_id;
     if (project_id) where.clientProjects = { some: { projectId: project_id } };
 
     const [clients, total] = await Promise.all([
       this.prisma.client.findMany({
         where,
-        include: { numbers: true, clientInfo: true },
+        include: { numbers: true, clientInfo: true, clientProjects: { include: { project: true } } },
         skip: (page - 1) * limit,
         take: limit,
       }),
@@ -59,7 +71,7 @@ export class OwnersService {
   async findById(id: number): Promise<OwnerResponseDto | null> {
     const client = await this.prisma.client.findUnique({
       where: { id },
-      include: { numbers: true, clientInfo: true },
+      include: { numbers: true, clientInfo: true, clientProjects: { include: { project: true } } },
     });
     if (!client) return null;
     return toOwnerResponse(client);
@@ -107,6 +119,7 @@ export class OwnersService {
         data: {
           ...(mergedName !== undefined ? { name: mergedName } : {}),
           ...(dto.type !== undefined ? { type: dto.type } : {}),
+          ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
           ...(newNumbers.length > 0
             ? { numbers: { create: newNumbers.map(n => ({ number: n })) } }
             : {}),
@@ -144,6 +157,7 @@ export class OwnersService {
       data: {
         name: dto.name,
         type: dto.type ?? 'OWNER',
+        agentId: dto.agent_id ?? null,
         numbers: {
           create: dto.phones.map(n => ({ number: n.phone })),
         },
@@ -165,16 +179,37 @@ export class OwnersService {
   }
 
   async update(id: number, dto: UpdateOwnerDto): Promise<OwnerResponseDto> {
-    const existing = await this.prisma.client.findUnique({ where: { id } });
+    const existing = await this.prisma.client.findUnique({
+      where: { id },
+      include: { numbers: true },
+    });
     if (!existing) {
       throw new NotFoundException('Client not found');
     }
+
+    const existingPhoneValues = (existing.numbers ?? []).map(n => n.number);
+    const newPhoneValues = dto.phones?.map(p => p.phone) ?? null;
+    const phonesToRemove = newPhoneValues
+      ? existingPhoneValues.filter(p => !newPhoneValues.includes(p))
+      : [];
+    const phonesToCreate = newPhoneValues
+      ? newPhoneValues.filter(p => !existingPhoneValues.includes(p)).map(p => ({ number: p }))
+      : [];
 
     const client = await this.prisma.client.update({
       where: { id },
       data: {
         ...(dto.type !== undefined ? { type: dto.type } : {}),
+        ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
         ...(dto.next_dial_at !== undefined ? { nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at).toISOString() : null } : {}),
+        ...(phonesToRemove.length > 0 || phonesToCreate.length > 0
+          ? {
+              numbers: {
+                ...(phonesToRemove.length > 0 ? { deleteMany: { number: { in: phonesToRemove } } } : {}),
+                ...(phonesToCreate.length > 0 ? { create: phonesToCreate } : {}),
+              },
+            }
+          : {}),
       },
       include: { numbers: true, clientInfo: true },
     });
@@ -182,24 +217,22 @@ export class OwnersService {
     return toOwnerResponse(client);
   }
 
-  async getNextOwner(args?: { projectId?: number, date?: Date }): Promise<OwnerResponseDto | null> {
-    const { projectId } = args || {};
+  async getNextOwner(args: { projectId: number, date?: Date, agentId?: number }): Promise<OwnerResponseDto | null> {
+    const { projectId, agentId } = args;
 
-    const conditions: Prisma.Sql[] = [
-      Prisma.sql`cp.status IN ('dial', 'callback', 'not_answered')`,
-      Prisma.sql`(c.next_dial_at IS NULL OR c.next_dial_at <= NOW())`,
-    ];
-    if (projectId !== undefined) {
-      conditions.push(Prisma.sql`cp.project_id = ${projectId}`);
-    }
+    const agentClause = agentId !== undefined && agentId !== null
+      ? Prisma.sql`AND c.agent_id = ${agentId}`
+      : Prisma.empty;
 
     const rows = await this.prisma.$queryRaw<{ id: bigint }[]>`
       SELECT c.id
       FROM client c
       JOIN client_project cp ON cp.client_id = c.id
-      WHERE ${Prisma.join(conditions, ' AND ')}
-      GROUP BY c.id
-      ORDER BY MIN(c.next_dial_at) ASC NULLS FIRST
+      WHERE cp.project_id = ${projectId}
+        AND cp.status IN ('dial', 'callback', 'not_answered')
+        AND (c.next_dial_at IS NULL OR c.next_dial_at <= NOW())
+        ${agentClause}
+      ORDER BY c.next_dial_at ASC NULLS FIRST
       LIMIT 1
     `;
 

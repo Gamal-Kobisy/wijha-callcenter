@@ -62,10 +62,15 @@ export class CallsController {
   }
 
   @Get('next')
-  async getNext(@Query() query: GetNextClientQueryDto): Promise<NextOwnerResponseDto | null> {
+  async getNext(
+    @Query() query: GetNextClientQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<NextOwnerResponseDto | null> {
+    const assignedOnly = query.assigned_only === 'true' || query.assigned_only === '1';
     return this.callsService.getNextOwner({
       projectId: query.project_id !== undefined ? Number(query.project_id) : undefined,
       date: query.date ? new Date(query.date) : undefined,
+      agentId: assignedOnly ? user.id : undefined,
     });
   }
 
