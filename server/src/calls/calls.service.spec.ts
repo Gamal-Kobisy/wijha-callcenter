@@ -212,36 +212,40 @@ describe('CallsService', () => {
       });
     });
 
-    it('should mark client as inactive when status is not_interested', async () => {
+    it('should remove client from dispatch pool when status is not_interested', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
         mockCallRecord({ id: 9n, status: 'not_interested' }),
       );
-      jest.spyOn(ownersService, 'update').mockResolvedValue({
-        id: 1, name: 'John', type: 'inactive', next_dial_at: null, phones: [], info: [],
-      });
+      const updateSpy = jest.spyOn(ownersService, 'update');
 
       await service.submit(
         { client_id: 1, status: 'not_interested', time: '2024-06-01T12:00:00Z', project_id: 1 },
         1,
       );
 
-      expect(ownersService.update).toHaveBeenCalledWith(1, { type: 'inactive' });
+      expect(prisma.clientProject.update).toHaveBeenCalledWith({
+        where: { clientId_projectId: { clientId: 1, projectId: 1 } },
+        data: { status: 'not_interested', lastDialedAt: expect.any(Date) },
+      });
+      expect(updateSpy).not.toHaveBeenCalled();
     });
 
-    it('should mark client as inactive when status is contacted', async () => {
+    it('should remove client from dispatch pool when status is contacted', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
         mockCallRecord({ id: 10n, status: 'contacted' }),
       );
-      jest.spyOn(ownersService, 'update').mockResolvedValue({
-        id: 1, name: 'John', type: 'inactive', next_dial_at: null, phones: [], info: [],
-      });
+      const updateSpy = jest.spyOn(ownersService, 'update');
 
       await service.submit(
         { client_id: 1, status: 'contacted', time: '2024-06-01T12:00:00Z', project_id: 1 },
         1,
       );
 
-      expect(ownersService.update).toHaveBeenCalledWith(1, { type: 'inactive' });
+      expect(prisma.clientProject.update).toHaveBeenCalledWith({
+        where: { clientId_projectId: { clientId: 1, projectId: 1 } },
+        data: { status: 'contacted', lastDialedAt: expect.any(Date) },
+      });
+      expect(updateSpy).not.toHaveBeenCalled();
     });
 
     it('should NOT mark client inactive for other statuses', async () => {

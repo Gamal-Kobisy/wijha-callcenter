@@ -108,9 +108,6 @@ export class CallsService {
       },
     });
 
-    if (call.clientId && (['not_interested', 'contacted'].includes(call.status??""))) 
-      await this.ownersService.update(Number(call.clientId), { type: 'inactive' });
-
     await this.prisma.clientProject.update({
       where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
       data: { status: dto.status, lastDialedAt: new Date() },
@@ -137,7 +134,7 @@ export class CallsService {
     };
   }
 
-  async getNextOwner(args: { projectId: number, date?: Date, agentId?: number }): Promise<NextOwnerResponseDto | null> {
+  async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number }): Promise<NextOwnerResponseDto | null> {
     const owner = await this.ownersService.getNextOwner(args);
     if (!owner) return null;
 
@@ -190,18 +187,22 @@ export class CallsService {
   async notifyCalling(dto: NotifyCallingDto): Promise<void> {
     const where: any = {};
     where.id = dto.client_id;
-    if (dto.client_number) {
-      where.numbers = { some: { number: dto.client_number } };
+    // if (dto.client_number) {
+    //   where.numbers = { some: { number: dto.client_number } };
+    // }
+
+    try {
+      await this.prisma.client.update({
+        where,
+        data: { nextDialAt: new Date() },
+      })
+
+      await this.prisma.clientProject.update({
+        where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
+        data: { lastDialedAt: new Date(), attemptCount: { increment: 1 } },
+      });
+    } catch (error) {
+      console.error('Error occurred while notifying calling:', error);
     }
-
-    await this.prisma.client.update({
-      where,
-      data: { nextDialAt: new Date() },
-    })
-
-    await this.prisma.clientProject.update({
-      where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
-      data: { lastDialedAt: new Date(), attemptCount: { increment: 1 } },
-    });
   }
 }
