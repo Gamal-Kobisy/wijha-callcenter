@@ -5,6 +5,7 @@ import { ProjectsService } from './projects.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { mockProject } from '@/prisma/mock-data';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
+import { RolesGuard } from '@/common/guards/roles.guard';
 
 describe('ProjectsController', () => {
   let controller: ProjectsController;
@@ -14,6 +15,9 @@ describe('ProjectsController', () => {
     prisma = mockDeep<PrismaService>();
     prisma.project.findMany.mockResolvedValue([mockProject()]);
     prisma.project.findUnique.mockResolvedValue(mockProject());
+    prisma.project.create.mockResolvedValue(mockProject());
+    prisma.project.update.mockResolvedValue(mockProject());
+    prisma.project.delete.mockResolvedValue(mockProject());
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [ProjectsController],
@@ -23,6 +27,8 @@ describe('ProjectsController', () => {
       ],
     })
       .overrideGuard(JwtAuthGuard)
+      .useValue({ canActivate: () => true })
+      .overrideGuard(RolesGuard)
       .useValue({ canActivate: () => true })
       .compile();
 
@@ -52,6 +58,35 @@ describe('ProjectsController', () => {
       prisma.project.findUnique.mockResolvedValue(null);
       const result = await controller.findOne(999);
       expect(result).toBeNull();
+    });
+  });
+
+  describe('POST /projects', () => {
+    it('should create a project and return 201', async () => {
+      const result = await controller.create({ name: 'New Project', description: 'Desc' });
+      expect(result).not.toBeNull();
+      expect(result.name).toBe('Default Project');
+      expect(prisma.project.create).toHaveBeenCalledWith({
+        data: { name: 'New Project', description: 'Desc' },
+      });
+    });
+  });
+
+  describe('PATCH /projects/:projectId', () => {
+    it('should update a project', async () => {
+      const result = await controller.update(1, { name: 'Renamed' });
+      expect(result).not.toBeNull();
+      expect(prisma.project.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { name: 'Renamed' },
+      });
+    });
+  });
+
+  describe('DELETE /projects/:projectId', () => {
+    it('should delete a project and return 204', async () => {
+      await expect(controller.remove(1)).resolves.toBeUndefined();
+      expect(prisma.project.delete).toHaveBeenCalledWith({ where: { id: 1 } });
     });
   });
 });

@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
+import { Prisma } from '@prisma/client';
+import { NotFoundException, ConflictException } from '@nestjs/common';
 import { ProjectsService } from './projects.service';
 import { PrismaService } from '@/prisma/prisma.service';
 import { mockProject } from '@/prisma/mock-data';
@@ -44,6 +46,69 @@ describe('ProjectsService', () => {
     it('should return null for non-existent id', async () => {
       prisma.project.findUnique.mockResolvedValue(null);
       expect(await service.findById(999)).toBeNull();
+    });
+  });
+
+  describe('create', () => {
+    it('should create a project', async () => {
+      prisma.project.create.mockResolvedValue(mockProject({ name: 'New Project', description: 'Desc' }));
+
+      const result = await service.create({ name: 'New Project', description: 'Desc' });
+      expect(result.name).toBe('New Project');
+      expect(result.description).toBe('Desc');
+    });
+
+    it('should throw ConflictException when name already exists', async () => {
+      prisma.project.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '7.8.0',
+        }),
+      );
+
+      await expect(service.create({ name: 'Duplicate' })).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('update', () => {
+    it('should update a project', async () => {
+      prisma.project.findUnique.mockResolvedValue(mockProject());
+      prisma.project.update.mockResolvedValue(mockProject({ name: 'Renamed' }));
+
+      const result = await service.update(1, { name: 'Renamed' });
+      expect(result.name).toBe('Renamed');
+    });
+
+    it('should throw NotFoundException for non-existent id', async () => {
+      prisma.project.findUnique.mockResolvedValue(null);
+      await expect(service.update(999, { name: 'X' })).rejects.toThrow(NotFoundException);
+    });
+
+    it('should throw ConflictException when renaming to an existing name', async () => {
+      prisma.project.findUnique.mockResolvedValue(mockProject());
+      prisma.project.update.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '7.8.0',
+        }),
+      );
+
+      await expect(service.update(1, { name: 'Taken' })).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('remove', () => {
+    it('should delete an existing project', async () => {
+      prisma.project.findUnique.mockResolvedValue(mockProject());
+      prisma.project.delete.mockResolvedValue(mockProject());
+
+      await expect(service.remove(1)).resolves.toBeUndefined();
+      expect(prisma.project.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+    });
+
+    it('should throw NotFoundException for non-existent id', async () => {
+      prisma.project.findUnique.mockResolvedValue(null);
+      await expect(service.remove(999)).rejects.toThrow(NotFoundException);
     });
   });
 });
