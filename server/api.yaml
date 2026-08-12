@@ -318,6 +318,12 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: The request references a resource that does not exist
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 
 paths:
 
@@ -769,6 +775,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CallDetailRecord"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -824,6 +832,8 @@ paths:
       responses:
         "200":
           description: Notification received
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 

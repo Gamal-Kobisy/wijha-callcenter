@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { SubmitCallDto } from '@/calls/dto/submit-call.dto';
@@ -102,8 +102,17 @@ export class CallsService {
     return this.toCallResponse(call);
   }
 
+  private async assertProjectExists(projectId: number): Promise<void> {
+    const project = await this.prisma.project.findFirst({ where: { id: projectId } });
+    if (!project) {
+      throw new BadRequestException(`Project ${projectId} not found`);
+    }
+  }
+
   async submit(dto: SubmitCallDto, agentId: number): Promise<CallResponseDto> {
     try {
+      await this.assertProjectExists(dto.project_id);
+
       const call = await this.prisma.callDetailRecord.create({
         data: {
           clientId: dto.client_id,
@@ -115,9 +124,15 @@ export class CallsService {
         },
       });
 
-      await this.prisma.clientProject.update({
+      await this.prisma.clientProject.upsert({
         where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
-        data: { status: dto.status, lastDialedAt: new Date() },
+        create: {
+          clientId: dto.client_id,
+          projectId: dto.project_id,
+          status: dto.status,
+          lastDialedAt: new Date(),
+        },
+        update: { status: dto.status, lastDialedAt: new Date() },
       });
 
       await this.prisma.client.update({
@@ -208,19 +223,28 @@ export class CallsService {
   async notifyCalling(dto: NotifyCallingDto): Promise<void> {
     const where: any = {};
     where.id = dto.client_id;
-    // if (dto.client_number) {
-    //   where.numbers = { some: { number: dto.client_number } };
-    // }
+    if (dto.client_number) {
+      where.numbers = { some: { number: dto.client_number } };
+    }
 
     try {
+      await this.assertProjectExists(dto.project_id);
+
       await this.prisma.client.update({
         where,
         data: { nextDialAt: new Date() },
       })
 
-      await this.prisma.clientProject.update({
+      await this.prisma.clientProject.upsert({
         where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
-        data: { lastDialedAt: new Date(), attemptCount: { increment: 1 } },
+        create: {
+          clientId: dto.client_id,
+          projectId: dto.project_id,
+          status: 'dial',
+          attemptCount: 1,
+          lastDialedAt: new Date(),
+        },
+        update: { lastDialedAt: new Date(), attemptCount: { increment: 1 } },
       });
     } catch (error) {
       console.error('Error occurred while notifying calling:', error);
