@@ -318,6 +318,18 @@ components:
         application/json:
           schema:
             $ref: "#/components/schemas/Error"
+    BadRequest:
+      description: The request references a resource that does not exist
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: The request conflicts with the current state of the resource
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 
 paths:
 
@@ -436,6 +448,37 @@ paths:
         "401":
           $ref: "#/components/responses/Unauthorized"
 
+    post:
+      summary: Create a new project
+      operationId: createProject
+      tags: [projects]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                description:
+                  type: string
+      responses:
+        "201":
+          description: Project created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
   /projects/{projectId}:
     get:
       summary: Get a single project
@@ -454,6 +497,65 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Project"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+    patch:
+      summary: Update a project
+      operationId: updateProject
+      tags: [projects]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+                  maxLength: 100
+                description:
+                  type: string
+                  nullable: true
+      responses:
+        "200":
+          description: Project updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/ValidationError"
+
+    delete:
+      summary: Delete a project (admin only)
+      operationId: deleteProject
+      tags: [projects]
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Project deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -769,6 +871,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CallDetailRecord"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "422":
           $ref: "#/components/responses/ValidationError"
 
@@ -824,6 +928,8 @@ paths:
       responses:
         "200":
           description: Notification received
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
 
