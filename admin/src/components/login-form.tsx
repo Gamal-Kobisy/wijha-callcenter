@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Checkbox } from "@/components/ui/checkbox";
-import { Link } from "react-router-dom"
+// import { Link } from "react-router-dom"
 import {apiFetch} from "@/lib/api.tsx";
 import {Toaster, toast} from "sonner";
 
@@ -123,12 +123,12 @@ export function LoginForm({
               </label>
             </div>
 
-            <Link
-            to="/forgot-password"
-            className="text-sm font-medium text-[hsl(var(--tertiary))] hover:underline underline-offset-4"
-            >
-            Forgot password?
-            </Link>
+            {/*<Link*/}
+            {/*to="/forgot-password"*/}
+            {/*className="text-sm font-medium text-[hsl(var(--tertiary))] hover:underline underline-offset-4"*/}
+            {/*>*/}
+            {/*Forgot password?*/}
+            {/*</Link>*/}
           </div>
         </Field>
 
