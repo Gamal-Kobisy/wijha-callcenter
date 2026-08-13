@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
+import { BadRequestException } from '@nestjs/common';
 import { CallsService } from './calls.service';
 import { OwnersService } from '@/owners/owners.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { mockCallRecord } from '@/prisma/mock-data';
+import { mockCallRecord, mockProject } from '@/prisma/mock-data';
 
 const withProjects = (overrides: Record<string, unknown> = {}) => ({
   client: {
@@ -32,6 +33,8 @@ describe('CallsService', () => {
     service = module.get<CallsService>(CallsService);
     prisma = module.get(PrismaService);
     ownersService = module.get<OwnersService>(OwnersService);
+
+    prisma.project.findFirst.mockResolvedValue(mockProject());
   });
 
   it('should be defined', () => {
@@ -149,6 +152,20 @@ describe('CallsService', () => {
       expect(call.projects).toEqual([]);
     });
 
+    it('should throw BadRequestException when project does not exist', async () => {
+      prisma.project.findFirst.mockResolvedValue(null);
+      const createSpy = jest.spyOn(prisma.callDetailRecord, 'create');
+
+      await expect(
+        service.submit(
+          { client_id: 1, status: 'done', time: '2026-08-12T11:56:47.216Z', project_id: 1 },
+          1,
+        ),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(createSpy).not.toHaveBeenCalled();
+    });
+
     it('should handle optional fields', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
         mockCallRecord({ id: 5n, clientId: 2n, agentId: 2, status: 'no_answer', duration: null }),
@@ -173,10 +190,34 @@ describe('CallsService', () => {
         1,
       );
 
-      expect(prisma.clientProject.update).toHaveBeenCalledWith({
+      expect(prisma.clientProject.upsert).toHaveBeenCalledWith({
         where: { clientId_projectId: { clientId: 1, projectId: 1 } },
-        data: { status: 'answered', lastDialedAt: expect.any(Date) },
+        create: {
+          clientId: 1,
+          projectId: 1,
+          status: 'answered',
+          lastDialedAt: expect.any(Date),
+        },
+        update: { status: 'answered', lastDialedAt: expect.any(Date) },
       });
+    });
+
+    it('should create ClientProject when none exists for the client/project pair', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 15n, status: 'done' }),
+      );
+
+      await service.submit(
+        { client_id: 1, status: 'done', time: '2024-06-01T12:00:00Z', project_id: 1 },
+        1,
+      );
+
+      expect(prisma.clientProject.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clientId_projectId: { clientId: 1, projectId: 1 } },
+          create: expect.objectContaining({ status: 'done' }),
+        }),
+      );
     });
 
     it('should set Client.nextDialAt to NOW() for non-callback status', async () => {
@@ -212,36 +253,52 @@ describe('CallsService', () => {
       });
     });
 
-    it('should mark client as inactive when status is not_interested', async () => {
+    it('should remove client from dispatch pool when status is not_interested', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
         mockCallRecord({ id: 9n, status: 'not_interested' }),
       );
-      jest.spyOn(ownersService, 'update').mockResolvedValue({
-        id: 1, name: 'John', type: 'inactive', next_dial_at: null, phones: [], info: [],
-      });
+      const updateSpy = jest.spyOn(ownersService, 'update');
 
       await service.submit(
         { client_id: 1, status: 'not_interested', time: '2024-06-01T12:00:00Z', project_id: 1 },
         1,
       );
 
-      expect(ownersService.update).toHaveBeenCalledWith(1, { type: 'inactive' });
+      expect(prisma.clientProject.upsert).toHaveBeenCalledWith({
+        where: { clientId_projectId: { clientId: 1, projectId: 1 } },
+        create: {
+          clientId: 1,
+          projectId: 1,
+          status: 'not_interested',
+          lastDialedAt: expect.any(Date),
+        },
+        update: { status: 'not_interested', lastDialedAt: expect.any(Date) },
+      });
+      expect(updateSpy).not.toHaveBeenCalled();
     });
 
-    it('should mark client as inactive when status is contacted', async () => {
+    it('should remove client from dispatch pool when status is contacted', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
         mockCallRecord({ id: 10n, status: 'contacted' }),
       );
-      jest.spyOn(ownersService, 'update').mockResolvedValue({
-        id: 1, name: 'John', type: 'inactive', next_dial_at: null, phones: [], info: [],
-      });
+      const updateSpy = jest.spyOn(ownersService, 'update');
 
       await service.submit(
         { client_id: 1, status: 'contacted', time: '2024-06-01T12:00:00Z', project_id: 1 },
         1,
       );
 
-      expect(ownersService.update).toHaveBeenCalledWith(1, { type: 'inactive' });
+      expect(prisma.clientProject.upsert).toHaveBeenCalledWith({
+        where: { clientId_projectId: { clientId: 1, projectId: 1 } },
+        create: {
+          clientId: 1,
+          projectId: 1,
+          status: 'contacted',
+          lastDialedAt: expect.any(Date),
+        },
+        update: { status: 'contacted', lastDialedAt: expect.any(Date) },
+      });
+      expect(updateSpy).not.toHaveBeenCalled();
     });
 
     it('should NOT mark client inactive for other statuses', async () => {
@@ -387,6 +444,19 @@ describe('CallsService', () => {
       ).resolves.toBeUndefined();
     });
 
+    it('should throw BadRequestException when project does not exist', async () => {
+      prisma.project.findFirst.mockResolvedValue(null);
+      const clientUpdateSpy = jest.spyOn(prisma.client, 'update');
+      const upsertSpy = jest.spyOn(prisma.clientProject, 'upsert');
+
+      await expect(
+        service.notifyCalling({ client_id: 1, project_id: 1 }),
+      ).rejects.toThrow(BadRequestException);
+
+      expect(clientUpdateSpy).not.toHaveBeenCalled();
+      expect(upsertSpy).not.toHaveBeenCalled();
+    });
+
     it('should update Client.nextDialAt', async () => {
       await service.notifyCalling({ client_id: 1, project_id: 1 });
 
@@ -399,9 +469,16 @@ describe('CallsService', () => {
     it('should update ClientProject lastDialedAt and increment attemptCount', async () => {
       await service.notifyCalling({ client_id: 1, project_id: 1 });
 
-      expect(prisma.clientProject.update).toHaveBeenCalledWith({
+      expect(prisma.clientProject.upsert).toHaveBeenCalledWith({
         where: { clientId_projectId: { clientId: 1, projectId: 1 } },
-        data: { lastDialedAt: expect.any(Date), attemptCount: { increment: 1 } },
+        create: {
+          clientId: 1,
+          projectId: 1,
+          status: 'dial',
+          attemptCount: 1,
+          lastDialedAt: expect.any(Date),
+        },
+        update: { lastDialedAt: expect.any(Date), attemptCount: { increment: 1 } },
       });
     });
 

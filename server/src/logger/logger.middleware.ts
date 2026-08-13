@@ -14,6 +14,9 @@ export class LoggerMiddleware implements NestMiddleware {
     if (Object.keys(params).length > 1) {
       console.log('Params:', params);
     }
+    if (Object.keys(res).length > 0) {
+      console.log('Response:', res);
+    }
     next();
   }
 }

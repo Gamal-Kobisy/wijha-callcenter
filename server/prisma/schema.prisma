@@ -119,7 +119,7 @@ model ProjectCallDetailRecord {
   projectId          Int   @map("project_id")
   callDetailRecordId BigInt @map("call_detail_record_id")
 
-  project    Project          @relation(fields: [projectId], references: [id])
+  project    Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   callRecord CallDetailRecord @relation(fields: [callDetailRecordId], references: [id])
 
   @@id([projectId, callDetailRecordId])
@@ -134,7 +134,7 @@ model ClientProject {
   attemptCount Int?      @default(0) @map("attempt_count")
 
   client  Client  @relation(fields: [clientId], references: [id])
-  project Project @relation(fields: [projectId], references: [id])
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   @@id([clientId, projectId])
   @@map("client_project")
