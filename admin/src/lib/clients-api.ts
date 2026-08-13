@@ -1,4 +1,4 @@
-// import { apiFetch } from "./api";
+import { apiFetch } from "./api";
 
 // --- TYPES ---
 export interface ProjectAssignment {
@@ -122,18 +122,16 @@ export const clientsApi = {
   },
 
   async bulkCreateClients(owners: any[]): Promise<Owner[]> {
-    await delay(1000);
-    const newClients = owners.map((o, i) => ({
-      id: Math.max(...mockClients.map(c => c.id), 0) + i + 1,
-      name: o.name,
-      type: o.type || "OWNER",
-      next_dial_at: null,
-      phones: o.phones || [],
-      info: o.info || [],
-      projects: [{ project_id: 101, project_name: "Summer Campaign", status: "dial", attempt_count: 0, last_dialed_at: null }]
-    }));
-    mockClients = [...mockClients, ...newClients];
-    return newClients;
+    // Real API call — saves data to database
+    const response = await apiFetch("owners/bulk", {
+      method: "POST",
+      body: JSON.stringify({ owners }),
+    });
+    if (!response.ok) {
+      const errData = await response.json().catch(() => ({}));
+      throw new Error(errData.message || "Failed to import clients");
+    }
+    return response.json();
   },
 
   async getStatusCounts(): Promise<StatusCount[]> {

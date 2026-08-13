@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect} from "react"
+import { useState, useMemo, useEffect} from "react"
 import {
   LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip as RechartsTooltip,
   ResponsiveContainer, CartesianGrid, Legend
@@ -25,6 +25,7 @@ import * as XLSX from "xlsx" // NEW: SheetJS import for Excel parsing
 
 import { apiFetch } from "@/lib/api.tsx"
 import { useAuth } from "@/contexts/AuthContext.tsx"
+import { clientsApi } from "@/lib/clients-api.ts"
 
 // --- PALETTES & UTILS ---
 const chartPalette = { dial: "#0077BE", connect: "#0D9488", interest: "#F59E0B", convert: "#4F46E5", miss: "#FB7185", neutral: "#94A3B8", emerald: "#10B981" }
@@ -109,6 +110,7 @@ export default function AgentDashboardPage() {
   const [endRow, setEndRow] = useState<string>("")
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
   const [phoneFields, setPhoneFields] = useState<string[]>(["Primary Phone"])
+  const [excelHeaders, setExcelHeaders] = useState<{ label: string; letter: string }[]>([])
 
   // --- MOUNT EFFECTS ---
   useEffect(() => {
@@ -533,6 +535,48 @@ export default function AgentDashboardPage() {
     setStartRow(2);
     setEndRow("");
     setPhoneFields(["Primary Phone"]);
+    setExcelHeaders([]);
+  }
+
+  const indexToLetter = (index: number): string => {
+    let result = '';
+    let i = index;
+    while (i >= 0) {
+      result = String.fromCharCode((i % 26) + 65) + result;
+      i = Math.floor(i / 26) - 1;
+    }
+    return result;
+  }
+
+  const parseExcelHeaders = async () => {
+    if (!uploadFile) return;
+    try {
+      const buffer = await uploadFile.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, raw: false });
+      const headerRow = rows[0];
+      if (headerRow && headerRow.length > 0) {
+        const headers = headerRow.map((cell, idx) => ({
+          label: cell ? String(cell).trim() : `Column ${indexToLetter(idx)}`,
+          letter: indexToLetter(idx),
+        })).filter(h => h.label !== '');
+        setExcelHeaders(headers);
+      } else {
+        setExcelHeaders([]);
+        toast.error("Could not read headers", { description: "The first row of your file appears to be empty." });
+      }
+    } catch (err) {
+      console.error("Failed to parse headers:", err);
+      setExcelHeaders([]);
+      toast.error("Failed to read file headers.");
+    }
+  }
+
+  const handleGoToMapping = async () => {
+    await parseExcelHeaders();
+    setUploadStep(2);
   }
 
   // The parsed JSON payload will be POSTed directly to `owners/bulk` endpoint
@@ -580,22 +624,20 @@ export default function AgentDashboardPage() {
 
         parsedClients.push({
           name: getVal("Client Name") || "Unknown Client",
-          phones: phones,
-          status: getVal("Status") || "New",
-          projects: getVal("Project") ? getVal("Project").split(';').map(p=>p.trim()) : ["Default Project"],
-          attemptCount: parseInt(getVal("Attempts")) || 0,
-          assignedAgentId: id, // We send ID to the backend, not the name
-          nextDialAt: getVal("Next Dial")?.replace(/\t/g, '') || null,
+          phones: phones.map(p => ({ phone: p })),
+          type: "OWNER",
+          agent_id: id,
+          info: [
+            { key: "Status", value: getVal("Status") || "New" },
+            { key: "Project", value: getVal("Project") || "Default Project" },
+            { key: "Attempts", value: getVal("Attempts") || "0" },
+            { key: "Next Dial", value: getVal("Next Dial")?.replace(/\t/g, '') || "" }
+          ].filter(i => i.value !== "")
         });
       }
 
-      // Sends the JSON array directly to the backend API via the bulk route
-      const response = await apiFetch("owners/bulk", {
-        method: "POST",
-        body: JSON.stringify({ data: parsedClients })
-      });
-
-      if (!response.ok) throw new Error("Backend rejected the file format.")
+      // Send the correctly formatted payload to the backend API via the centralized clientsApi
+      await clientsApi.bulkCreateClients(parsedClients);
 
       toast.success(`Successfully assigned ${parsedClients.length} new clients to your pipeline!`, { id: "upload-toast" });
       resetModals();
@@ -1090,7 +1132,7 @@ export default function AgentDashboardPage() {
               </div>
               <DialogFooter className="pt-2">
                 <Button variant="outline" onClick={resetModals}>Cancel</Button>
-                <Button disabled={!uploadFile} onClick={() => setUploadStep(2)} className="bg-blue-600 hover:bg-blue-700 text-white">Next Step</Button>
+                <Button disabled={!uploadFile} onClick={handleGoToMapping} className="bg-blue-600 hover:bg-blue-700 text-white">Next Step</Button>
               </DialogFooter>
             </div>
           ) : (
@@ -1116,13 +1158,16 @@ export default function AgentDashboardPage() {
                   {[...phoneFields, ...systemFields].map(field => (
                     <div key={field} className="flex items-center justify-between gap-4">
                       <span className="text-sm font-medium w-1/2">{field} {field.includes("Primary Phone") && <span className="text-red-500">*</span>}</span>
-                      <Input
-                        placeholder="e.g. A"
-                        maxLength={3}
-                        className="w-1/2 uppercase text-center font-mono font-bold text-lg"
+                      <select
+                        className="flex h-10 w-1/2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 cursor-pointer"
                         value={columnMapping[field] || ""}
-                        onChange={(e) => setColumnMapping(prev => ({...prev, [field]: e.target.value.toUpperCase().replace(/[^A-Z]/g, '')}))}
-                      />
+                        onChange={(e) => setColumnMapping(prev => ({...prev, [field]: e.target.value}))}
+                      >
+                        <option value="">— Select column —</option>
+                        {excelHeaders.map(h => (
+                          <option key={h.letter} value={h.letter}>{h.label} ({h.letter})</option>
+                        ))}
+                      </select>
                     </div>
                   ))}
                 </div>

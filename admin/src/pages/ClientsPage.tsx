@@ -58,6 +58,7 @@ import {
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer, Legend, LabelList } from "recharts"
 import { toast, Toaster } from "sonner"
 import { clientsApi, type Owner, type Agent, type Project, type StatusCount, type CallRecord } from "@/lib/clients-api.ts"
+import * as XLSX from "xlsx"
 
 // --- SHARED CHART PALETTE ---
 const chartPalette = {
@@ -169,6 +170,7 @@ export default function ClientsPage() {
   const [endRow, setEndRow] = useState<string>("")
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
   const [phoneFields, setPhoneFields] = useState<string[]>(["Primary Phone"])
+  const [excelHeaders, setExcelHeaders] = useState<{ label: string; letter: string }[]>([])
 
   // --- API: Load all data on mount ---
   const loadClients = useCallback(async (page = 1) => {
@@ -385,8 +387,8 @@ export default function ClientsPage() {
   // --- UPLOAD / ASSIGN HANDLERS ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null
-    if (file && !file.name.endsWith('.csv')) {
-      toast.error("Format Not Supported", { description: "Please upload a .csv file. Excel files require a backend to process."})
+    if (file && !file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      toast.error("Format Not Supported", { description: "Please upload a .csv or .xlsx file."})
       e.target.value = ""
       return
     }
@@ -403,13 +405,55 @@ export default function ClientsPage() {
     setStartRow(2)
     setEndRow("")
     setPhoneFields(["Primary Phone"])
+    setExcelHeaders([])
+  }
+
+  const indexToLetter = (index: number): string => {
+    let result = '';
+    let i = index;
+    while (i >= 0) {
+      result = String.fromCharCode((i % 26) + 65) + result;
+      i = Math.floor(i / 26) - 1;
+    }
+    return result;
+  }
+
+  const parseExcelHeaders = async () => {
+    if (!uploadFile) return;
+    try {
+      const buffer = await uploadFile.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, raw: false });
+      const headerRow = rows[0];
+      if (headerRow && headerRow.length > 0) {
+        const headers = headerRow.map((cell, idx) => ({
+          label: cell ? String(cell).trim() : `Column ${indexToLetter(idx)}`,
+          letter: indexToLetter(idx),
+        })).filter(h => h.label !== '');
+        setExcelHeaders(headers);
+      } else {
+        setExcelHeaders([]);
+        toast.error("Could not read headers", { description: "The first row of your file appears to be empty." });
+      }
+    } catch (err) {
+      console.error("Failed to parse headers:", err);
+      setExcelHeaders([]);
+      toast.error("Failed to read file headers.");
+    }
+  }
+
+  const handleGoToMapping = async () => {
+    await parseExcelHeaders();
+    setUploadStep(2);
   }
 
   const handleAddPhoneField = () => {
     setPhoneFields(prev => [...prev, `Phone ${prev.length + 1}`])
   }
 
-  // --- REAL CSV PARSING ENGINE (now calls API) ---
+  // --- REAL CSV/XLSX PARSING ENGINE (now calls API) ---
   const handleFinalSubmit = (e: React.FormEvent, mode: "upload" | "assign") => {
     e.preventDefault()
     if (mode === "assign" && !uploadAgent) {
@@ -418,58 +462,57 @@ export default function ClientsPage() {
     if (!uploadFile) return;
 
     const promise = new Promise(async (resolve, reject) => {
-      const reader = new FileReader();
+      try {
+        const buffer = await uploadFile.arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, raw: false });
+        const validRows = rows.filter(row => row && row.length > 0);
 
-      reader.onload = async (event) => {
-        try {
-          const text = event.target?.result as string;
-          const lines = text.split(/\r?\n/).filter(line => line.trim() !== "");
+        const startIndex = Math.max(0, startRow - 1);
+        const endIndex = endRow ? Math.min(validRows.length, parseInt(endRow)) : validRows.length;
 
-          const startIndex = Math.max(0, startRow - 1);
-          const endIndex = endRow ? Math.min(lines.length, parseInt(endRow)) : lines.length;
+        const ownersToCreate: any[] = [];
 
-          const ownersToCreate: any[] = [];
+        for (let i = startIndex; i < endIndex; i++) {
+          const row = validRows[i];
+          if (!row) continue;
 
-          for (let i = startIndex; i < endIndex; i++) {
-            const row = lines[i].split(/,(?=(?:(?:[^"]*"){2})*[^"]*$)/).map(s => s.replace(/^"|"$/g, '').trim());
-
-            const getVal = (fieldName: string) => {
-              const letter = columnMapping[fieldName];
-              if (!letter) return "";
-              const idx = letterToIndex(letter);
-              return row[idx] || "";
-            }
-
-            // Loop through all dynamically created phone columns
-            const rawPhones = phoneFields
-              .map(field => getVal(field))
-              .filter(phone => !!phone) // Remove empty strings
-              .map(phone => phone.replace(/\t/g, '')); // Clean export garbage
-
-            if (rawPhones.length === 0) continue; // Requires at least one valid phone
-
-            ownersToCreate.push({
-              name: getVal("Client Name") || "Unknown Client",
-              phones: rawPhones.map(phone => ({ phone })),
-              type: "OWNER",
-              info: [],
-            });
+          const getVal = (fieldName: string) => {
+            const letter = columnMapping[fieldName];
+            if (!letter) return "";
+            const idx = letterToIndex(letter);
+            const val = row[idx];
+            return val ? String(val).trim() : "";
           }
 
-          if (ownersToCreate.length === 0) {
-            reject("No valid clients found in the file.");
-            return;
-          }
+          // Loop through all dynamically created phone columns
+          const rawPhones = phoneFields
+            .map(field => getVal(field))
+            .filter(phone => !!phone) // Remove empty strings
+            .map(phone => phone.replace(/\t/g, '')); // Clean export garbage
 
-          const created = await clientsApi.bulkCreateClients(ownersToCreate);
-          resolve(created.length);
-        } catch (err) {
-          reject(err);
+          if (rawPhones.length === 0) continue; // Requires at least one valid phone
+
+          ownersToCreate.push({
+            name: getVal("Client Name") || "Unknown Client",
+            phones: rawPhones.map(phone => ({ phone })),
+            type: "OWNER",
+            info: [],
+          });
         }
-      };
 
-      reader.onerror = () => reject("Failed to read file.");
-      reader.readAsText(uploadFile);
+        if (ownersToCreate.length === 0) {
+          reject("No valid clients found in the file.");
+          return;
+        }
+
+        const created = await clientsApi.bulkCreateClients(ownersToCreate);
+        resolve(created.length);
+      } catch (err) {
+        reject(err);
+      }
     });
 
     toast.promise(promise, {
@@ -503,12 +546,12 @@ export default function ClientsPage() {
 
         <div className="space-y-4 border-t pt-6 border-slate-100">
           <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <Label className="text-xs text-slate-500 uppercase tracking-wider font-bold">Map CSV Columns</Label>
+            <Label className="text-xs text-slate-500 uppercase tracking-wider font-bold">Map File Columns</Label>
             <Button type="button" variant="outline" size="sm" onClick={handleAddPhoneField} className="h-7 px-2 text-xs flex items-center gap-1 text-emerald-600 border-emerald-200 hover:bg-emerald-50">
               <Plus className="h-3.5 w-3.5" /> Add Phone Column
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground mb-4">Enter the exact column letter (A, B, C...) from your file that matches our system fields.</p>
+          <p className="text-xs text-muted-foreground mb-4">Select the column from your file that matches each system field.</p>
 
           {[...phoneFields, ...otherFields].map(field => (
             <div key={field} className="flex items-center justify-between gap-4">
@@ -516,17 +559,18 @@ export default function ClientsPage() {
                 {field} {field === "Primary Phone" && <span className="text-red-500">*</span>}
               </span>
 
-              <Input
-                type="text"
-                placeholder="e.g. A"
-                maxLength={3}
-                className="flex h-10 w-1/2 uppercase text-center font-mono font-bold text-lg focus-visible:ring-emerald-500"
+              <select
+                className="flex h-10 w-1/2 rounded-md border border-input bg-background px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 cursor-pointer"
                 value={columnMapping[field] || ""}
                 onChange={(e) => {
-                  const val = e.target.value.toUpperCase().replace(/[^A-Z]/g, '');
-                  setColumnMapping(prev => ({...prev, [field]: val}));
+                  setColumnMapping(prev => ({...prev, [field]: e.target.value}));
                 }}
-              />
+              >
+                <option value="">— Select column —</option>
+                {excelHeaders.map(h => (
+                  <option key={h.letter} value={h.letter}>{h.label} ({h.letter})</option>
+                ))}
+              </select>
             </div>
           ))}
 
@@ -965,20 +1009,20 @@ export default function ClientsPage() {
                 <div className="border-2 border-dashed border-slate-200 rounded-lg p-10 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer relative">
                   <input
                     type="file"
-                    accept=".csv"
+                    accept=".csv, .xlsx, .xls"
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={handleFileSelect}
                   />
                   <FileSpreadsheet className={`h-12 w-12 mb-4 ${uploadFile ? 'text-blue-500' : 'text-slate-400'}`} />
                   <span className="text-base font-semibold text-slate-700 text-center">
-                    {uploadFile ? uploadFile.name : "Click or drag .csv file to upload"}
+                    {uploadFile ? uploadFile.name : "Click or drag file to upload"}
                   </span>
-                  <span className="text-sm text-slate-500 mt-2">.CSV only (up to 10MB)</span>
+                  <span className="text-sm text-slate-500 mt-2">.CSV or .XLSX (up to 10MB)</span>
                 </div>
               </div>
               <DialogFooter className="pt-6">
                 <Button type="button" variant="outline" onClick={resetModals}>Cancel</Button>
-                <Button type="button" disabled={!uploadFile} onClick={() => setUploadStep(2)} className="bg-blue-600 hover:bg-blue-700 text-white">
+                <Button type="button" disabled={!uploadFile} onClick={handleGoToMapping} className="bg-blue-600 hover:bg-blue-700 text-white">
                   Next: Map Columns <ArrowRight className="ml-2 h-4 w-4"/>
                 </Button>
               </DialogFooter>
@@ -1018,20 +1062,20 @@ export default function ClientsPage() {
                 <div className="border-2 border-dashed border-slate-200 rounded-lg p-10 flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer relative">
                   <input
                     type="file"
-                    accept=".csv"
+                    accept=".csv, .xlsx, .xls"
                     className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                     onChange={handleFileSelect}
                   />
                   <FileSpreadsheet className={`h-12 w-12 mb-4 ${uploadFile ? 'text-emerald-500' : 'text-slate-400'}`} />
                   <span className="text-base font-semibold text-slate-700 text-center">
-                    {uploadFile ? uploadFile.name : "Click or drag .csv file to upload"}
+                    {uploadFile ? uploadFile.name : "Click or drag file to upload"}
                   </span>
-                  <span className="text-sm text-slate-500 mt-2">.CSV only (up to 10MB)</span>
+                  <span className="text-sm text-slate-500 mt-2">.CSV or .XLSX (up to 10MB)</span>
                 </div>
               </div>
               <DialogFooter className="pt-6">
                 <Button type="button" variant="outline" onClick={resetModals}>Cancel</Button>
-                <Button type="button" disabled={!uploadFile} onClick={() => setUploadStep(2)} className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                <Button type="button" disabled={!uploadFile} onClick={handleGoToMapping} className="bg-emerald-600 hover:bg-emerald-700 text-white">
                   Next: Map Columns <ArrowRight className="ml-2 h-4 w-4"/>
                 </Button>
               </DialogFooter>
