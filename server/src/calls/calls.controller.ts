@@ -71,6 +71,7 @@ export class CallsController {
       projectId: query.project_id !== undefined ? Number(query.project_id) : undefined,
       date: query.date ? new Date(query.date) : undefined,
       agentId: assignedOnly ? user.id : undefined,
+      type: query.type,
     });
   }
 

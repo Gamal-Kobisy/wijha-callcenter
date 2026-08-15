@@ -165,6 +165,18 @@ describe('CallsController', () => {
       expect(spy).toHaveBeenCalledWith(expect.objectContaining({ agentId: undefined }));
       spy.mockRestore();
     });
+
+    it('should pass type query param to service', async () => {
+      const spy = jest.spyOn(OwnersService.prototype, 'getNextOwner');
+
+      await controller.getNext(
+        { project_id: '1', type: 'OWNER' },
+        { id: 1, email: 'a@b.com', role: 'user' },
+      );
+
+      expect(spy).toHaveBeenCalledWith(expect.objectContaining({ type: 'OWNER' }));
+      spy.mockRestore();
+    });
   });
 
   describe('GET /calls/statuses', () => {

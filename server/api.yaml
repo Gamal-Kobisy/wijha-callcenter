@@ -842,13 +842,14 @@ paths:
           application/json:
             schema:
               type: object
-              required: [client_id, status, time, project_id]
+              required: [client_id, status, time]
               properties:
                 client_id:
                   type: integer
                   format: int64
                 project_id:
                   type: integer
+                  nullable: true
                 status:
                   $ref: "#/components/schemas/CallStatus"
                 time:
@@ -892,6 +893,12 @@ paths:
           description: If true, only return clients assigned to the calling agent.
           schema:
             type: boolean
+        - name: type
+          in: query
+          description: Filter by client type. If omitted, returns both owners and leads.
+          schema:
+            type: string
+            enum: [OWNER, LEAD]
       responses:
         "200":
           description: Next client to call with past call history
@@ -915,13 +922,14 @@ paths:
           application/json:
             schema:
               type: object
-              required: [client_id, project_id]
+              required: [client_id]
               properties:
                 client_id:
                   type: integer
                   format: int64
                 project_id:
                   type: integer
+                  nullable: true
                 client_number:
                   type: string
                   description: The specific number being called (optional)

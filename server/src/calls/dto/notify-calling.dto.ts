@@ -4,8 +4,9 @@ export class NotifyCallingDto {
   @IsNumber()
   client_id!: number;
 
+  @IsOptional()
   @IsNumber()
-  project_id!: number;
+  project_id?: number;
 
   @IsOptional()
   @IsString()
