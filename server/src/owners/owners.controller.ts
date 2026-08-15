@@ -36,7 +36,7 @@ export class OwnersController {
     const agentId = query.agent_id ? Number(query.agent_id) : undefined;
     const page = query.page ? Number(query.page) : 1;
     const limit = query.limit ? Math.min(Number(query.limit), 100) : 20;
-    return this.ownersService.findAll(projectId, query.status, page, limit, agentId);
+    return this.ownersService.findAll(projectId, query.type, query.status, page, limit, agentId);
   }
 
   @Post()
