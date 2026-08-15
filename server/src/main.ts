@@ -31,13 +31,21 @@ async function bootstrap() {
 
     app.enableCors({
       origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-        // Allow requests with no origin (e.g. server-to-server, curl, mobile apps)
+        // Allow requests with no origin (e.g. server-to-server, curl, native mobile apps)
         if (!origin) {
           callback(null, true);
           return;
         }
+        
         const normalized = origin.trim().replace(/\/+$/, '').toLowerCase();
-        if (allowedOrigins.includes(normalized)) {
+        
+        // Allow known web origins OR common mobile webview schemes
+        const isMobileWebview = 
+          normalized.startsWith('capacitor://') || 
+          normalized.startsWith('ionic://') || 
+          normalized.startsWith('file://');
+
+        if (allowedOrigins.includes(normalized) || isMobileWebview) {
           callback(null, true);
         } else {
           console.warn(`CORS blocked origin: "${origin}" (normalized: "${normalized}")`);
