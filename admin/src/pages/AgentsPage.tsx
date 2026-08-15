@@ -100,6 +100,12 @@ export default function AgentsPage() {
   // --- DELETE AGENT STATE ---
   const [deactivateAgentId, setDeactivateAgentId] = useState<string | null>(null)
 
+  // --- REACTIVATE AGENT STATE ---
+  const [reactivateAgent, setReactivateAgent] = useState<{ id: string, name: string } | null>(null)
+  const [reactivatePassword, setReactivatePassword] = useState("")
+  const [reactivateConfirmPassword, setReactivateConfirmPassword] = useState("")
+  const [reactivatePasswordError, setReactivatePasswordError] = useState<string | null>(null)
+
   // --- DATE HANDLERS ---
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.value) {
@@ -369,6 +375,46 @@ export default function AgentsPage() {
     }
   }
 
+  const handleReactivateAgent = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!reactivateAgent) return
+
+    setReactivatePasswordError(null)
+    const isPasswordValid = checkPasswordValidity(reactivatePassword).every(req => req.met)
+
+    if (!isPasswordValid) {
+      setReactivatePasswordError("Please meet all password requirements.")
+      return
+    }
+    if (reactivatePassword !== reactivateConfirmPassword) {
+      setReactivatePasswordError("Passwords do not match.")
+      return
+    }
+
+    try {
+      const response = await apiFetch(`users/${reactivateAgent.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role: "user", password: reactivatePassword })
+      })
+
+      if (!response.ok) throw new Error("Failed to reactivate agent")
+
+      toast.success("Agent Reactivated", {
+        description: `${reactivateAgent.name} has been successfully reactivated.`,
+      })
+
+      setReactivateAgent(null)
+      setReactivatePassword("")
+      setReactivateConfirmPassword("")
+      loadAllAgents()
+    } catch (error) {
+      toast.error("Reactivation Failed", {
+        description: "An error occurred while trying to reactivate this agent.",
+      })
+    }
+  }
+
   return (
     <>
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
@@ -573,11 +619,24 @@ export default function AgentsPage() {
                               >
                                 Edit Details
                               </DropdownMenuItem>
-                              <DropdownMenuItem
-                                  onClick={() => setDeactivateAgentId(agent.id)}
-                                  className="cursor-pointer text-destructive focus:bg-red-50 focus:text-red-600">
-                                Deactivate Agent
-                              </DropdownMenuItem>
+                              {(agent.role || "").toLowerCase() === "deactivated" ? (
+                                <DropdownMenuItem
+                                    onClick={() => {
+                                      setReactivateAgent({ id: agent.id, name: agent.name })
+                                      setReactivatePassword("")
+                                      setReactivateConfirmPassword("")
+                                      setReactivatePasswordError(null)
+                                    }}
+                                    className="cursor-pointer text-emerald-600 focus:bg-emerald-50 focus:text-emerald-700">
+                                  Reactivate Agent
+                                </DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem
+                                    onClick={() => setDeactivateAgentId(agent.id)}
+                                    className="cursor-pointer text-destructive focus:bg-red-50 focus:text-red-600">
+                                  Deactivate Agent
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -827,6 +886,62 @@ export default function AgentsPage() {
               Yes, Deactivate
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* --- REACTIVATE AGENT --- */}
+      <Dialog open={reactivateAgent !== null} onOpenChange={(open) => !open && setReactivateAgent(null)}>
+        <DialogContent className="sm:max-w-[425px] bg-background">
+          <DialogHeader>
+            <DialogTitle className="text-emerald-600">Reactivate Agent</DialogTitle>
+            <DialogDescription>
+              To reactivate {reactivateAgent?.name}, you must set a new password for them.
+            </DialogDescription>
+          </DialogHeader>
+
+          {reactivateAgent && (
+            <form onSubmit={handleReactivateAgent}>
+              <div className="flex flex-col gap-4 py-4">
+                {reactivatePasswordError && (
+                  <div className="w-full rounded-md bg-red-50 p-2 text-sm font-medium text-red-600 border border-red-200 text-center">
+                    {reactivatePasswordError}
+                  </div>
+                )}
+                
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="reactivate-password">New Password</Label>
+                  <Input
+                    id="reactivate-password"
+                    type="password"
+                    value={reactivatePassword}
+                    onChange={(e) => setReactivatePassword(e.target.value)}
+                    required
+                  />
+                  <PasswordRequirements password={reactivatePassword} />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <Label htmlFor="reactivate-confirm-password">Confirm New Password</Label>
+                  <Input
+                    id="reactivate-confirm-password"
+                    type="password"
+                    value={reactivateConfirmPassword}
+                    onChange={(e) => setReactivateConfirmPassword(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setReactivateAgent(null)}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                  Reactivate Agent
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
         </DialogContent>
       </Dialog>
     </div>
