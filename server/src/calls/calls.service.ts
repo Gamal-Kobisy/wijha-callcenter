@@ -111,7 +111,9 @@ export class CallsService {
 
   async submit(dto: SubmitCallDto, agentId: number): Promise<CallResponseDto> {
     try {
-      await this.assertProjectExists(dto.project_id);
+      if (dto.project_id) {
+        await this.assertProjectExists(dto.project_id);
+      }
 
       const call = await this.prisma.callDetailRecord.create({
         data: {
@@ -124,23 +126,23 @@ export class CallsService {
         },
       });
 
-      await this.prisma.clientProject.upsert({
-        where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
-        create: {
-          clientId: dto.client_id,
-          projectId: dto.project_id,
-          status: dto.status,
-          lastDialedAt: new Date(),
-        },
-        update: { status: dto.status, lastDialedAt: new Date() },
-      });
+      if (dto.project_id) {
+        await this.prisma.clientProject.upsert({
+          where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
+          create: {
+            clientId: dto.client_id,
+            projectId: dto.project_id,
+            status: dto.status,
+            lastDialedAt: new Date(),
+          },
+          update: { status: dto.status, lastDialedAt: new Date() },
+        });
+      }
 
       await this.prisma.client.update({
         where: { id: dto.client_id },
         data: {
-          nextDialAt: dto.status === 'callback' && dto.next_dial_at
-            ? new Date(dto.next_dial_at)
-            : new Date(),
+          nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at) : null,
         },
       });
       return {
@@ -159,7 +161,7 @@ export class CallsService {
     }
   }
 
-  async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number }): Promise<NextOwnerResponseDto | null> {
+  async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number, type?: 'OWNER' | 'LEAD' }): Promise<NextOwnerResponseDto | null> {
     const owner = await this.ownersService.getNextOwner(args);
     if (!owner) return null;
 
@@ -228,24 +230,26 @@ export class CallsService {
     }
 
     try {
-      await this.assertProjectExists(dto.project_id);
-
       await this.prisma.client.update({
         where,
         data: { nextDialAt: new Date() },
       })
 
-      await this.prisma.clientProject.upsert({
-        where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
-        create: {
-          clientId: dto.client_id,
-          projectId: dto.project_id,
-          status: 'dial',
-          attemptCount: 1,
-          lastDialedAt: new Date(),
-        },
-        update: { lastDialedAt: new Date(), attemptCount: { increment: 1 } },
-      });
+      if (dto.project_id) {
+        await this.assertProjectExists(dto.project_id);
+
+        await this.prisma.clientProject.upsert({
+          where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
+          create: {
+            clientId: dto.client_id,
+            projectId: dto.project_id,
+            status: 'dial',
+            attemptCount: 1,
+            lastDialedAt: new Date(),
+          },
+          update: { lastDialedAt: new Date(), attemptCount: { increment: 1 } },
+        });
+      }
     } catch (error) {
       console.error('Error occurred while notifying calling:', error);
       throw error;

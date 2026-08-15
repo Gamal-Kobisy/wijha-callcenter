@@ -217,8 +217,8 @@ export class OwnersService {
     return toOwnerResponse(client);
   }
 
-  async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number }): Promise<OwnerResponseDto | null> {
-    const { projectId, agentId } = args;
+  async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number, type?: 'OWNER' | 'LEAD' }): Promise<OwnerResponseDto | null> {
+    const { projectId, agentId, type } = args;
 
     const projectClause = projectId !== undefined && projectId !== null
       ? Prisma.sql`AND cp.project_id = ${projectId}`
@@ -226,6 +226,10 @@ export class OwnersService {
 
     const agentClause = agentId !== undefined && agentId !== null
       ? Prisma.sql`AND c.agent_id = ${agentId}`
+      : Prisma.empty;
+
+    const typeClause = type !== undefined && type !== null
+      ? Prisma.sql`AND c.type = ${type}`
       : Prisma.empty;
 
     const rows = await this.prisma.$queryRaw<{ id: bigint }[]>`
@@ -236,6 +240,7 @@ export class OwnersService {
         AND (c.next_dial_at IS NULL OR c.next_dial_at <= NOW())
         ${projectClause}
         ${agentClause}
+        ${typeClause}
       ORDER BY c.next_dial_at ASC NULLS FIRST
       LIMIT 1
     `;

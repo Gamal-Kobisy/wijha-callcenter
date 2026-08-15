@@ -10,8 +10,9 @@ export class SubmitCallDto {
   @IsDateString()
   time!: string;
 
+  @IsOptional()
   @IsNumber()
-  project_id!: number;
+  project_id?: number;
 
   @IsOptional()
   @IsNumber()

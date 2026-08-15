@@ -220,7 +220,7 @@ describe('CallsService', () => {
       );
     });
 
-    it('should set Client.nextDialAt to NOW() for non-callback status', async () => {
+    it('should set Client.nextDialAt to null for non-callback status without next_dial_at', async () => {
       prisma.callDetailRecord.create.mockResolvedValue(
         mockCallRecord({ id: 7n, status: 'no_answer' }),
       );
@@ -232,7 +232,7 @@ describe('CallsService', () => {
 
       expect(prisma.client.update).toHaveBeenCalledWith({
         where: { id: 1 },
-        data: { nextDialAt: expect.any(Date) },
+        data: { nextDialAt: null },
       });
     });
 
@@ -314,6 +314,53 @@ describe('CallsService', () => {
 
       expect(updateSpy).not.toHaveBeenCalled();
     });
+
+    it('should submit without project_id', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 12n, status: 'answered' }),
+      );
+
+      const call = await service.submit(
+        { client_id: 1, status: 'answered', time: '2024-06-01T12:00:00Z' },
+        1,
+      );
+      expect(call.status).toBe('answered');
+      expect(prisma.project.findFirst).not.toHaveBeenCalled();
+      expect(prisma.clientProject.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should set Client.nextDialAt to null when next_dial_at is not provided', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 13n, status: 'busy' }),
+      );
+
+      await service.submit(
+        { client_id: 1, status: 'busy', time: '2024-06-01T12:00:00Z' },
+        1,
+      );
+
+      expect(prisma.client.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { nextDialAt: null },
+      });
+    });
+
+    it('should set Client.nextDialAt to provided next_dial_at value', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 14n, status: 'callback' }),
+      );
+      const callbackTime = '2024-06-05T14:00:00Z';
+
+      await service.submit(
+        { client_id: 1, status: 'callback', time: '2024-06-01T12:00:00Z', next_dial_at: callbackTime },
+        1,
+      );
+
+      expect(prisma.client.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { nextDialAt: new Date(callbackTime) },
+      });
+    });
   });
 
   describe('getNextOwner', () => {
@@ -376,6 +423,22 @@ describe('CallsService', () => {
       const result = await service.getNextOwner({ projectId: 1, agentId: 4 });
       expect(result).not.toBeNull();
       expect(getNextOwnerSpy).toHaveBeenCalledWith({ projectId: 1, agentId: 4 });
+    });
+
+    it('should forward type to ownersService', async () => {
+      const getNextOwnerSpy = jest.spyOn(ownersService, 'getNextOwner').mockResolvedValue({
+        id: 1,
+        name: 'Owner Client',
+        next_dial_at: null,
+        phones: [],
+        info: [],
+      });
+
+      prisma.callDetailRecord.findMany.mockResolvedValue([]);
+
+      const result = await service.getNextOwner({ projectId: 1, type: 'OWNER' });
+      expect(result).not.toBeNull();
+      expect(getNextOwnerSpy).toHaveBeenCalledWith({ projectId: 1, type: 'OWNER' });
     });
   });
 
@@ -446,14 +509,13 @@ describe('CallsService', () => {
 
     it('should throw BadRequestException when project does not exist', async () => {
       prisma.project.findFirst.mockResolvedValue(null);
-      const clientUpdateSpy = jest.spyOn(prisma.client, 'update');
+      const createSpy = jest.spyOn(prisma.callDetailRecord, 'create');
       const upsertSpy = jest.spyOn(prisma.clientProject, 'upsert');
 
       await expect(
         service.notifyCalling({ client_id: 1, project_id: 1 }),
       ).rejects.toThrow(BadRequestException);
 
-      expect(clientUpdateSpy).not.toHaveBeenCalled();
       expect(upsertSpy).not.toHaveBeenCalled();
     });
 
@@ -490,6 +552,17 @@ describe('CallsService', () => {
           where: { id: 1, numbers: { some: { number: '555-0100' } } },
         }),
       );
+    });
+
+    it('should notify calling without project_id', async () => {
+      await service.notifyCalling({ client_id: 1 });
+
+      expect(prisma.client.update).toHaveBeenCalledWith({
+        where: { id: 1 },
+        data: { nextDialAt: expect.any(Date) },
+      });
+      expect(prisma.project.findFirst).not.toHaveBeenCalled();
+      expect(prisma.clientProject.upsert).not.toHaveBeenCalled();
     });
   });
 });

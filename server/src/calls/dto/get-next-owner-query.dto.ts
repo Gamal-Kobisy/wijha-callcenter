@@ -1,4 +1,4 @@
-import { IsDateString, IsNumberString, IsOptional, IsBooleanString } from 'class-validator';
+import { IsDateString, IsNumberString, IsOptional, IsBooleanString, IsIn } from 'class-validator';
 
 export class GetNextClientQueryDto {
   @IsOptional()
@@ -12,4 +12,8 @@ export class GetNextClientQueryDto {
   @IsOptional()
   @IsDateString()
   date?: string;
+
+  @IsOptional()
+  @IsIn(['OWNER', 'LEAD'])
+  type?: 'OWNER' | 'LEAD';
 }
