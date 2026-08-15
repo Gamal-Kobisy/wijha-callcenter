@@ -43,6 +43,7 @@ export class OwnersService {
   async findAll(
     project_id?: number,
     type?: string,
+    status?: string,
     page = 1,
     limit = 20,
     agent_id?: number,
@@ -51,6 +52,11 @@ export class OwnersService {
     if (type) where.type = type;
     if (agent_id) where.agentId = agent_id;
     if (project_id) where.clientProjects = { some: { projectId: project_id } };
+    if (status) {
+      // Filter by ClientProject.status; merge with any existing clientProjects clause
+      const existingClause = where.clientProjects?.some ?? {};
+      where.clientProjects = { some: { ...existingClause, status } };
+    }
 
     const [clients, total] = await Promise.all([
       this.prisma.client.findMany({

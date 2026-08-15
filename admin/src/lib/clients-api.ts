@@ -65,102 +65,106 @@ export interface PaginatedOwnersResponse {
   }
 }
 
-// --- FAKE DATA (Loaded from local environment variables to hide from GitHub) ---
-let mockClients: Owner[] = [];
-let mockAgents: Agent[] = [];
-let mockProjects: Project[] = [];
-let mockCalls: CallRecord[] = [];
-
-try {
-  if (import.meta.env.VITE_USE_MOCK_API === 'true') {
-    if (import.meta.env.VITE_MOCK_CLIENTS) mockClients = JSON.parse(import.meta.env.VITE_MOCK_CLIENTS);
-    if (import.meta.env.VITE_MOCK_AGENTS) mockAgents = JSON.parse(import.meta.env.VITE_MOCK_AGENTS);
-    if (import.meta.env.VITE_MOCK_PROJECTS) mockProjects = JSON.parse(import.meta.env.VITE_MOCK_PROJECTS);
-    if (import.meta.env.VITE_MOCK_CALLS) mockCalls = JSON.parse(import.meta.env.VITE_MOCK_CALLS);
+// --- HELPERS ---
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error((err as any).message || `Request failed: ${response.status}`);
   }
-} catch (e) {
-  console.warn("Failed to parse mock API data from environment variables.");
+  return response.json() as Promise<T>;
 }
 
-// Helper to simulate network delay
-const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
-
-// --- API CLIENT (MOCKED) ---
+// --- REAL API CLIENT ---
 export const clientsApi = {
-  // Clients (Owners)
-  async getClients(page = 1, limit = 10): Promise<PaginatedOwnersResponse> {
-    await delay(600); // Simulate network latency
-    const start = (page - 1) * limit;
-    const end = start + limit;
-    return {
-      data: mockClients.slice(start, end),
-      meta: {
-        total: mockClients.length,
-        page,
-        limit
-      }
-    };
+  /**
+   * List clients (owners/leads).
+   * @param page   Page number (1-indexed)
+   * @param limit  Items per page
+   * @param type   Filter by Client.type: "OWNER" | "LEAD" | "BOTH" | undefined (all)
+   * @param status Filter by ClientProject.status: "dial" | "callback" | etc.
+   */
+  async getClients(
+    page = 1,
+    limit = 10,
+    type?: string,
+    status?: string,
+  ): Promise<PaginatedOwnersResponse> {
+    const params = new URLSearchParams({
+      page: String(page),
+      limit: String(limit),
+    });
+    if (type) params.set("type", type);
+    if (status) params.set("status", status);
+
+    const response = await apiFetch(`owners?${params.toString()}`, { method: "GET" });
+    return handleResponse<PaginatedOwnersResponse>(response);
   },
 
-  async updateClient(ownerId: number, data: { type?: string; next_dial_at?: string | null; phones?: string[] }): Promise<Owner> {
-    await delay(400);
-    const idx = mockClients.findIndex(c => c.id === ownerId);
-    if (idx === -1) throw new Error("Client not found");
-    
-    const { phones, ...rest } = data;
-    mockClients[idx] = {
-      ...mockClients[idx],
-      ...rest,
-      ...(phones ? { phones: phones.map(p => ({ phone: p })) } : {}),
-    };
-    return mockClients[idx];
+  async updateClient(
+    ownerId: number,
+    data: { type?: string; next_dial_at?: string | null; phones?: string[] },
+  ): Promise<Owner> {
+    // API expects phones as array of { phone: string }
+    const payload: any = { ...data };
+    if (data.phones) {
+      payload.phones = data.phones.map((p) => ({ phone: p }));
+    }
+    const response = await apiFetch(`owners/${ownerId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    return handleResponse<Owner>(response);
   },
 
   async deleteClient(ownerId: string | number): Promise<void> {
-    await delay(400);
-    mockClients = mockClients.filter(c => c.id !== Number(ownerId));
+    const response = await apiFetch(`owners/${ownerId}`, { method: "DELETE" });
+    if (!response.ok && response.status !== 404) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error((err as any).message || `Delete failed: ${response.status}`);
+    }
   },
 
   async bulkCreateClients(owners: any[]): Promise<Owner[]> {
-    // Real API call — saves data to database
     const response = await apiFetch("owners/bulk", {
       method: "POST",
       body: JSON.stringify({ owners }),
     });
-    if (!response.ok) {
-      const errData = await response.json().catch(() => ({}));
-      throw new Error(errData.message || "Failed to import clients");
-    }
-    return response.json();
+    return handleResponse<Owner[]>(response);
   },
 
   async getStatusCounts(): Promise<StatusCount[]> {
-    await delay(300);
-    const counts: Record<string, number> = {};
-    mockClients.forEach(c => {
-      const status = c.projects?.[0]?.status || 'new';
-      counts[status] = (counts[status] || 0) + 1;
-    });
-    return Object.entries(counts).map(([status, count]) => ({ status, count }));
+    const response = await apiFetch("owners/statuses", { method: "GET" });
+    return handleResponse<StatusCount[]>(response);
   },
 
-  // Agents (Users)
+  // Agents (Users with role=user)
   async getAgents(): Promise<Agent[]> {
-    await delay(300);
-    return mockAgents;
+    const response = await apiFetch("users?role=user", { method: "GET" });
+    const data = await handleResponse<any[]>(response);
+    return data.map((u) => ({
+      id: u.id,
+      name: u.name || u.email || "Unknown",
+      email: u.email,
+    }));
   },
 
   // Projects
   async getProjects(): Promise<Project[]> {
-    await delay(300);
-    return mockProjects;
+    const response = await apiFetch("projects", { method: "GET" });
+    return handleResponse<Project[]>(response);
   },
 
-  // Calls
-  async getClientCallHistory(clientId: string | number, _limit = 50): Promise<{ data: CallRecord[] }> {
-    await delay(500);
-    return {
-      data: mockCalls.filter(c => c.client_id === Number(clientId))
-    };
-  }
+  // Call history for a specific client
+  async getClientCallHistory(
+    clientId: string | number,
+    limit = 50,
+  ): Promise<{ data: CallRecord[] }> {
+    const params = new URLSearchParams({
+      client_id: String(clientId),
+      limit: String(limit),
+    });
+    const response = await apiFetch(`calls?${params.toString()}`, { method: "GET" });
+    return handleResponse<{ data: CallRecord[] }>(response);
+  },
 };
+

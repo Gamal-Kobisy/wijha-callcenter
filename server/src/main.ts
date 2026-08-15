@@ -15,7 +15,19 @@ async function bootstrap() {
     }),
   );
 
-  app.enableCors();
+  // CORS: In production set FRONTEND_URL in Railway env vars (comma-separated for multiple origins).
+  // Example: FRONTEND_URL=https://your-app.vercel.app
+  // To switch to a different host (e.g. Google Cloud Run), just update this env var.
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map((o) => o.trim())
+    : '*';
+
+  app.enableCors({
+    origin: allowedOrigins,
+    methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+  });
 
   const port = process.env.PORT ?? 3000;
   await app.listen(port);

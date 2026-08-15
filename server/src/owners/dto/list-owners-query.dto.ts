@@ -9,6 +9,16 @@ export class ListOwnersQueryDto {
   @IsOptional()
   agent_id?: string;
 
+  /**
+   * Filter by Client.type — one of: OWNER, LEAD, BOTH
+   */
+  @IsOptional()
+  @IsString()
+  type?: string;
+
+  /**
+   * Filter by ClientProject.status — e.g. dial, callback, answered, not_interested
+   */
   @IsOptional()
   @IsString()
   status?: string;

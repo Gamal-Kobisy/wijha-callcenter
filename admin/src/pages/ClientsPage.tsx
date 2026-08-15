@@ -146,6 +146,8 @@ export default function ClientsPage() {
 
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
+  // Type filter: "" = All, "OWNER" = Owners only, "LEAD" = Leads only
+  const [typeFilter, setTypeFilter] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
 
   const ITEMS_PER_PAGE = 10
@@ -173,10 +175,10 @@ export default function ClientsPage() {
   const [excelHeaders, setExcelHeaders] = useState<{ label: string; letter: string }[]>([])
 
   // --- API: Load all data on mount ---
-  const loadClients = useCallback(async (page = 1) => {
+  const loadClients = useCallback(async (page = 1, type?: string) => {
     try {
       setIsLoading(true)
-      const data = await clientsApi.getClients(page, ITEMS_PER_PAGE)
+      const data = await clientsApi.getClients(page, ITEMS_PER_PAGE, type || undefined)
       const owners: Owner[] = data.data
       setClients(owners.map(ownerToDisplayClient))
       setTotalClients(data.meta.total)
@@ -215,16 +217,16 @@ export default function ClientsPage() {
   }, [])
 
   useEffect(() => {
-    loadClients(1)
+    loadClients(1, typeFilter)
     loadAgents()
     loadStatusCounts()
     loadProjects()
   }, [loadClients, loadAgents, loadStatusCounts, loadProjects])
 
-  // Reload clients when page changes
+  // Reload clients when page or typeFilter changes; reset to page 1 on filter change
   useEffect(() => {
-    loadClients(currentPage)
-  }, [currentPage, loadClients])
+    loadClients(currentPage, typeFilter)
+  }, [currentPage, typeFilter, loadClients])
 
   // --- Load call history for selected client ---
   const loadClientHistory = async (clientId: string) => {
@@ -324,7 +326,7 @@ export default function ClientsPage() {
 
       setEditingClient(null)
       toast.success("Client Updated", { description: "The client details have been saved." })
-      loadClients(currentPage)
+      loadClients(currentPage, typeFilter)
       loadStatusCounts()
     } catch (error: any) {
       toast.error("Update Failed", { description: error.message })
@@ -351,7 +353,7 @@ export default function ClientsPage() {
 
       setDeletingClientId(null)
       toast.success("Client Deleted", { description: "The client has been permanently removed." })
-      loadClients(currentPage)
+      loadClients(currentPage, typeFilter)
       loadStatusCounts()
     } catch (error: any) {
       toast.error("Delete Failed", { description: error.message })
@@ -519,7 +521,7 @@ export default function ClientsPage() {
       loading: 'Parsing file and importing clients...',
       success: (count) => {
         resetModals()
-        loadClients(currentPage)
+        loadClients(currentPage, typeFilter)
         loadStatusCounts()
         return `Successfully imported ${count} valid clients into the system.`
       },
@@ -756,12 +758,32 @@ export default function ClientsPage() {
               </div>
 
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full border-t pt-4 border-slate-100">
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
                   <Filter className="h-4 w-4 text-slate-400 hidden sm:block" />
+
+                  {/* Client Type Filter */}
+                  <div className="flex items-center rounded-md border border-input bg-background overflow-hidden h-9 shrink-0">
+                    {(["", "OWNER", "LEAD"] as const).map((t) => (
+                      <button
+                        key={t || "all"}
+                        type="button"
+                        onClick={() => { setTypeFilter(t); setCurrentPage(1); }}
+                        className={`px-3 h-full text-sm font-medium transition-colors ${
+                          typeFilter === t
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {t === "" ? "All Types" : t === "OWNER" ? "Owners" : "Leads"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Call Status Filter */}
                   <select
                     className="h-9 w-full sm:w-auto rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none"
                     value={statusFilter}
-                    onChange={(e) => { setStatusFilter(e.target.value); }}
+                    onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1); }}
                   >
                     <option value="All">All Statuses</option>
                     <option value="Dial">Dial</option>
@@ -787,6 +809,7 @@ export default function ClientsPage() {
                 </div>
               </div>
             </CardHeader>
+
 
             <CardContent className="p-0">
               <div className="block w-full overflow-x-auto">

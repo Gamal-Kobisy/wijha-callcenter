@@ -1,5 +1,11 @@
 node_modules/
-.env
-db/pgdata/
 dist/
+db/pgdata/
 TODO.md
+
+# Environment files — never commit secrets
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
