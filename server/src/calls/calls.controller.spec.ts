@@ -4,7 +4,7 @@ import { CallsController } from './calls.controller';
 import { CallsService } from './calls.service';
 import { OwnersService } from '@/owners/owners.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { mockClient, mockNumber, mockClientInfo, mockCallRecord } from '@/prisma/mock-data';
+import { mockClient, mockNumber, mockClientInfo, mockCallRecord, mockProject } from '@/prisma/mock-data';
 import { JwtAuthGuard } from '@/common/guards/jwt-auth.guard';
 
 const recordWithClient = (overrides: Record<string, unknown> = {}) => ({
@@ -46,6 +46,7 @@ describe('CallsController', () => {
     ]);
 
     prisma.callDetailRecord.create.mockResolvedValue(recordWithClient({ id: 4n }));
+    prisma.project.findFirst.mockResolvedValue(mockProject());
 
     (prisma.$transaction as jest.Mock).mockImplementation(async (cb: any) => cb(prisma));
 

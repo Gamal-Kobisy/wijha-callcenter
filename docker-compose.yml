@@ -15,7 +15,9 @@ services:
       start_period: 5s # Wait 5s before starting checks (gives DB time to init)
 
   backend:
-    build: ./server
+    build:
+      context: ./server
+      dockerfile: ./Dockerfile.local
     container_name: backend
     env_file: ./server/.env
     environment:

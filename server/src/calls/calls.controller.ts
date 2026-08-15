@@ -68,7 +68,7 @@ export class CallsController {
   ): Promise<NextOwnerResponseDto | null> {
     const assignedOnly = query.assigned_only === 'true' || query.assigned_only === '1';
     return this.callsService.getNextOwner({
-      projectId: Number(query.project_id),
+      projectId: query.project_id !== undefined ? Number(query.project_id) : undefined,
       date: query.date ? new Date(query.date) : undefined,
       agentId: assignedOnly ? user.id : undefined,
     });

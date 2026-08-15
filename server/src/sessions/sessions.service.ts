@@ -70,73 +70,79 @@ export class SessionsService {
     const first = new Date(dto.first_beat);
     const last = new Date(dto.last_beat);
 
-    return this.prisma.$transaction(async (tx) => {
-      const overlapping = await tx.userSession.findMany({
-        where: {
-          agentId,
-          firstBeat: { lte: last },
-          lastBeat: { gte: first },
-        },
-        orderBy: { firstBeat: 'asc' },
-      });
+    try {
 
-      if (overlapping.length > 0) {
-        const mergedFirst = overlapping.reduce(
-          (min, s) => s.firstBeat < min ? s.firstBeat : min,
-          first,
-        );
-        const mergedLast = overlapping.reduce(
-          (max, s) => s.lastBeat > max ? s.lastBeat : max,
-          last,
-        );
-
-        const active = await tx.activeSession.findUnique({ where: { agentId } });
-        const wasActive = active && overlapping.some(
-          s => s.firstBeat.getTime() === active.firstBeat.getTime(),
-        );
-
-        await tx.userSession.deleteMany({
+      return this.prisma.$transaction(async (tx) => {
+        const overlapping = await tx.userSession.findMany({
           where: {
             agentId,
-            firstBeat: { in: overlapping.map(s => s.firstBeat) },
+            firstBeat: { lte: last },
+            lastBeat: { gte: first },
           },
+          orderBy: { firstBeat: 'asc' },
         });
 
-        const duration = Math.round((mergedLast.getTime() - mergedFirst.getTime()) / 1000);
-        await tx.userSession.create({
-          data: { agentId, firstBeat: mergedFirst, lastBeat: mergedLast, duration },
-        });
+        if (overlapping.length > 0) {
+          const mergedFirst = overlapping.reduce(
+            (min, s) => s.firstBeat < min ? s.firstBeat : min,
+            first,
+          );
+          const mergedLast = overlapping.reduce(
+            (max, s) => s.lastBeat > max ? s.lastBeat : max,
+            last,
+          );
 
-        if (wasActive) {
-          await tx.activeSession.upsert({
-            where: { agentId },
-            create: { agentId, firstBeat: mergedFirst },
-            update: { firstBeat: mergedFirst },
+          const active = await tx.activeSession.findUnique({ where: { agentId } });
+          const wasActive = active && overlapping.some(
+            s => s.firstBeat.getTime() === active.firstBeat.getTime(),
+          );
+
+          await tx.userSession.deleteMany({
+            where: {
+              agentId,
+              firstBeat: { in: overlapping.map(s => s.firstBeat) },
+            },
           });
+
+          const duration = Math.round((mergedLast.getTime() - mergedFirst.getTime()) / 1000);
+          await tx.userSession.create({
+            data: { agentId, firstBeat: mergedFirst, lastBeat: mergedLast, duration },
+          });
+
+          if (wasActive) {
+            await tx.activeSession.upsert({
+              where: { agentId },
+              create: { agentId, firstBeat: mergedFirst },
+              update: { firstBeat: mergedFirst },
+            });
+          }
+
+          return {
+            agent_id: agentId,
+            first_beat: mergedFirst.toISOString(),
+            last_beat: mergedLast.toISOString(),
+            is_active: !!wasActive,
+            duration,
+          };
         }
+
+        const duration = Math.round((last.getTime() - first.getTime()) / 1000);
+        await tx.userSession.create({
+          data: { agentId, firstBeat: first, lastBeat: last, duration },
+        });
 
         return {
           agent_id: agentId,
-          first_beat: mergedFirst.toISOString(),
-          last_beat: mergedLast.toISOString(),
-          is_active: !!wasActive,
+          first_beat: first.toISOString(),
+          last_beat: last.toISOString(),
+          is_active: false,
           duration,
         };
-      }
-
-      const duration = Math.round((last.getTime() - first.getTime()) / 1000);
-      await tx.userSession.create({
-        data: { agentId, firstBeat: first, lastBeat: last, duration },
       });
-
-      return {
-        agent_id: agentId,
-        first_beat: first.toISOString(),
-        last_beat: last.toISOString(),
-        is_active: false,
-        duration,
-      };
-    });
+    } catch (error) {
+      console.error('Error occurred while creating session:', error);
+      throw error;
+    }
   }
 
   async beat(agentId: number): Promise<SessionResponseDto> {

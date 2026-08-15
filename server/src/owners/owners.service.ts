@@ -217,8 +217,12 @@ export class OwnersService {
     return toOwnerResponse(client);
   }
 
-  async getNextOwner(args: { projectId: number, date?: Date, agentId?: number }): Promise<OwnerResponseDto | null> {
+  async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number }): Promise<OwnerResponseDto | null> {
     const { projectId, agentId } = args;
+
+    const projectClause = projectId !== undefined && projectId !== null
+      ? Prisma.sql`AND cp.project_id = ${projectId}`
+      : Prisma.empty;
 
     const agentClause = agentId !== undefined && agentId !== null
       ? Prisma.sql`AND c.agent_id = ${agentId}`
@@ -228,9 +232,9 @@ export class OwnersService {
       SELECT c.id
       FROM client c
       JOIN client_project cp ON cp.client_id = c.id
-      WHERE cp.project_id = ${projectId}
-        AND cp.status IN ('dial', 'callback', 'not_answered')
+      WHERE cp.status IN ('dial', 'callback', 'not_answered')
         AND (c.next_dial_at IS NULL OR c.next_dial_at <= NOW())
+        ${projectClause}
         ${agentClause}
       ORDER BY c.next_dial_at ASC NULLS FIRST
       LIMIT 1

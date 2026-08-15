@@ -705,5 +705,38 @@ describe('OwnersService', () => {
       const agentClause = (prisma.$queryRaw as jest.Mock).mock.calls[0][2];
       expect(agentClause.strings.join('')).not.toContain('c.agent_id');
     });
+
+    it('should add project clause when projectId provided', async () => {
+      prisma.$queryRaw.mockResolvedValue([{ id: 1n }]);
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
+
+      const next = await service.getNextOwner({ projectId: 3 });
+      expect(next).not.toBeNull();
+
+      const projectClause = (prisma.$queryRaw as jest.Mock).mock.calls[0][1];
+      expect(projectClause.strings.join('')).toContain('cp.project_id');
+      expect(projectClause.values).toContain(3);
+    });
+
+    it('should return next owner without project clause when projectId omitted', async () => {
+      prisma.$queryRaw.mockResolvedValue([{ id: 1n }]);
+      prisma.client.findUnique.mockResolvedValue(mockClient({ name: 'John', numbers: [], clientInfo: [] }));
+
+      const next = await service.getNextOwner({});
+      expect(next).not.toBeNull();
+
+      const firstCall = (prisma.$queryRaw as jest.Mock).mock.calls[0];
+      const sqlText = firstCall
+        .map((arg: unknown) =>
+          Array.isArray(arg)
+            ? arg.join('')
+            : arg && typeof arg === 'object' && Array.isArray((arg as { strings: string[] }).strings)
+              ? (arg as { strings: string[] }).strings.join('')
+              : '',
+        )
+        .join('');
+      expect(sqlText).not.toContain('cp.project_id');
+      expect(sqlText).toContain('cp.status');
+    });
   });
 });
