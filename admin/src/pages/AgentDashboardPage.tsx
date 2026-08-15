@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect} from "react"
+﻿import { useState, useMemo, useEffect} from "react"
 import {
   LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip as RechartsTooltip,
   ResponsiveContainer, CartesianGrid, Legend
@@ -12,7 +12,7 @@ import {
 import AppNavbar from "@/components/AppNavbar.tsx"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button"
+import { Button } from "@/components/ui/button" 
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"

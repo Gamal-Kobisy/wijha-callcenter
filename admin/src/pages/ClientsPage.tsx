@@ -962,6 +962,7 @@ export default function ClientsPage() {
                   <Label>Next Dial</Label>
                   <Input
                     type="datetime-local"
+                    min={new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)}
                     value={editingClient.nextDialAt ? editingClient.nextDialAt.slice(0, 16) : ""}
                     onChange={(e) => setEditingClient({...editingClient, nextDialAt: e.target.value ? new Date(e.target.value).toISOString() : null})}
                   />
