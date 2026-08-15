@@ -16,13 +16,13 @@ export class AuthService {
   async login(email: string, password: string): Promise<LoginResponseDto> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid email');
     }
 
     console.log(password , user.passwordHash)
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid email or password');
+      throw new UnauthorizedException('Invalid password');
     }
 
     if (user.role === 'deleted') {

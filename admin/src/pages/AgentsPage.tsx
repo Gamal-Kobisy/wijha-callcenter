@@ -270,8 +270,9 @@ export default function AgentsPage() {
     if (!validateAgentData(editingAgent)) return
 
     const payload = editingAgent
-    const { id, otp, otpExpiry, jwtToken, phoneNumber, calls, ...data } = payload // Stripped out 'calls' to prevent accidentally saving it to DB
+    const { id, otp, otpExpiry, jwtToken, phoneNumber, calls,is_online,has_profile_image, ...data } = payload // Stripped out 'calls' to prevent accidentally saving it to DB
     setEditingAgent(null)
+    console.log(data)
 
     try {
       const response = await apiFetch(`users/${id}`, {
