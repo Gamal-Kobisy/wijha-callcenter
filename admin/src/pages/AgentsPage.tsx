@@ -417,10 +417,16 @@ export default function AgentsPage() {
 
   return (
     <>
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div className="flex min-h-screen w-full flex-col bg-slate-50/50">
       <AppNavbar />
 
       <main className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-7xl mx-auto w-full">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900">Agents Management</h2>
+            <p className="text-muted-foreground mt-1">See your agents performance, generate reports and manage your team.</p>
+          </div>
+        </div>
 
         {/* --- SECTION 1: KPIs --- */}
         <div className="grid gap-4 md:grid-cols-3">

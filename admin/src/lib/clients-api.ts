@@ -26,6 +26,7 @@ export interface Owner {
   phones?: OwnerPhone[]
   info?: OwnerInfo[]
   projects?: ProjectAssignment[]
+  agent_id?: number;
 }
 
 export interface Agent {

@@ -1,4 +1,3 @@
-
 import { useState, useMemo, useEffect, useCallback } from "react"
 import AppNavbar from "@/components/AppNavbar.tsx"
 import {
@@ -80,15 +79,13 @@ interface DisplayClient {
   attemptCount: number
   lastDialedAt: string | null
   nextDialAt: string | null
-  assignedAgent: string
   projects: string[]
   info: { key: string; value: string }[]
   history: { id: number; time: string; status: string; duration: number; agent: string; notes: string }[]
-  // Keep the raw owner for API operations
   _raw: Owner
 }
 
-const systemFields = ["Primary Phone", "Client Name", "Status", "Project", "Attempts", "Assigned Agent", "Next Dial"]
+const systemFields = ["Primary Phone", "Client Name", "Status", "Project", "Assigned Agent", "Type", "Attempts", "Next Dial"]
 
 // --- UTILS ---
 const getStatusColor = (status: string) => {
@@ -107,7 +104,6 @@ const formatStatus = (status: string) => {
   return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
 }
 
-// Helper to convert Excel letters (A, B, AA) to zero-based index (0, 1, 26)
 const letterToIndex = (letters: string) => {
   let n = 0;
   for (let i = 0; i < letters.length; i++) {
@@ -116,7 +112,6 @@ const letterToIndex = (letters: string) => {
   return n - 1;
 }
 
-// Helper to convert Owner API response to display client
 function ownerToDisplayClient(owner: Owner): DisplayClient {
   const firstProject = owner.projects?.[0]
   return {
@@ -127,10 +122,9 @@ function ownerToDisplayClient(owner: Owner): DisplayClient {
     attemptCount: firstProject?.attempt_count ?? 0,
     lastDialedAt: firstProject?.last_dialed_at ?? null,
     nextDialAt: owner.next_dial_at ?? null,
-    assignedAgent: "—", // Not tracked in current API
     projects: owner.projects?.map(p => p.project_name) ?? [],
     info: owner.info?.map(i => ({ key: i.key, value: i.value })) ?? [],
-    history: [], // Loaded on demand
+    history: [],
     _raw: owner,
   }
 }
@@ -138,6 +132,7 @@ function ownerToDisplayClient(owner: Owner): DisplayClient {
 export default function ClientsPage() {
   // --- DATA STATE ---
   const [clients, setClients] = useState<DisplayClient[]>([])
+  const [globalChartClients, setGlobalChartClients] = useState<DisplayClient[]>([])
   const [agents, setAgents] = useState<Agent[]>([])
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [statusCounts, setStatusCounts] = useState<StatusCount[]>([])
@@ -146,15 +141,18 @@ export default function ClientsPage() {
 
   const [searchTerm, setSearchTerm] = useState("")
   const [statusFilter, setStatusFilter] = useState("All")
-  // Type filter: "" = All, "OWNER" = Owners only, "LEAD" = Leads only
   const [typeFilter, setTypeFilter] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
+
+  // Bulk Selection State
+  const [selectedClientIds, setSelectedClientIds] = useState<string[]>([])
 
   const ITEMS_PER_PAGE = 10
 
   // Modals
   const [isUploadOpen, setIsUploadOpen] = useState(false)
   const [isAssignOpen, setIsAssignOpen] = useState(false)
+  const [isBulkAssignModalOpen, setIsBulkAssignModalOpen] = useState(false)
 
   // View/Edit/Delete State
   const [selectedClient, setSelectedClient] = useState<DisplayClient | null>(null)
@@ -168,6 +166,7 @@ export default function ClientsPage() {
   const [uploadStep, setUploadStep] = useState<1 | 2>(1)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploadAgent, setUploadAgent] = useState("")
+  const [bulkAssignAgent, setBulkAssignAgent] = useState("")
   const [startRow, setStartRow] = useState<number>(2)
   const [endRow, setEndRow] = useState<string>("")
   const [columnMapping, setColumnMapping] = useState<Record<string, string>>({})
@@ -186,6 +185,16 @@ export default function ClientsPage() {
       toast.error("Failed to Load Clients", { description: error.message })
     } finally {
       setIsLoading(false)
+    }
+  }, [])
+
+  const loadGlobalChartData = useCallback(async () => {
+    try {
+      const data = await clientsApi.getClients(1, 1000)
+      const owners: Owner[] = data.data
+      setGlobalChartClients(owners.map(ownerToDisplayClient))
+    } catch (error: any) {
+      console.error("Failed to load chart data:", error)
     }
   }, [])
 
@@ -218,17 +227,22 @@ export default function ClientsPage() {
 
   useEffect(() => {
     loadClients(1, typeFilter)
+    loadGlobalChartData()
     loadAgents()
     loadStatusCounts()
     loadProjects()
-  }, [loadClients, loadAgents, loadStatusCounts, loadProjects])
+  }, [loadClients, loadGlobalChartData, loadAgents, loadStatusCounts, loadProjects])
 
-  // Reload clients when page or typeFilter changes; reset to page 1 on filter change
+  // Reload table clients when page or typeFilter changes
   useEffect(() => {
     loadClients(currentPage, typeFilter)
   }, [currentPage, typeFilter, loadClients])
 
-  // --- Load call history for selected client ---
+  // Clear selections when changing pages or filters to prevent invisible selections
+  useEffect(() => {
+    setSelectedClientIds([])
+  }, [currentPage, typeFilter, statusFilter, searchTerm])
+
   const loadClientHistory = async (clientId: string) => {
     setIsLoadingHistory(true)
     try {
@@ -244,18 +258,12 @@ export default function ClientsPage() {
   // --- DYNAMIC CHART DATA ---
   const statusDistribution = useMemo(() => {
     const colorMap: Record<string, string> = {
-      'dial': chartPalette.dial,
-      'new': chartPalette.dial,
-      'callback': chartPalette.interest,
-      'interested': chartPalette.interest,
-      'answered': chartPalette.convert,
-      'closed': chartPalette.convert,
-      'no_answer': chartPalette.neutral,
-      'voicemail': chartPalette.neutral,
-      'not_interested': chartPalette.miss,
-      'do not call': chartPalette.miss,
-      'busy': '#F97316',
-      'failed': '#EF4444',
+      'dial': chartPalette.dial, 'new': chartPalette.dial,
+      'callback': chartPalette.interest, 'interested': chartPalette.interest,
+      'answered': chartPalette.convert, 'closed': chartPalette.convert,
+      'no_answer': chartPalette.neutral, 'voicemail': chartPalette.neutral,
+      'not_interested': chartPalette.miss, 'do not call': chartPalette.miss,
+      'busy': '#F97316', 'failed': '#EF4444',
     }
 
     return statusCounts
@@ -268,25 +276,24 @@ export default function ClientsPage() {
   }, [statusCounts])
 
   const projectVolume = useMemo(() => {
-    // Count clients per project from current page data — or use allProjects as labels
-    // For a better experience, count from status counts or just show project names
-    // Since we don't have a dedicated project-volume endpoint, we'll derive from loaded clients
     const projectMap = new Map<string, number>()
-    clients.forEach(c => {
+
+    globalChartClients.forEach(c => {
       c.projects.forEach(p => {
         projectMap.set(p, (projectMap.get(p) || 0) + 1)
       })
     })
-    // Add projects from allProjects that may not be in current page
+
     allProjects.forEach(p => {
       if (!projectMap.has(p.name)) {
         projectMap.set(p.name, 0)
       }
     })
-    return Array.from(projectMap.entries()).map(([name, clients]) => ({ name, clients }))
-  }, [clients, allProjects])
 
-  // --- FILTERING (client-side on current page) ---
+    return Array.from(projectMap.entries()).map(([name, clients]) => ({ name, clients }))
+  }, [globalChartClients, allProjects])
+
+  // --- FILTERING ---
   const filteredClients = useMemo(() => {
     return clients.filter(client => {
       const matchesSearch = client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -297,10 +304,9 @@ export default function ClientsPage() {
   }, [searchTerm, statusFilter, clients])
 
   const totalPages = Math.ceil(totalClients / ITEMS_PER_PAGE) || 1
-  // When filtering client-side, show filtered results from current page
   const paginatedClients = searchTerm || statusFilter !== "All" ? filteredClients : clients
 
-  // --- KPI calculations from status counts ---
+  // --- KPI calculations ---
   const totalClientsCount = statusCounts.reduce((sum, s) => sum + s.count, 0) || totalClients
   const freshClients = statusCounts.find(s => s.status.toLowerCase() === 'dial')?.count ?? 0
   const closedClients = statusCounts.find(s => ['answered', 'closed'].includes(s.status.toLowerCase()))?.count ?? 0
@@ -321,16 +327,42 @@ export default function ClientsPage() {
       await clientsApi.updateClient(ownerId, {
         type: editingClient._raw.type,
         next_dial_at: editingClient.nextDialAt || null,
+        agent_id: editingClient._raw.agent_id || null,
         phones,
-      })
+      } as any)
 
       setEditingClient(null)
       toast.success("Client Updated", { description: "The client details have been saved." })
       loadClients(currentPage, typeFilter)
+      loadGlobalChartData()
       loadStatusCounts()
     } catch (error: any) {
       toast.error("Update Failed", { description: error.message })
     }
+  }
+
+  const handleBulkAssignSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!bulkAssignAgent) return toast.error("Select Agent", { description: "Please select an agent to assign these clients."})
+
+    const promise = Promise.all(
+      selectedClientIds.map(id => clientsApi.updateClient(Number(id), {
+        agent_id: parseInt(bulkAssignAgent)
+      } as any))
+    )
+
+    toast.promise(promise, {
+      loading: `Assigning ${selectedClientIds.length} clients...`,
+      success: () => {
+        setIsBulkAssignModalOpen(false)
+        setSelectedClientIds([])
+        setBulkAssignAgent("")
+        loadClients(currentPage, typeFilter)
+        loadGlobalChartData()
+        return `Successfully assigned ${selectedClientIds.length} clients.`
+      },
+      error: 'Failed to assign some clients'
+    })
   }
 
   const openEditClient = (client: DisplayClient) => {
@@ -354,26 +386,31 @@ export default function ClientsPage() {
       setDeletingClientId(null)
       toast.success("Client Deleted", { description: "The client has been permanently removed." })
       loadClients(currentPage, typeFilter)
+      loadGlobalChartData()
       loadStatusCounts()
     } catch (error: any) {
       toast.error("Delete Failed", { description: error.message })
     }
   }
 
-  // --- CSV EXPORT ---
   const exportToCSV = () => {
-    const headers = ["ID", "Client Name", "Primary Phone", "Status", "Projects", "Attempts", "Next Dial"]
+    const headers = ["ID", "Client Name", "Primary Phone", "Project", "Assigned Agent", "Type", "Status", "Attempts", "Next Dial"]
     const csvContent = [
       headers.join(","),
-      ...filteredClients.map(l => [
-        l.id,
-        `"${l.name}"`,
-        `"\t${l.primaryNumber}"`,
-        `"${l.status}"`,
-        `"${l.projects.join(';')}"`,
-        l.attemptCount,
-        `"\t${l.nextDialAt || ''}"`
-      ].join(","))
+      ...filteredClients.map(l => {
+        const agentName = (l._raw as any).agent?.name || agents.find(a => a.id === (l._raw as any).agent_id)?.name || "_"
+        return [
+          l.id,
+          `"${l.name}"`,
+          `"\t${l.primaryNumber}"`,
+          `"${l.projects.join(';')}"`,
+          `"${agentName}"`,
+          `"${l._raw.type || 'OWNER'}"`,
+          `"${l.status}"`,
+          l.attemptCount,
+          `"\t${l.nextDialAt || ''}"`
+        ].join(",")
+      })
     ].join("\n")
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
@@ -386,7 +423,6 @@ export default function ClientsPage() {
     toast.success("Export Complete", { description: "Your CSV file has been downloaded." })
   }
 
-  // --- UPLOAD / ASSIGN HANDLERS ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] || null
     if (file && !file.name.endsWith('.csv') && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
@@ -455,7 +491,6 @@ export default function ClientsPage() {
     setPhoneFields(prev => [...prev, `Phone ${prev.length + 1}`])
   }
 
-  // --- REAL CSV/XLSX PARSING ENGINE (now calls API) ---
   const handleFinalSubmit = (e: React.FormEvent, mode: "upload" | "assign") => {
     e.preventDefault()
     if (mode === "assign" && !uploadAgent) {
@@ -489,20 +524,46 @@ export default function ClientsPage() {
             return val ? String(val).trim() : "";
           }
 
-          // Loop through all dynamically created phone columns
           const rawPhones = phoneFields
             .map(field => getVal(field))
-            .filter(phone => !!phone) // Remove empty strings
-            .map(phone => phone.replace(/\t/g, '')); // Clean export garbage
+            .filter(phone => !!phone)
+            .map(phone => phone.replace(/\t/g, ''));
 
-          if (rawPhones.length === 0) continue; // Requires at least one valid phone
+          if (rawPhones.length === 0) continue;
 
-          ownersToCreate.push({
+          let rawType = getVal("Type").toUpperCase();
+          if (!["OWNER", "LEAD", "BOTH"].includes(rawType)) {
+            rawType = "OWNER";
+          }
+
+          const clientPayload: any = {
             name: getVal("Client Name") || "Unknown Client",
             phones: rawPhones.map(phone => ({ phone })),
-            type: "OWNER",
+            type: rawType,
             info: [],
-          });
+          };
+
+          const projectName = getVal("Project");
+          if (projectName) {
+            const matchedProj = allProjects.find(p => p.name.toLowerCase() === projectName.toLowerCase());
+            if (matchedProj) {
+              clientPayload.project_id = matchedProj.id;
+            }
+          }
+
+          if (mode === "assign" && uploadAgent) {
+            clientPayload.agent_id = parseInt(uploadAgent);
+          } else if (mode === "upload") {
+            const agentName = getVal("Assigned Agent");
+            if (agentName) {
+              const matchedAgent = agents.find(a => a.name.toLowerCase() === agentName.toLowerCase());
+              if (matchedAgent) {
+                clientPayload.agent_id = matchedAgent.id;
+              }
+            }
+          }
+
+          ownersToCreate.push(clientPayload);
         }
 
         if (ownersToCreate.length === 0) {
@@ -522,6 +583,7 @@ export default function ClientsPage() {
       success: (count) => {
         resetModals()
         loadClients(currentPage, typeFilter)
+        loadGlobalChartData()
         loadStatusCounts()
         return `Successfully imported ${count} valid clients into the system.`
       },
@@ -589,14 +651,14 @@ export default function ClientsPage() {
 
   return (
     <>
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex min-h-screen w-full flex-col bg-slate-50/50">
         <AppNavbar />
 
-        <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
-
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <main className="flex-1 p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
+          {/* --- HEADER --- */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-slate-900">Clients Management</h1>
+              <h2 className="text-3xl font-bold tracking-tight text-slate-900">Clients Management</h2>
               <p className="text-muted-foreground mt-1">Track, analyze, and manage your customer pipeline.</p>
             </div>
           </div>
@@ -659,7 +721,6 @@ export default function ClientsPage() {
                 <CardDescription>Current state of the entire pipeline.</CardDescription>
               </CardHeader>
               <CardContent>
-                {/* Added h-[320px] as the default mobile height */}
                 <div className="w-full flex flex-col items-center justify-center h-[350px] sm:h-[350px] md:h-[400px] lg:h-[420px]">
                   {statusDistribution.length > 0 ? (
                     <ResponsiveContainer width="100%" height="100%">
@@ -722,7 +783,7 @@ export default function ClientsPage() {
                         <YAxis dataKey="name" type="category" stroke="hsl(var(--muted-foreground))" fontSize={11} tickLine={false} axisLine={false} width={120} />
                         <RechartsTooltip cursor={{ fill: "rgba(148, 163, 184, 0.05)" }} contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid #e2e8f0" }} />
                         <Bar dataKey="clients" fill={chartPalette.emerald} radius={[0, 4, 4, 0]} barSize={28}>
-                           <LabelList dataKey="clients" position="right" style={{ fontSize: 11, fontWeight: 700, fill: "#334155" }} />
+                            <LabelList dataKey="clients" position="right" style={{ fontSize: 11, fontWeight: 700, fill: "#334155" }} />
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
@@ -797,6 +858,15 @@ export default function ClientsPage() {
                 </div>
 
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto justify-end">
+                  {selectedClientIds.length > 0 && (
+                    <Button
+                      onClick={() => setIsBulkAssignModalOpen(true)}
+                      className="h-9 w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white border-none shadow-sm transition-all"
+                    >
+                      Bulk Assign ({selectedClientIds.length})
+                    </Button>
+                  )}
+
                   <Button onClick={exportToCSV} variant="default" className="h-9 w-full sm:w-auto">
                     <Download className="h-4 w-4"/> Export CSV
                   </Button>
@@ -810,15 +880,29 @@ export default function ClientsPage() {
               </div>
             </CardHeader>
 
-
             <CardContent className="p-0">
               <div className="block w-full overflow-x-auto">
                 <Table className="min-w-[1000px] w-full">
                   <TableHeader>
                     <TableRow className="bg-slate-50/50 hover:bg-slate-50/50">
-                      <TableHead className="pl-6">Client Name</TableHead>
+                      <TableHead className="w-[40px] pl-6 py-4">
+                        <input
+                          type="checkbox"
+                          className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                          checked={paginatedClients.length > 0 && selectedClientIds.length === paginatedClients.length}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedClientIds(paginatedClients.map(c => c.id))
+                            } else {
+                              setSelectedClientIds([])
+                            }
+                          }}
+                        />
+                      </TableHead>
+                      <TableHead>Client Name</TableHead>
                       <TableHead>Primary Phone</TableHead>
                       <TableHead>Project</TableHead>
+                      <TableHead>Assigned Agent</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-center">Attempts</TableHead>
                       <TableHead>Next Dial</TableHead>
@@ -828,7 +912,7 @@ export default function ClientsPage() {
                   <TableBody>
                     {isLoading ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center text-slate-500">
+                        <TableCell colSpan={9} className="h-24 text-center text-slate-500">
                           <div className="flex items-center justify-center gap-2">
                             <Loader2 className="h-5 w-5 animate-spin text-slate-400" />
                             Loading clients...
@@ -837,9 +921,26 @@ export default function ClientsPage() {
                       </TableRow>
                     ) : paginatedClients.length > 0 ? paginatedClients.map(client => (
                       <TableRow key={client.id} className="hover:bg-slate-50/80 transition-colors">
-                        <TableCell className="pl-6 font-semibold text-slate-800 whitespace-nowrap">{client.name}</TableCell>
+                        <TableCell className="pl-6 w-[40px]">
+                          <input
+                            type="checkbox"
+                            className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer"
+                            checked={selectedClientIds.includes(client.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedClientIds(prev => [...prev, client.id])
+                              } else {
+                                setSelectedClientIds(prev => prev.filter(id => id !== client.id))
+                              }
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell className="font-semibold text-slate-800 whitespace-nowrap">{client.name}</TableCell>
                         <TableCell className="font-mono text-xs text-slate-600 whitespace-nowrap">{client.primaryNumber}</TableCell>
                         <TableCell className="text-xs text-slate-600 font-medium whitespace-nowrap">{client.projects.join(', ') || "—"}</TableCell>
+                        <TableCell className="text-xs font-medium text-slate-700 whitespace-nowrap">
+                          {(client._raw as any).agent?.name || agents.find(a => a.id === (client._raw as any).agent_id)?.name || "_"}
+                        </TableCell>
                         <TableCell className="whitespace-nowrap">
                           <Badge variant="outline" className={`font-semibold border-none ${getStatusColor(client.status)}`}>
                             {client.status}
@@ -874,7 +975,7 @@ export default function ClientsPage() {
                       </TableRow>
                     )) : (
                       <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center text-slate-500">
+                        <TableCell colSpan={9} className="h-24 text-center text-slate-500">
                           No clients found matching your search.
                         </TableCell>
                       </TableRow>
@@ -906,6 +1007,39 @@ export default function ClientsPage() {
           </Card>
         </main>
       </div>
+
+      {/* --- BULK ASSIGN DIALOG --- */}
+      <Dialog open={isBulkAssignModalOpen} onOpenChange={(open) => !open && setIsBulkAssignModalOpen(false)}>
+        <DialogContent className="sm:max-w-[425px] bg-background">
+          <form onSubmit={handleBulkAssignSubmit}>
+            <DialogHeader>
+              <DialogTitle>Bulk Assign Clients</DialogTitle>
+              <DialogDescription>
+                Assign the <strong>{selectedClientIds.length}</strong> selected clients to a specific agent.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-6">
+              <div className="space-y-2">
+                <Label htmlFor="bulk-agent">Select Agent</Label>
+                <select
+                  id="bulk-agent"
+                  required
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+                  value={bulkAssignAgent}
+                  onChange={(e) => setBulkAssignAgent(e.target.value)}
+                >
+                  <option value="" disabled>Select an agent...</option>
+                  {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setIsBulkAssignModalOpen(false)}>Cancel</Button>
+              <Button type="submit" disabled={!bulkAssignAgent} className="bg-indigo-600 hover:bg-indigo-700 text-white">Assign Selected</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* --- EDIT CLIENT DIALOG --- */}
       <Dialog open={editingClient !== null} onOpenChange={(open) => !open && setEditingClient(null)}>
@@ -956,7 +1090,21 @@ export default function ClientsPage() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-xs text-muted-foreground">You can add or remove multiple phone numbers for this client.</p>
+                </div>
+
+                <div className="col-span-2 flex flex-col gap-2">
+                  <Label>Assigned Agent</Label>
+                  <select
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    value={editingClient._raw.agent_id || ""}
+                    onChange={(e) => setEditingClient({
+                      ...editingClient,
+                      _raw: { ...editingClient._raw, agent_id: e.target.value ? parseInt(e.target.value) : null }
+                    })}
+                  >
+                    <option value="">— Unassigned —</option>
+                    {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
                 </div>
 
                 <div className="col-span-2 flex flex-col gap-2">
@@ -966,6 +1114,7 @@ export default function ClientsPage() {
                     disabled
                     className="bg-slate-50"
                   />
+                  <p className="text-[10px] text-muted-foreground mt-1">Note: Projects cannot be changed after creation per API rules.</p>
                 </div>
 
                 <div className="flex flex-col gap-2">

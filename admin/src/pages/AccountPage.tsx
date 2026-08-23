@@ -139,13 +139,14 @@ export default function AccountPage() {
 
   return (
     <>
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex min-h-screen w-full flex-col bg-slate-50/50">
 
         {/* DYNAMIC NAVBAR: Only Admins get the Agents and Clients links */}
         <AppNavbar
           link1Name={isAdmin ? "Dashboard" : "Agent-Dashboard"}
           link2Name={isAdmin ? "Agents" : ""}
           link3Name={isAdmin ? "Clients" : ""}
+          link4Name={isAdmin ? "Projects" : ""}
         />
 
         <main className="flex-1 p-4 md:p-8 flex items-center justify-center w-full">
