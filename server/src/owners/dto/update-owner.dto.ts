@@ -1,8 +1,13 @@
 import { IsInt, IsOptional, IsString, ValidateNested, ArrayMinSize } from 'class-validator';
 import { Type } from 'class-transformer';
 import { OwnerPhoneDto } from './owner-phone.dto';
+import { OwnerInfoDto } from './owner-info.dto';
 
 export class UpdateOwnerDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
   @IsOptional()
   @IsString()
   type?: string;
@@ -20,4 +25,9 @@ export class UpdateOwnerDto {
   @ArrayMinSize(1)
   @Type(() => OwnerPhoneDto)
   phones?: OwnerPhoneDto[];
+
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => OwnerInfoDto)
+  info?: OwnerInfoDto[];
 }

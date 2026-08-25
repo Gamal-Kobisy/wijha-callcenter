@@ -55,18 +55,4 @@ export class ProjectsController {
   async remove(@Param('projectId', ParseIntPipe) projectId: number): Promise<void> {
     return this.projectsService.remove(projectId);
   }
-}  @Post()
-  async create(@Body() body: { name: string; description?: string }) {
-    return this.projectsService.createProject(body.name, body.description);
-  }
-
-  @Put(':projectId')
-  async update(@Param('projectId', ParseIntPipe) projectId: number, @Body() body: { name?: string; description?: string }) {
-    return this.projectsService.updateProject(projectId, body);
-  }
-
-  @Delete(':projectId')
-  async remove(@Param('projectId', ParseIntPipe) projectId: number): Promise<void> {
-    return this.projectsService.deleteProject(projectId);
-  }
 }
