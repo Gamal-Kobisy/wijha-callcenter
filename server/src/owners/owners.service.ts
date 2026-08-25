@@ -217,6 +217,7 @@ export class OwnersService {
     const client = await this.prisma.client.update({
       where: { id },
       data: {
+        ...(dto.name !== undefined ? { name: dto.name } : {}),
         ...(dto.type !== undefined ? { type: dto.type } : {}),
         ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
         ...(dto.next_dial_at !== undefined ? { nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at).toISOString() : null } : {}),
@@ -232,7 +233,25 @@ export class OwnersService {
       include: { numbers: true, clientInfo: true },
     });
 
-    return toOwnerResponse(client);
+    if (dto.info !== undefined) {
+      await this.prisma.clientInfo.deleteMany({ where: { clientId: id } });
+      if (dto.info.length > 0) {
+        await this.prisma.clientInfo.createMany({
+          data: dto.info.map(i => ({ clientId: id, key: i.key, value: i.value })),
+        });
+      }
+    }
+
+    const updated = await this.prisma.client.findUnique({
+      where: { id },
+      include: { numbers: true, clientInfo: true },
+    });
+
+    if (!updated) {
+      throw new NotFoundException('Client not found after update');
+    }
+
+    return toOwnerResponse(updated);
   }
 
   async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number, type?: 'OWNER' | 'LEAD' }): Promise<OwnerResponseDto | null> {
