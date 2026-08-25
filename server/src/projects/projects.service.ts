@@ -1,5 +1,9 @@
+<<<<<<< Updated upstream
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+=======
+import { Injectable, NotFoundException } from '@nestjs/common';
+>>>>>>> Stashed changes
 import { PrismaService } from '@/prisma/prisma.service';
 import type { ProjectResponseDto } from './dto/project-response.dto';
 import type { CreateProjectDto } from './dto/create-project.dto';
@@ -14,7 +18,30 @@ export class ProjectsService {
   }
 
   async findById(id: number): Promise<ProjectResponseDto | null> {
-    return this.prisma.project.findUnique({ where: { id } });
+    const project = await this.prisma.project.findUnique({ where: { id } });
+    if (!project) throw new NotFoundException('Project not found');
+    return project;
+  }
+
+  async createProject(name: string, description?: string): Promise<ProjectResponseDto> {
+    return this.prisma.project.create({
+      data: { name, description }
+    });
+  }
+
+  async updateProject(id: number, data: { name?: string; description?: string }): Promise<ProjectResponseDto> {
+    const existing = await this.findById(id);
+    if (!existing) throw new NotFoundException('Project not found');
+    return this.prisma.project.update({
+      where: { id },
+      data
+    });
+  }
+
+  async deleteProject(id: number): Promise<void> {
+    const existing = await this.findById(id);
+    if (!existing) throw new NotFoundException('Project not found');
+    return this.prisma.project.delete({ where: { id } });
   }
 
   async create(dto: CreateProjectDto): Promise<ProjectResponseDto> {

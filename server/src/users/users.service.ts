@@ -26,46 +26,54 @@ export class UsersService {
   }
 
   async findAll(role?: string, online?: string): Promise<UserResponseDto[]> {
-    const users = await this.prisma.user.findMany({
-      where: role ? { role } : undefined,
-      omit: { passwordHash: true },
-    });
-
-    const agentIds = users.map(u => u.id);
-    let activeAgentIds: number[] = [];
-    if (agentIds.length > 0) {
-      const activeSessions = await this.prisma.activeSession.findMany({
-        where: { agentId: { in: agentIds } },
-        select: { agentId: true },
+    try {
+      const users = await this.prisma.user.findMany({
+        where: role ? { role } : undefined,
+        omit: { passwordHash: true },
       });
-      activeAgentIds = activeSessions.map(a => a.agentId);
+
+      const agentIds = users.map(u => u.id);
+      let activeAgentIds: number[] = [];
+      if (agentIds.length > 0) {
+        const activeSessions = await this.prisma.activeSession.findMany({
+          where: { agentId: { in: agentIds } },
+          select: { agentId: true },
+        });
+        activeAgentIds = activeSessions.map(a => a.agentId);
+      }
+
+      let filtered = users.map(u => ({
+        ...this.toResponse(u, activeAgentIds.includes(u.id)),
+      }));
+
+      if (online === 'true') {
+        filtered = filtered.filter(u => u.is_online);
+      } else if (online === 'false') {
+        filtered = filtered.filter(u => !u.is_online);
+      }
+
+      return filtered;
+    } catch (error) {
+      throw error;
     }
-
-    let filtered = users.map(u => ({
-      ...this.toResponse(u, activeAgentIds.includes(u.id)),
-    }));
-
-    if (online === 'true') {
-      filtered = filtered.filter(u => u.is_online);
-    } else if (online === 'false') {
-      filtered = filtered.filter(u => !u.is_online);
-    }
-
-    return filtered;
   }
 
   async findById(id: number): Promise<UserResponseDto | null> {
-    const user = await this.prisma.user.findUnique({
-      where: { id },
-      omit: { passwordHash: true },
-    });
-    if (!user) return null;
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id },
+        omit: { passwordHash: true },
+      });
+      if (!user) return null;
 
-    const activeSession = await this.prisma.activeSession.findUnique({
-      where: { agentId: id },
-    });
+      const activeSession = await this.prisma.activeSession.findUnique({
+        where: { agentId: id },
+      });
 
-    return this.toResponse(user, !!activeSession);
+      return this.toResponse(user, !!activeSession);
+    } catch (error) {
+      throw error;
+    }
   }
 
   async create(dto: CreateUserDto): Promise<UserResponseDto> {
@@ -121,18 +129,22 @@ export class UsersService {
     }
   }
 
-  async deactivate(id: number): Promise<UserResponseDto> {
-    const existing = await this.prisma.user.findUnique({ where: { id } });
-    if (!existing) {
-      throw new NotFoundException('User not found');
-    }
+async deactivate(id: number): Promise<UserResponseDto> {
+    try {
+      const existing = await this.prisma.user.findUnique({ where: { id } });
+      if (!existing) {
+        throw new NotFoundException('User not found');
+      }
 
-    const user = await this.prisma.user.update({
-      where: { id },
-      data: { role: 'deactivated', passwordHash: '!deactivated!' },
-      omit: { passwordHash: true },
-    });
-    return this.toResponse(user);
+      const user = await this.prisma.user.update({
+        where: { id },
+        data: { role: 'deactivated', passwordHash: '!deactivated!' },
+        omit: { passwordHash: true },
+      });
+      return this.toResponse(user);
+    } catch (error) {
+      throw error;
+    }
   }
 
   async createBulk(dtos: CreateUserDto[]): Promise<UserResponseDto[]> {

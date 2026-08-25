@@ -46,8 +46,9 @@ export class OwnersService {
     status?: string,
     page = 1,
     limit = 20,
-    agent_id?: number,
+    agent_id?: number
   ): Promise<{ data: OwnerResponseDto[]; meta: { total: number; page: number; limit: number } }> {
+<<<<<<< Updated upstream
     const where: any = {};
     if (type) where.type = type;
     if (agent_id) where.agentId = agent_id;
@@ -67,124 +68,170 @@ export class OwnersService {
       }),
       this.prisma.client.count({ where }),
     ]);
+=======
+    try {
+      const where: any = {};
+      if (type) where.type = type;
+      if (agent_id) where.agentId = agent_id;
+      if (project_id) where.clientProjects = { some: { projectId: project_id } };
 
-    return {
-      data: clients.map(toOwnerResponse),
-      meta: { total, page, limit },
-    };
+      const [clients, total] = await Promise.all([
+        this.prisma.client.findMany({
+          where,
+          include: { numbers: true, clientInfo: true },
+          skip: (page - 1) * limit,
+          take: limit,
+        }),
+        this.prisma.client.count({ where })
+      ]);
+>>>>>>> Stashed changes
+
+      return {
+        data: clients.map(toOwnerResponse),
+        meta: { total, page, limit },
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   async findById(id: number): Promise<OwnerResponseDto | null> {
+<<<<<<< Updated upstream
     const client = await this.prisma.client.findUnique({
       where: { id },
       include: { numbers: true, clientInfo: true, clientProjects: { include: { project: true } } },
     });
     if (!client) return null;
     return toOwnerResponse(client);
+=======
+    try {
+      const client = await this.prisma.client.findUnique({
+        where: { id },
+        include: { numbers: true, clientInfo: true },
+      });
+      if (!client) return null;
+      return toOwnerResponse(client);
+    } catch (error) {
+      throw error;
+    }
+>>>>>>> Stashed changes
   }
 
   async create(dto: CreateOwnerDto): Promise<OwnerResponseDto> {
-    return this.upsertOwner(this.prisma, dto);
+    try {
+      return await this.upsertOwner(this.prisma, dto);
+    } catch (error) {
+      throw error;
+    }
   }
 
   async createBulk(dtos: CreateOwnerDto[]): Promise<OwnerResponseDto[]> {
-    return this.prisma.$transaction(async (tx) => {
-      const results: OwnerResponseDto[] = [];
-      for (const dto of dtos) {
-        results.push(await this.upsertOwner(tx, dto));
-      }
-      return results;
-    });
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const results: OwnerResponseDto[] = [];
+        for (const dto of dtos) {
+          results.push(await this.upsertOwner(tx, dto));
+        }
+        return results;
+      });
+    } catch (error) {
+      throw error;
+    }
   }
 
   private async upsertOwner(client: any, dto: CreateOwnerDto): Promise<OwnerResponseDto> {
-    const phoneNumbers = dto.phones.map(n => n.phone);
-    const existingNumber = await client.number.findFirst({
-      where: { number: { in: phoneNumbers } },
-      include: { client: { include: { numbers: true, clientInfo: true } } },
-    });
+    try {
+      const phoneNumbers = dto.phones.map(n => n.phone);
+      const existingNumber = await client.number.findFirst({
+        where: { number: { in: phoneNumbers } },
+        include: { client: { include: { numbers: true, clientInfo: true } } },
+      });
 
-    if (existingNumber) {
-      const existingClient = existingNumber.client;
-      const existingPhoneValues = existingClient.numbers.map((n: { number: string }) => n.number);
-      const newNumbers = phoneNumbers.filter(n => !existingPhoneValues.includes(n));
-      const existingInfoKeys = (existingClient.clientInfo ?? []).map((i: { key: string }) => i.key);
-      const newInfo = (dto.info ?? []).filter(
-        i => i.key != null && i.value != null && !existingInfoKeys.includes(i.key!),
-      );
+      if (existingNumber) {
+        const existingClient = existingNumber.client;
+        const existingPhoneValues = existingClient.numbers.map((n: { number: string }) => n.number);
+        const newNumbers = phoneNumbers.filter(n => !existingPhoneValues.includes(n));
+        const existingInfoKeys = (existingClient.clientInfo ?? []).map((i: { key: string }) => i.key);
+        const newInfo = (dto.info ?? []).filter(
+          i => i.key != null && i.value != null && !existingInfoKeys.includes(i.key!),
+        );
 
-      const mergedName =
-        dto.name !== undefined
-          ? !existingClient.name || dto.name.length > existingClient.name.length
-            ? dto.name
-            : undefined
-          : undefined;
+        const mergedName =
+          dto.name !== undefined
+            ? !existingClient.name || dto.name.length > existingClient.name.length
+              ? dto.name
+              : undefined
+            : undefined;
 
-      const updated = await client.client.update({
-        where: { id: existingClient.id },
-        data: {
-          ...(mergedName !== undefined ? { name: mergedName } : {}),
-          ...(dto.type !== undefined ? { type: dto.type } : {}),
-          ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
-          ...(newNumbers.length > 0
-            ? { numbers: { create: newNumbers.map(n => ({ number: n })) } }
-            : {}),
-          ...(newInfo.length > 0
-            ? {
-                clientInfo: {
-                  create: newInfo.map(i => ({ key: i.key!, value: i.value! })),
-                },
-              }
-            : {}),
-          ...(dto.project_id
-            ? {
-                clientProjects: {
-                  upsert: {
-                    where: {
-                      clientId_projectId: {
-                        clientId: existingClient.id,
-                        projectId: dto.project_id,
-                      },
-                    },
-                    create: { projectId: dto.project_id, status: 'dial', attemptCount: 0 },
-                    update: {},
+        const updated = await client.client.update({
+          where: { id: existingClient.id },
+          data: {
+            ...(mergedName !== undefined ? { name: mergedName } : {}),
+            ...(dto.type !== undefined ? { type: dto.type } : {}),
+            ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
+            ...(newNumbers.length > 0
+              ? { numbers: { create: newNumbers.map(n => ({ number: n })) } }
+              : {}),
+            ...(newInfo.length > 0
+              ? {
+                  clientInfo: {
+                    create: newInfo.map(i => ({ key: i.key!, value: i.value! })),
                   },
-                },
+                }
+              : {}),
+            ...(dto.project_id
+              ? {
+                  clientProjects: {
+                    upsert: {
+                      where: {
+                        clientId_projectId: {
+                          clientId: existingClient.id,
+                          projectId: dto.project_id,
+                        },
+                      },
+                      create: { projectId: dto.project_id, status: 'dial', attemptCount: 0 },
+                      update: {},
+                    },
+                  },
+                }
+              : {}),
+          },
+          include: { numbers: true, clientInfo: true },
+        });
+
+        return toOwnerResponse(updated);
+      }
+
+      const created = await client.client.create({
+        data: {
+          name: dto.name,
+          type: dto.type ?? 'OWNER',
+          agentId: dto.agent_id ?? null,
+          numbers: {
+            create: dto.phones.map(n => ({ number: n.phone })),
+          },
+          clientInfo: dto.info?.length
+            ? {
+                create: dto.info
+                  .filter(i => i.key != null && i.value != null)
+                  .map(i => ({ key: i.key!, value: i.value! })),
               }
-            : {}),
+            : undefined,
+          clientProjects: dto.project_id
+            ? { create: { projectId: dto.project_id, status: 'dial', attemptCount: 0 } }
+            : undefined,
         },
         include: { numbers: true, clientInfo: true },
       });
 
-      return toOwnerResponse(updated);
+      return toOwnerResponse(created);
+    } catch (error) {
+      throw error;
     }
-
-    const created = await client.client.create({
-      data: {
-        name: dto.name,
-        type: dto.type ?? 'OWNER',
-        agentId: dto.agent_id ?? null,
-        numbers: {
-          create: dto.phones.map(n => ({ number: n.phone })),
-        },
-        clientInfo: dto.info?.length
-          ? {
-              create: dto.info
-                .filter(i => i.key != null && i.value != null)
-                .map(i => ({ key: i.key!, value: i.value! })),
-            }
-          : undefined,
-        clientProjects: dto.project_id
-          ? { create: { projectId: dto.project_id, status: 'dial', attemptCount: 0 } }
-          : undefined,
-      },
-      include: { numbers: true, clientInfo: true },
-    });
-
-    return toOwnerResponse(created);
   }
 
   async update(id: number, dto: UpdateOwnerDto): Promise<OwnerResponseDto> {
+<<<<<<< Updated upstream
     const existing = await this.prisma.client.findUnique({
       where: { id },
       include: { numbers: true },
@@ -221,6 +268,28 @@ export class OwnersService {
     });
 
     return toOwnerResponse(client);
+=======
+    try {
+      const existing = await this.prisma.client.findUnique({ where: { id } });
+      if (!existing) {
+        throw new NotFoundException('Client not found');
+      }
+
+      const client = await this.prisma.client.update({
+        where: { id },
+        data: {
+          ...(dto.type !== undefined ? { type: dto.type } : {}),
+          ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
+          ...(dto.next_dial_at !== undefined ? { nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at).toISOString() : null } : {}),
+        },
+        include: { numbers: true, clientInfo: true },
+      });
+
+      return toOwnerResponse(client);
+    } catch (error) {
+      throw error;
+    }
+>>>>>>> Stashed changes
   }
 
   async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number, type?: 'OWNER' | 'LEAD' }): Promise<OwnerResponseDto | null> {
@@ -273,23 +342,27 @@ export class OwnersService {
   }
 
   async assignToProject(clientId: number, projectName: string): Promise<OwnerResponseDto> {
-    const existingClient = await this.prisma.client.findUnique({ where: { id: clientId } });
-    if (!existingClient) throw new NotFoundException('Client not found');
+    try {
+      const existingClient = await this.prisma.client.findUnique({ where: { id: clientId } });
+      if (!existingClient) throw new NotFoundException('Client not found');
 
-    const project = await this.prisma.project.findFirst({ where: { name: projectName } });
-    if (!project) throw new NotFoundException(`Project "${projectName}" not found`);
+      const project = await this.prisma.project.findFirst({ where: { name: projectName } });
+      if (!project) throw new NotFoundException(`Project "${projectName}" not found`);
 
-    await this.prisma.clientProject.upsert({
-      where: { clientId_projectId: { clientId, projectId: project.id } },
-      create: { clientId, projectId: project.id, status: 'dial', attemptCount: 0 },
-      update: {},
-    });
+      await this.prisma.clientProject.upsert({
+        where: { clientId_projectId: { clientId, projectId: project.id } },
+        create: { clientId, projectId: project.id, status: 'dial', attemptCount: 0 },
+        update: {},
+      });
 
-    const updated = await this.prisma.client.findUnique({
-      where: { id: clientId },
-      include: { numbers: true, clientInfo: true },
-    });
-    return toOwnerResponse(updated!);
+      const updated = await this.prisma.client.findUnique({
+        where: { id: clientId },
+        include: { numbers: true, clientInfo: true },
+      });
+      return toOwnerResponse(updated!);
+    } catch (error) {
+      throw error;
+    }
   }
 
   async remove(id: number): Promise<void> {
