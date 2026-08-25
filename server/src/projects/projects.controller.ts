@@ -1,4 +1,3 @@
-<<<<<<< Updated upstream
 import {
   Controller,
   Get,
@@ -12,9 +11,6 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-=======
-import { Controller, Get, Post, Put, Delete, Param, Body } from '@nestjs/common';
->>>>>>> Stashed changes
 import { ProjectsService } from './projects.service';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { UpdateProjectDto } from './dto/update-project.dto';
@@ -44,7 +40,6 @@ export class ProjectsController {
     return this.projectsService.findById(projectId);
   }
 
-<<<<<<< Updated upstream
   @Patch(':projectId')
   async update(
     @Param('projectId', ParseIntPipe) projectId: number,
@@ -60,9 +55,7 @@ export class ProjectsController {
   async remove(@Param('projectId', ParseIntPipe) projectId: number): Promise<void> {
     return this.projectsService.remove(projectId);
   }
-}
-=======
-  @Post()
+}  @Post()
   async create(@Body() body: { name: string; description?: string }) {
     return this.projectsService.createProject(body.name, body.description);
   }
@@ -77,4 +70,3 @@ export class ProjectsController {
     return this.projectsService.deleteProject(projectId);
   }
 }
->>>>>>> Stashed changes

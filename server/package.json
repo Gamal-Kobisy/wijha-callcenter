@@ -4,13 +4,8 @@
   "description": "Wijha Callcenter - NestJS + Prisma",
   "private": true,
   "scripts": {
-<<<<<<< Updated upstream
     "build": "npx prisma generate && nest build",
     "start": "npm run build && npm run start:prod",
-=======
-    "build": "nest build && npm run prisma:generate",
-    "start": "nest start",
->>>>>>> Stashed changes
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "prisma:generate": "prisma generate",

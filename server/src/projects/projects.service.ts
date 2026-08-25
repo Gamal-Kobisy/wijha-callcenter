@@ -1,9 +1,5 @@
-<<<<<<< Updated upstream
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-=======
-import { Injectable, NotFoundException } from '@nestjs/common';
->>>>>>> Stashed changes
 import { PrismaService } from '@/prisma/prisma.service';
 import type { ProjectResponseDto } from './dto/project-response.dto';
 import type { CreateProjectDto } from './dto/create-project.dto';

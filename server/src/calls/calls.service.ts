@@ -1,9 +1,5 @@
-<<<<<<< Updated upstream
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-=======
-import { Injectable } from '@nestjs/common';
->>>>>>> Stashed changes
 import { PrismaService } from '@/prisma/prisma.service';
 import type { SubmitCallDto } from '@/calls/dto/submit-call.dto';
 import type { NotifyCallingDto } from '@/calls/dto/notify-calling.dto';

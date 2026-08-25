@@ -48,7 +48,6 @@ export class OwnersService {
     limit = 20,
     agent_id?: number
   ): Promise<{ data: OwnerResponseDto[]; meta: { total: number; page: number; limit: number } }> {
-<<<<<<< Updated upstream
     const where: any = {};
     if (type) where.type = type;
     if (agent_id) where.agentId = agent_id;
@@ -68,53 +67,20 @@ export class OwnersService {
       }),
       this.prisma.client.count({ where }),
     ]);
-=======
-    try {
-      const where: any = {};
-      if (type) where.type = type;
-      if (agent_id) where.agentId = agent_id;
-      if (project_id) where.clientProjects = { some: { projectId: project_id } };
 
-      const [clients, total] = await Promise.all([
-        this.prisma.client.findMany({
-          where,
-          include: { numbers: true, clientInfo: true },
-          skip: (page - 1) * limit,
-          take: limit,
-        }),
-        this.prisma.client.count({ where })
-      ]);
->>>>>>> Stashed changes
-
-      return {
-        data: clients.map(toOwnerResponse),
-        meta: { total, page, limit },
-      };
-    } catch (error) {
-      throw error;
-    }
+    return {
+      data: clients.map(toOwnerResponse),
+      meta: { total, page, limit },
+    };
   }
 
   async findById(id: number): Promise<OwnerResponseDto | null> {
-<<<<<<< Updated upstream
     const client = await this.prisma.client.findUnique({
       where: { id },
       include: { numbers: true, clientInfo: true, clientProjects: { include: { project: true } } },
     });
     if (!client) return null;
     return toOwnerResponse(client);
-=======
-    try {
-      const client = await this.prisma.client.findUnique({
-        where: { id },
-        include: { numbers: true, clientInfo: true },
-      });
-      if (!client) return null;
-      return toOwnerResponse(client);
-    } catch (error) {
-      throw error;
-    }
->>>>>>> Stashed changes
   }
 
   async create(dto: CreateOwnerDto): Promise<OwnerResponseDto> {
@@ -231,7 +197,6 @@ export class OwnersService {
   }
 
   async update(id: number, dto: UpdateOwnerDto): Promise<OwnerResponseDto> {
-<<<<<<< Updated upstream
     const existing = await this.prisma.client.findUnique({
       where: { id },
       include: { numbers: true },
@@ -268,28 +233,6 @@ export class OwnersService {
     });
 
     return toOwnerResponse(client);
-=======
-    try {
-      const existing = await this.prisma.client.findUnique({ where: { id } });
-      if (!existing) {
-        throw new NotFoundException('Client not found');
-      }
-
-      const client = await this.prisma.client.update({
-        where: { id },
-        data: {
-          ...(dto.type !== undefined ? { type: dto.type } : {}),
-          ...(dto.agent_id !== undefined ? { agentId: dto.agent_id } : {}),
-          ...(dto.next_dial_at !== undefined ? { nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at).toISOString() : null } : {}),
-        },
-        include: { numbers: true, clientInfo: true },
-      });
-
-      return toOwnerResponse(client);
-    } catch (error) {
-      throw error;
-    }
->>>>>>> Stashed changes
   }
 
   async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number, type?: 'OWNER' | 'LEAD' }): Promise<OwnerResponseDto | null> {
