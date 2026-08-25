@@ -79,7 +79,7 @@ export class OwnersController {
   }
 
   @Delete(':ownerId')
-  @HttpCode(HttpStatus.NOT_FOUND)
+  @HttpCode(HttpStatus.NO_CONTENT)
   async remove(@Param('ownerId', ParseIntPipe) ownerId: number): Promise<void> {
     return this.ownersService.remove(ownerId);
   }
