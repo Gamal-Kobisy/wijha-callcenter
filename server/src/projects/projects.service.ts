@@ -37,7 +37,7 @@ export class ProjectsService {
   async deleteProject(id: number): Promise<void> {
     const existing = await this.findById(id);
     if (!existing) throw new NotFoundException('Project not found');
-    return this.prisma.project.delete({ where: { id } });
+    await this.prisma.project.delete({ where: { id } });
   }
 
   async create(dto: CreateProjectDto): Promise<ProjectResponseDto> {

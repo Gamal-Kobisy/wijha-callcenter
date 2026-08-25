@@ -237,7 +237,9 @@ export class OwnersService {
       await this.prisma.clientInfo.deleteMany({ where: { clientId: id } });
       if (dto.info.length > 0) {
         await this.prisma.clientInfo.createMany({
-          data: dto.info.map(i => ({ clientId: id, key: i.key, value: i.value })),
+          data: dto.info
+            .filter(i => i.key != null && i.value != null)
+            .map(i => ({ clientId: id, key: i.key!, value: i.value! })),
         });
       }
     }
