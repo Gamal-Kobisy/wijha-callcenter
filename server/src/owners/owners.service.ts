@@ -256,7 +256,7 @@ export class OwnersService {
     return toOwnerResponse(updated);
   }
 
-  async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number, type?: 'OWNER' | 'LEAD' }): Promise<OwnerResponseDto | null> {
+  async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number, type?: 'OWNER' | 'LEAD' | 'BOTH' }): Promise<OwnerResponseDto | null> {
     const { projectId, agentId, type } = args;
 
     const projectClause = projectId !== undefined && projectId !== null

@@ -14,6 +14,6 @@ export class GetNextClientQueryDto {
   date?: string;
 
   @IsOptional()
-  @IsIn(['OWNER', 'LEAD'])
-  type?: 'OWNER' | 'LEAD';
+  @IsIn(['OWNER', 'LEAD', 'BOTH'])
+  type?: 'OWNER' | 'LEAD' | 'BOTH';
 }
