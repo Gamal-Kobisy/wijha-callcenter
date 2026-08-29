@@ -14,6 +14,7 @@ describe('Owners E2E', () => {
   let testModule: TestApp['module'];
   let adminToken: string;
   let projectId: number;
+  let adminId: number;
   let counter = 0;
   const phone = () => `+2010${(90000000 + counter++).toString().padStart(8, '0')}`;
 
@@ -25,6 +26,7 @@ describe('Owners E2E', () => {
     await seedTestData(prisma);
     adminToken = await login(app, 'admin1@gmail.com', 'admin123');
     projectId = (await prisma.project.findFirst({ where: { name: 'Default Project' } }))!.id;
+    adminId = (await prisma.user.findFirst({ where: { email: 'admin1@gmail.com' } }))!.id;
   });
 
   afterAll(async () => {
@@ -40,7 +42,7 @@ describe('Owners E2E', () => {
         name: 'Mohamed Ali',
         project_id: projectId,
         type: 'OWNER',
-        agent_id: 1,
+        agent_id: adminId,
         phones: [{ phone: phone() }],
         info: [{ key: 'city', value: 'Cairo' }],
       })

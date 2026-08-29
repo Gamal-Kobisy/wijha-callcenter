@@ -338,6 +338,10 @@ export class OwnersService {
       throw new NotFoundException('Client not found');
     }
 
+    await this.prisma.number.deleteMany({ where: { clientId: id } });
+    await this.prisma.clientInfo.deleteMany({ where: { clientId: id } });
+    await this.prisma.clientProject.deleteMany({ where: { clientId: id } });
+    await this.prisma.callDetailRecord.deleteMany({ where: { clientId: id } });
     await this.prisma.client.delete({ where: { id } });
   }
 }
