@@ -48,7 +48,11 @@ export class OwnersService {
     limit = 20,
     agent_id?: number
   ): Promise<{ data: OwnerResponseDto[]; meta: { total: number; page: number; limit: number } }> {
-    const where: any = {};
+    const where: {
+      type?: string;
+      agentId?: number;
+      clientProjects?: { some: { projectId?: number; status?: string } };
+    } = {};
     if (type) where.type = type;
     if (agent_id) where.agentId = agent_id;
     if (project_id) where.clientProjects = { some: { projectId: project_id } };
@@ -105,7 +109,7 @@ export class OwnersService {
     }
   }
 
-  private async upsertOwner(client: any, dto: CreateOwnerDto): Promise<OwnerResponseDto> {
+  private async upsertOwner(client: Pick<PrismaService, 'number' | 'client' | 'clientInfo' | 'clientProject'>, dto: CreateOwnerDto): Promise<OwnerResponseDto> {
     try {
       const phoneNumbers = dto.phones.map(n => n.phone);
       const existingNumber = await client.number.findFirst({
@@ -242,25 +246,24 @@ export class OwnersService {
             .map(i => ({ clientId: id, key: i.key!, value: i.value! })),
         });
       }
+      return toOwnerResponse({
+        ...client,
+        clientInfo: dto.info
+          .filter(i => i.key != null && i.value != null)
+          .map(i => ({ key: i.key!, value: i.value! })),
+      });
     }
 
-    const updated = await this.prisma.client.findUnique({
-      where: { id },
-      include: { numbers: true, clientInfo: true },
-    });
-
-    if (!updated) {
-      throw new NotFoundException('Client not found after update');
-    }
-
-    return toOwnerResponse(updated);
+    return toOwnerResponse(client);
   }
 
   async getNextOwner(args: { projectId?: number, date?: Date, agentId?: number, type?: 'OWNER' | 'LEAD' | 'BOTH' }): Promise<OwnerResponseDto | null> {
     const { projectId, agentId, type } = args;
 
-    const projectClause = projectId !== undefined && projectId !== null
-      ? Prisma.sql`AND cp.project_id = ${projectId}`
+    const effectiveProjectId = projectId && projectId !== 0 ? projectId : undefined;
+
+    const projectClause = effectiveProjectId !== undefined && effectiveProjectId !== null
+      ? Prisma.sql`AND cp.project_id = ${effectiveProjectId}`
       : Prisma.empty;
 
     const agentClause = agentId !== undefined && agentId !== null
@@ -274,8 +277,8 @@ export class OwnersService {
     const rows = await this.prisma.$queryRaw<{ id: bigint }[]>`
       SELECT c.id
       FROM client c
-      JOIN client_project cp ON cp.client_id = c.id
-      WHERE cp.status IN ('dial', 'callback', 'not_answered')
+      LEFT JOIN client_project cp ON cp.client_id = c.id
+      WHERE (cp.status IN ('dial', 'callback', 'not_answered') OR cp.status IS NULL)
         AND (c.next_dial_at IS NULL OR c.next_dial_at <= NOW())
         ${projectClause}
         ${agentClause}

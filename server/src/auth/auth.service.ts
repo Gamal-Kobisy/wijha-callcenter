@@ -19,7 +19,6 @@ export class AuthService {
       throw new UnauthorizedException('Invalid email');
     }
 
-    console.log(password , user.passwordHash)
     const isPasswordValid = await bcrypt.compare(password, user.passwordHash);
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid password');

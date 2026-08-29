@@ -70,6 +70,20 @@ describe('ProjectsController', () => {
         data: { name: 'New Project', description: 'Desc' },
       });
     });
+
+    it('should throw ConflictException on duplicate', async () => {
+      const { Prisma } = await import('@prisma/client');
+      prisma.project.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '7.8.0',
+        }),
+      );
+
+      await expect(
+        controller.create({ name: 'Duplicate' }),
+      ).rejects.toThrow('Project name already exists');
+    });
   });
 
   describe('PATCH /projects/:projectId', () => {

@@ -54,7 +54,7 @@ describe('AuthService', () => {
     it('should throw UnauthorizedException for invalid email', async () => {
       prisma.user.findUnique.mockResolvedValue(null);
       await expect(service.login('nonexistent', 'password')).rejects.toThrow(
-        'Invalid email or password',
+        'Invalid email',
       );
     });
 
@@ -63,7 +63,7 @@ describe('AuthService', () => {
       (bcrypt.compare as jest.Mock).mockResolvedValue(false as never);
 
       await expect(service.login('agent', 'wrongpassword')).rejects.toThrow(
-        'Invalid email or password',
+        'Invalid password',
       );
     });
   });

@@ -81,7 +81,7 @@ describe('OwnersService', () => {
       prisma.client.findMany.mockResolvedValue([]);
       prisma.client.count.mockResolvedValue(0);
 
-      const result = await service.findAll(undefined, undefined, 1, 20, 5);
+      const result = await service.findAll(undefined, undefined, undefined, 1, 20, 5);
       expect(result.data).toHaveLength(0);
       expect(prisma.client.findMany).toHaveBeenCalledWith(
         expect.objectContaining({

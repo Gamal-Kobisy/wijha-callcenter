@@ -127,6 +127,25 @@ describe('OwnersController', () => {
 
       expect(result.type).toBe('LEAD');
     });
+
+    it('should throw on duplicate create', async () => {
+      const { Prisma } = await import('@prisma/client');
+      prisma.number.findFirst.mockResolvedValue(null);
+      prisma.client.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '7.8.0',
+        }),
+      );
+
+      await expect(
+        controller.create({
+          name: 'Dup Owner',
+          project_id: 1,
+          phones: [{ phone: '555-9999' }],
+        }),
+      ).rejects.toThrow();
+    });
   });
 
   describe('POST /owners/bulk', () => {
@@ -173,6 +192,9 @@ describe('OwnersController', () => {
 
   describe('PATCH /owners/:ownerId', () => {
     it('should update owner type', async () => {
+      prisma.client.findUnique.mockResolvedValue(
+        mockClient({ type: 'BOTH', numbers: [], clientInfo: [] }),
+      );
       const result = await controller.patch(1, { type: 'BOTH' });
       expect(result.type).toBe('BOTH');
     });

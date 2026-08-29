@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
+import { Prisma } from '@prisma/client';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { PrismaService } from '@/prisma/prisma.service';
@@ -82,6 +83,25 @@ describe('UsersController', () => {
       expect(result.email).toBe('test@test.com');
       expect(result.is_online).toBe(false);
     });
+
+    it('should throw ConflictException for duplicate email', async () => {
+      prisma.user.create.mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: '7.8.0',
+        }),
+      );
+
+      await expect(
+        controller.create({
+          email: 'test@test.com',
+          password: 'password123',
+          name: 'Test',
+          phone: '555-0000',
+          role: 'user',
+        }),
+      ).rejects.toThrow('Email already exists');
+    });
   });
 
   describe('POST /users/bulk', () => {
@@ -107,6 +127,21 @@ describe('UsersController', () => {
       expect(result[0].is_online).toBe(false);
       expect(result[1].email).toBe('bob@test.com');
       expect(result[1].is_online).toBe(false);
+    });
+
+    it('should throw UnauthorizedException when any email is duplicate', async () => {
+      prisma.user.findMany.mockResolvedValue([
+        { email: 'alice@test.com' } as any,
+      ]);
+
+      await expect(
+        controller.createBulk({
+          users: [
+            { email: 'alice@test.com', password: 'pass123', name: 'Alice', role: 'user' },
+            { email: 'bob@test.com', password: 'pass456', name: 'Bob', role: 'user' },
+          ],
+        }),
+      ).rejects.toThrow('Duplicate emails: alice@test.com');
     });
   });
 

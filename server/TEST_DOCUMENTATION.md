@@ -1,10 +1,11 @@
 <div align="center">
   <h1>🧪 Test Suite Documentation</h1>
   <p>
-    <img src="https://img.shields.io/badge/total-167_tests-blue?style=for-the-badge&logo=jest&labelColor=1a1a2e" alt="167 tests"/>
+    <img src="https://img.shields.io/badge/total-260_tests-blue?style=for-the-badge&logo=jest&labelColor=1a1a2e" alt="260 tests"/>
     <img src="https://img.shields.io/badge/status-all_passing-success?style=for-the-badge&logo=checkmarx&labelColor=1a1a2e" alt="all passing"/>
-    <img src="https://img.shields.io/badge/spec_files-13-important?style=for-the-badge&logo=typescript&labelColor=1a1a2e" alt="13 spec files"/>
+    <img src="https://img.shields.io/badge/spec_files-20-important?style=for-the-badge&logo=typescript&labelColor=1a1a2e" alt="20 spec files"/>
   </p>
+  <p><em>⚠️ This document is deprecated. See <a href="TESTING.md">TESTING.md</a> for the current testing guide.</em></p>
 </div>
 
 ---
@@ -26,7 +27,20 @@
 | ⏱️ | `sessions.service` | 11 | Filter, merge, beat |
 | 👥 | `users.controller` | 15 | CRUD, profile image |
 | 👥 | `users.service` | 22 | CRUD, bulk, stats, images |
-| | **Total** | **167** | |
+| | **Total** | **260** | |
+
+---
+
+## 📋 Current Test Inventory
+
+| Test Type | Files | Tests | Runner |
+|-----------|-------|------:|--------|
+| Unit | 16 `*.spec.ts` | 237 | `npm test` |
+| Integration | 2 `*.integration.spec.ts` | 15 | `npm test` |
+| E2E | 2 `*.e2e-spec.ts` | 8 | `npm run test:e2e` |
+| **Total** | **20** | **260** | |
+
+See `TESTING.md` for full documentation.
 
 ---
 
@@ -291,5 +305,5 @@
 ---
 
 <div align="center">
-  <sub>Last updated: 2026-07-27 — 167 tests, all passing</sub>
+  <sub>Last updated: 2026-08-28 — 260 tests, all passing. See TESTING.md for current guide.</sub>
 </div>

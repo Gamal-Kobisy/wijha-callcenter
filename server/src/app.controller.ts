@@ -11,8 +11,8 @@ export class AppController {
   }
 
   @Get('health')
-  async getHealth(): Promise<{ status: string; db_status: any }> {
-    const dbConnectionStatus: any[] = await this.prisma.$queryRaw`SELECT VERSION()`;
+  async getHealth(): Promise<{ status: string; db_status: string }> {
+    const dbConnectionStatus = await this.prisma.$queryRaw<{ version: string }[]>`SELECT VERSION()`;
     return { status: 'OK', db_status: dbConnectionStatus[0].version.split(' ')[0] };
   }
 }

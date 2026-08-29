@@ -12,7 +12,10 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "test": "jest",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "test:all": "npm run test && npm run test:e2e",
+    "test:coverage": "jest --coverage",
+    "test:integration": "jest --testPathPattern integration"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.22",
@@ -68,12 +71,25 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/*.(t|j)s"
+      "**/*.(t|j)s",
+      "!**/*.spec.ts",
+      "!**/*.e2e-spec.ts",
+      "!**/dto/**",
+      "!**/interfaces/**",
+      "!**/mock-data.ts"
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "moduleNameMapper": {
       "^@/(.*)$": "<rootDir>/$1"
+    },
+    "coverageThreshold": {
+      "global": {
+        "branches": 75,
+        "functions": 80,
+        "lines": 85,
+        "statements": 80
+      }
     }
   }
 }

@@ -1,4 +1,4 @@
-export function mockUser(overrides?: Record<string, any>) {
+export function mockUser(overrides?: Record<string, unknown>) {
   return {
     id: 1,
     email: 'test@example.com',

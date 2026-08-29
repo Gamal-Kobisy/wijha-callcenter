@@ -13,7 +13,14 @@ import { SessionsService } from '@/sessions/sessions.service';
 export class UsersService {
   constructor(private prisma: PrismaService, private sessionService: SessionsService) {}
 
-  private toResponse(user: any, isOnline = false): UserResponseDto {
+  private toResponse(user: {
+    id: number;
+    email: string;
+    name?: string | null;
+    phoneNumber?: string | null;
+    role: string;
+    profileImage?: Uint8Array | null;
+  }, isOnline = false): UserResponseDto {
     return {
       id: user.id,
       email: user.email,
@@ -83,7 +90,7 @@ export class UsersService {
         data: {
           email: dto.email,
           passwordHash,
-          phoneNumber: dto.phone ?? '',
+            phoneNumber: dto.phone ?? null,
           name: dto.name ?? null,
           role: dto.role,
         },
@@ -169,7 +176,7 @@ async deactivate(id: number): Promise<UserResponseDto> {
           data: {
             email: dto.email,
             passwordHash,
-            phoneNumber: dto.phone ?? '',
+          phoneNumber: dto.phone ?? null,
             name: dto.name ?? null,
             role: dto.role,
           },
@@ -190,7 +197,7 @@ async deactivate(id: number): Promise<UserResponseDto> {
 
     const user = await this.prisma.user.update({
       where: { id: userId },
-      data: { profileImage: buffer as any, profileMime: mime },
+      data: { profileImage: new Uint8Array(buffer) as unknown as Uint8Array<ArrayBuffer>, profileMime: mime },
       omit: { passwordHash: true },
     });
 
@@ -235,7 +242,7 @@ async deactivate(id: number): Promise<UserResponseDto> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) return null;
 
-    const where: any = { agentId: userId };
+    const where: { agentId: number; time?: { gte?: Date; lte?: Date } } = { agentId: userId };
     if (_from || _to) {
       where.time = {};
       if (_from) where.time.gte = new Date(_from);

@@ -18,7 +18,7 @@ export class SessionsService {
     },
     user: AuthenticatedUser,
   ): Promise<SessionResponseDto[]> {
-    const where: any = {};
+    const where: { agentId?: number; lastBeat?: { gte?: Date }; firstBeat?: { gte?: Date; lte?: Date } } = {};
 
     if (user.role === 'user') {
       where.agentId = user.id;
@@ -26,7 +26,7 @@ export class SessionsService {
       where.agentId = Number(query.user_id);
     }
 
-    const firstBeatFilter: any = {};
+    const firstBeatFilter: { gte?: Date; lte?: Date } = {};
     if (query.from) firstBeatFilter.gte = new Date(query.from);
     if (query.to) firstBeatFilter.lte = new Date(query.to);
 

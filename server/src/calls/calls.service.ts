@@ -56,7 +56,13 @@ export class CallsService {
     to?: Date;
     project_id?: number;
   }): Promise<{ data: CallResponseDto[]; meta: { total: number; page: number; limit: number } }> {
-    const where: any = {};
+    const where: {
+      clientId?: number;
+      agentId?: number;
+      status?: string;
+      time?: { gte?: Date; lte?: Date };
+      client?: { clientProjects: { some: { projectId: number } } };
+    } = {};
     if (filters.client_id !== undefined) where.clientId = filters.client_id;
     if (filters.agent_id !== undefined) where.agentId = filters.agent_id;
     if (filters.status) where.status = filters.status;
@@ -183,7 +189,7 @@ export class CallsService {
   }
 
   async getStatusCounts(from?: Date, to?: Date): Promise<StatusCountDto[]> {
-    const timeFilter: any = {};
+    const timeFilter: { gte?: Date; lte?: Date } = {};
     if (from) timeFilter.gte = from;
     if (to) timeFilter.lte = to;
 
@@ -223,8 +229,7 @@ export class CallsService {
   }
 
   async notifyCalling(dto: NotifyCallingDto): Promise<void> {
-    const where: any = {};
-    where.id = dto.client_id;
+    const where: { id: number; numbers?: { some: { number: string } } } = { id: dto.client_id };
     if (dto.client_number) {
       where.numbers = { some: { number: dto.client_number } };
     }

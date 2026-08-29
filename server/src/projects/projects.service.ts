@@ -15,8 +15,7 @@ export class ProjectsService {
 
   async findById(id: number): Promise<ProjectResponseDto | null> {
     const project = await this.prisma.project.findUnique({ where: { id } });
-    if (!project) throw new NotFoundException('Project not found');
-    return project;
+    return project ?? null;
   }
 
   async createProject(name: string, description?: string): Promise<ProjectResponseDto> {

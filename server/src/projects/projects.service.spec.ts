@@ -111,4 +111,69 @@ describe('ProjectsService', () => {
       await expect(service.remove(999)).rejects.toThrow(NotFoundException);
     });
   });
+
+  describe('createProject', () => {
+    it('should create a project with name only', async () => {
+      prisma.project.create.mockResolvedValue(mockProject({ name: 'New', description: null }));
+      const result = await service.createProject('New');
+      expect(result.name).toBe('New');
+    });
+
+    it('should create a project with name and description', async () => {
+      prisma.project.create.mockResolvedValue(mockProject({ name: 'New', description: 'Desc' }));
+      const result = await service.createProject('New', 'Desc');
+      expect(result.name).toBe('New');
+      expect(result.description).toBe('Desc');
+    });
+  });
+
+  describe('updateProject', () => {
+    it('should update an existing project name', async () => {
+      prisma.project.findUnique.mockResolvedValue(mockProject());
+      prisma.project.update.mockResolvedValue(mockProject({ name: 'Updated' }));
+      const result = await service.updateProject(1, { name: 'Updated' });
+      expect(result.name).toBe('Updated');
+    });
+
+    it('should update an existing project description', async () => {
+      prisma.project.findUnique.mockResolvedValue(mockProject());
+      prisma.project.update.mockResolvedValue(mockProject({ description: 'New Desc' }));
+      const result = await service.updateProject(1, { description: 'New Desc' });
+      expect(result.description).toBe('New Desc');
+    });
+
+    it('should throw NotFoundException for non-existent project', async () => {
+      prisma.project.findUnique.mockResolvedValue(null);
+      await expect(service.updateProject(999, { name: 'X' })).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('deleteProject', () => {
+    it('should delete an existing project', async () => {
+      prisma.project.findUnique.mockResolvedValue(mockProject());
+      prisma.project.delete.mockResolvedValue(mockProject());
+      await expect(service.deleteProject(1)).resolves.toBeUndefined();
+      expect(prisma.project.delete).toHaveBeenCalledWith({ where: { id: 1 } });
+    });
+
+    it('should throw NotFoundException for non-existent project', async () => {
+      prisma.project.findUnique.mockResolvedValue(null);
+      await expect(service.deleteProject(999)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('create error handling', () => {
+    it('should re-throw non-P2002 errors', async () => {
+      prisma.project.create.mockRejectedValue(new Error('Database error'));
+      await expect(service.create({ name: 'Test' })).rejects.toThrow('Database error');
+    });
+  });
+
+  describe('update error handling', () => {
+    it('should re-throw non-P2002 errors', async () => {
+      prisma.project.findUnique.mockResolvedValue(mockProject());
+      prisma.project.update.mockRejectedValue(new Error('Database error'));
+      await expect(service.update(1, { name: 'Test' })).rejects.toThrow('Database error');
+    });
+  });
 });
