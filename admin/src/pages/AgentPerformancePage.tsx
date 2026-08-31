@@ -860,7 +860,7 @@ export default function AgentPerformancePage() {
 
   return (
     <>
-      <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex min-h-screen w-full flex-col bg-slate-50/50">
         <AppNavbar />
         <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
 

@@ -342,157 +342,89 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div className="flex min-h-screen w-full flex-col bg-slate-50/50">
 
       <AppNavbar />
 
-      {/* --- SECTION 1: HIGH-LEVEL KPIs --- */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Active Agents</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{activeAgentsCount}</div>
-            <p className="text-xs text-muted-foreground">
-              {totalAgentsCount > 0 ? `${activeAgentsCount} of ${totalAgentsCount} logged in` : "No agents registered"}
-            </p>
-          </CardContent>
-        </Card>
+      <main className="flex-1 p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
+        {/* --- PAGE HEADER --- */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900">Dashboard Overview</h2>
+            <p className="text-muted-foreground mt-1">Live metrics, call volumes, and center activity.</p>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Total Calls Today</CardTitle>
-            <Phone className="h-4 w-4 text-green-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalRecords}</div>
-            <p className="text-xs text-muted-foreground">
-              Calls logged today
-            </p>
-          </CardContent>
-        </Card>
+        {/* --- SECTION 1: HIGH-LEVEL KPIs --- */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <Card className="shadow-sm border-slate-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Active Agents</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{activeAgentsCount}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {totalAgentsCount > 0 ? `${activeAgentsCount} of ${totalAgentsCount} logged in` : "No agents registered"}
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Avg Talk Time</CardTitle>
-            <Clock className="h-4 w-4 text-orange-400" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{avgTalkTime}</div>
-            <p className="text-xs text-muted-foreground">
-              Across all answered calls
-            </p>
-          </CardContent>
-        </Card>
+          <Card className="shadow-sm border-slate-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Total Calls Today</CardTitle>
+              <Phone className="h-4 w-4 text-emerald-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{totalRecords}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Calls logged today
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Pending Follow-ups</CardTitle>
-            <ListTodo className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{pendingFollowUps}</div>
-            <p className="text-xs text-muted-foreground">
-              Requires immediate action
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+          <Card className="shadow-sm border-slate-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Avg Talk Time</CardTitle>
+              <Clock className="h-4 w-4 text-amber-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{avgTalkTime}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Across all answered calls
+              </p>
+            </CardContent>
+          </Card>
 
-      {/* --- SECTION 2: DATA VISUALIZATIONS --- */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+          <Card className="shadow-sm border-slate-100">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-[hsl(var(--tertiary))]">Pending Follow-ups</CardTitle>
+              <ListTodo className="h-4 w-4 text-blue-500" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{pendingFollowUps}</div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Requires immediate action
+              </p>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Line Chart: Call Volume */}
-        <Card className="col-span-1 md:col-span-2 lg:col-span-4">
-          <CardHeader>
-            <CardTitle className="text-[hsl(var(--tertiary))]">Call Volume Over Time</CardTitle>
-            <CardDescription>Hourly breakdown of calls made today.</CardDescription>
-          </CardHeader>
-          <CardContent className="pl-2">
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={callVolumeData}>
-                  <XAxis
-                    dataKey="time"
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <YAxis
-                    stroke="hsl(var(--muted-foreground))"
-                    fontSize={12}
-                    tickLine={false}
-                    axisLine={false}
-                  />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="calls"
-                    stroke="hsl(var(--primary))"
-                    strokeWidth={3}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
+        {/* --- SECTION 2: DATA VISUALIZATIONS --- */}
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
 
-        {/* Pie Chart: Call Status */}
-        <Card className="col-span-1 md:col-span-2 lg:col-span-3">
-          <CardHeader>
-            <CardTitle className="text-[hsl(var(--tertiary))]">Call Outcomes</CardTitle>
-            <CardDescription>Distribution of connection statuses.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full flex flex-col items-center justify-center">
-              {callStatusData.length > 0 ? (
+          {/* Line Chart: Call Volume */}
+          <Card className="col-span-1 md:col-span-2 lg:col-span-4 shadow-sm border-slate-100">
+            <CardHeader>
+              <CardTitle className="text-[hsl(var(--tertiary))] text-lg">Call Volume Over Time</CardTitle>
+              <CardDescription>Hourly breakdown of calls made today.</CardDescription>
+            </CardHeader>
+            <CardContent className="pl-2">
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={callStatusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={3}
-                      dataKey="value"
-                    >
-                      {callStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
-                    />
-                    <Legend verticalAlign="bottom" height={36}/>
-                  </PieChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="text-sm text-muted-foreground">No call outcomes logged today.</div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Bar Chart: Projects */}
-        <Card className="col-span-1 md:col-span-2 lg:col-span-4">
-          <CardHeader>
-            <CardTitle className="text-[hsl(var(--tertiary))]">Calls by Project</CardTitle>
-            <CardDescription>Active campaigns and their daily volume.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[300px] w-full">
-              {projectData.length > 0 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={projectData}>
+                  <LineChart data={callVolumeData}>
                     <XAxis
-                      dataKey="name"
+                      dataKey="time"
                       stroke="hsl(var(--muted-foreground))"
                       fontSize={12}
                       tickLine={false}
@@ -505,145 +437,222 @@ export default function DashboardPage() {
                       axisLine={false}
                     />
                     <Tooltip
-                      cursor={{ fill: "hsl(40 20% 97%)" }}
                       contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
                     />
-                    <Bar dataKey="calls" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
+                    <Line
+                      type="monotone"
+                      dataKey="calls"
+                      stroke="hsl(var(--primary))"
+                      strokeWidth={3}
+                      dot={false}
+                    />
+                  </LineChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-                  No call data by project today.
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Pie Chart: Call Status */}
+          <Card className="col-span-1 md:col-span-2 lg:col-span-3 shadow-sm border-slate-100">
+            <CardHeader>
+              <CardTitle className="text-[hsl(var(--tertiary))] text-lg">Call Outcomes</CardTitle>
+              <CardDescription>Distribution of connection statuses.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full flex flex-col items-center justify-center">
+                {callStatusData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={callStatusData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={60}
+                        outerRadius={90}
+                        paddingAngle={3}
+                        dataKey="value"
+                      >
+                        {callStatusData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={entry.color} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
+                      />
+                      <Legend verticalAlign="bottom" height={36}/>
+                    </PieChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="text-sm text-muted-foreground">No call outcomes logged today.</div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Bar Chart: Projects */}
+          <Card className="col-span-1 md:col-span-2 lg:col-span-4 shadow-sm border-slate-100">
+            <CardHeader>
+              <CardTitle className="text-[hsl(var(--tertiary))] text-lg">Calls by Project</CardTitle>
+              <CardDescription>Active campaigns and their daily volume.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="h-[300px] w-full">
+                {projectData.length > 0 ? (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={projectData}>
+                      <XAxis
+                        dataKey="name"
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <YAxis
+                        stroke="hsl(var(--muted-foreground))"
+                        fontSize={12}
+                        tickLine={false}
+                        axisLine={false}
+                      />
+                      <Tooltip
+                        cursor={{ fill: "hsl(40 20% 97%)" }}
+                        contentStyle={{ backgroundColor: "hsl(var(--background))", borderRadius: "8px", border: "1px solid hsl(var(--border))" }}
+                      />
+                      <Bar dataKey="calls" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
+                    No call data by project today.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Additional Visualization: Leads Statuses */}
+          <Card className="col-span-1 md:col-span-2 lg:col-span-3 shadow-sm border-slate-100">
+            <CardHeader>
+              <CardTitle className="text-[hsl(var(--tertiary))] text-lg">Leads Report</CardTitle>
+              <CardDescription>Lead exhaustion across all active lists.</CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-6 justify-center h-[300px]">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">Untouched Leads</span>
+                  <span className="text-muted-foreground">{leadsReport.untouched.count} ({leadsReport.untouched.pct}%)</span>
                 </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                  <div className="h-full bg-muted-foreground" style={{ width: `${leadsReport.untouched.pct}%` }} />
+                </div>
+              </div>
 
-        {/* Additional Visualization: Leads Statuses */}
-        <Card className="col-span-1 md:col-span-2 lg:col-span-3">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">Dialed Once</span>
+                  <span className="text-muted-foreground">{leadsReport.dialed.count} ({leadsReport.dialed.pct}%)</span>
+                </div>
+                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                  <div className="h-full bg-primary/60" style={{ width: `${leadsReport.dialed.pct}%` }} />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="font-medium">Max Attempts Reached</span>
+                  <span className="text-muted-foreground">{leadsReport.maxAttempts.count} ({leadsReport.maxAttempts.pct}%)</span>
+                </div>
+                <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                  <div className="h-full bg-destructive" style={{ width: `${leadsReport.maxAttempts.pct}%` }} />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* --- SECTION 3: DATA TABLE --- */}
+        <Card className="shadow-sm border-slate-100 flex flex-col">
           <CardHeader>
-            <CardTitle className="text-[hsl(var(--tertiary))]">Leads Report</CardTitle>
-            <CardDescription>Lead exhaustion across all active lists.</CardDescription>
+            <CardTitle className="text-[hsl(var(--tertiary))] text-xl">Recent Call Records</CardTitle>
+            <CardDescription>
+              Live feed of the latest calls made today.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-6 justify-center h-[300px]">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Untouched Leads</span>
-                <span className="text-muted-foreground">{leadsReport.untouched.count} ({leadsReport.untouched.pct}%)</span>
-              </div>
-              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-muted-foreground" style={{ width: `${leadsReport.untouched.pct}%` }} />
-              </div>
-            </div>
 
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Dialed Once</span>
-                <span className="text-muted-foreground">{leadsReport.dialed.count} ({leadsReport.dialed.pct}%)</span>
-              </div>
-              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-primary/60" style={{ width: `${leadsReport.dialed.pct}%` }} />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="font-medium">Max Attempts Reached</span>
-                <span className="text-muted-foreground">{leadsReport.maxAttempts.count} ({leadsReport.maxAttempts.pct}%)</span>
-              </div>
-              <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                <div className="h-full bg-destructive" style={{ width: `${leadsReport.maxAttempts.pct}%` }} />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* --- SECTION 3: DATA TABLE --- */}
-      <Card className="flex flex-col">
-        <CardHeader>
-          <CardTitle className="text-[hsl(var(--tertiary))]">Recent Call Records</CardTitle>
-          <CardDescription>
-            Live feed of the latest calls made today.
-          </CardDescription>
-        </CardHeader>
-
-        <CardContent className="p-0">
-          <div className="block w-full overflow-x-auto">
-            <Table className="min-w-[800px] w-full">
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-4 sm:pl-6">Time</TableHead>
-                  <TableHead>Agent</TableHead>
-                  <TableHead>Number</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead className="text-right pr-4 sm:pr-6">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {currentCalls.length > 0 ? (
-                  currentCalls.map((call) => (
-                    <TableRow key={call.id}>
-                      <TableCell className="font-medium whitespace-nowrap pl-4 sm:pl-6">{formatTime(call.time)}</TableCell>
-                      <TableCell className="whitespace-nowrap">{call.agent || (call.agent_id ? `Agent #${call.agent_id}` : "-")}</TableCell>
-                      <TableCell className="whitespace-nowrap">{call.number || (call.owner_id ? `Owner #${call.owner_id}` : "-")}</TableCell>
-                      <TableCell className="whitespace-nowrap">{formatDuration(call.duration)}</TableCell>
-                      <TableCell className="text-right pr-4 sm:pr-6">
-                        <Badge
-                          style={{backgroundColor: getStatusColor(call.status)}}
-                          className={call.status === "Closed" ? "bg-emerald-500 hover:bg-emerald-600" : ""}
-                        >
-                          {call.status}
-                        </Badge>
+          <CardContent className="p-0">
+            <div className="block w-full overflow-x-auto">
+              <Table className="min-w-[800px] w-full">
+                <TableHeader>
+                  <TableRow className="bg-slate-50/50">
+                    <TableHead className="pl-6">Time</TableHead>
+                    <TableHead>Agent</TableHead>
+                    <TableHead>Number</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead className="text-right pr-6">Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {currentCalls.length > 0 ? (
+                    currentCalls.map((call) => (
+                      <TableRow key={call.id} className="hover:bg-slate-50/80 transition-colors">
+                        <TableCell className="font-medium whitespace-nowrap pl-6">{formatTime(call.time)}</TableCell>
+                        <TableCell className="whitespace-nowrap">{call.agent || (call.agent_id ? `Agent #${call.agent_id}` : "-")}</TableCell>
+                        <TableCell className="whitespace-nowrap text-slate-600 font-mono text-sm">{call.number || (call.owner_id ? `Owner #${call.owner_id}` : "-")}</TableCell>
+                        <TableCell className="whitespace-nowrap font-mono text-sm">{formatDuration(call.duration)}</TableCell>
+                        <TableCell className="text-right pr-6">
+                          <Badge
+                            style={{backgroundColor: getStatusColor(call.status)}}
+                            className={`border-none text-white ${call.status === "Closed" ? "bg-emerald-500 hover:bg-emerald-600" : ""}`}
+                          >
+                            {call.status}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                        No recent calls found.
                       </TableCell>
                     </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                      No recent calls found.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-
-        {/* Paging Footer */}
-        <CardFooter className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 border-t border-border p-4 sm:p-6">
-          <div className="text-sm text-muted-foreground text-center sm:text-left w-full sm:w-auto">
-            Showing <strong>{totalRecords === 0 ? 0 : ((currentPage - 1) * 10) + 1}</strong> to <strong>{Math.min(currentPage * 10, totalRecords)}</strong> of <strong>{totalRecords}</strong> calls
-          </div>
-          <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={currentPage === 1}
-              onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-            >
-              <ChevronLeft className="h-4 w-4 sm:mr-1" />
-              <span className="hidden sm:inline">Previous</span>
-            </Button>
-            <div className="text-sm font-medium px-2 whitespace-nowrap">
-              Page {currentPage} of {totalPages}
+                  )}
+                </TableBody>
+              </Table>
             </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              disabled={currentPage >= totalPages}
-              onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-            >
-              <span className="hidden sm:inline">Next</span>
-              <ChevronRight className="h-4 w-4 sm:ml-1" />
-            </Button>
-          </div>
-        </CardFooter>
-      </Card>
+          </CardContent>
 
+          {/* Paging Footer */}
+          <CardFooter className="flex flex-col-reverse sm:flex-row items-center justify-between gap-4 border-t border-border p-4 sm:p-6">
+            <div className="text-sm text-muted-foreground text-center sm:text-left w-full sm:w-auto">
+              Showing <strong>{totalRecords === 0 ? 0 : ((currentPage - 1) * 10) + 1}</strong> to <strong>{Math.min(currentPage * 10, totalRecords)}</strong> of <strong>{totalRecords}</strong> calls
+            </div>
+            <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+              >
+                <ChevronLeft className="h-4 w-4 sm:mr-1" />
+                <span className="hidden sm:inline">Previous</span>
+              </Button>
+              <div className="text-sm font-medium px-2 whitespace-nowrap">
+                Page {currentPage} of {totalPages}
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={currentPage >= totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+              >
+                <span className="hidden sm:inline">Next</span>
+                <ChevronRight className="h-4 w-4 sm:ml-1" />
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
+      </main>
     </div>
   )
 }
