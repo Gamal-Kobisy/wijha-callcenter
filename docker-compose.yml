@@ -19,10 +19,12 @@ services:
       context: ./server
       dockerfile: ./Dockerfile.local
     container_name: backend
-    env_file: ./server/.env
+    env_file:
+      - ./server/.env
     environment:
       - DB_HOST=db
       - DB_PORT=5432
+      - DATABASE_URL=postgresql://myuser:mypassword@db:5432/mydb
     ports:
       - "3000:3000"
     depends_on:
