@@ -26,7 +26,9 @@ describe('Calls E2E', () => {
     testModule = ctx.module;
     await seedTestData(prisma);
     adminToken = await login(app, 'admin1@gmail.com', 'admin123');
-    projectId = (await prisma.project.findFirst({ where: { name: 'Default Project' } }))!.id;
+    const project = await prisma.project.findFirst({ where: { name: 'Default Project' } });
+    if (!project) throw new Error('Seed data missing: Default Project not found');
+    projectId = project.id;
     clientPhone = phone();
     const owner = await app
       .post('/api/v1/owners')
@@ -41,7 +43,7 @@ describe('Calls E2E', () => {
   });
 
   afterAll(async () => {
-    await cleanupTestData(prisma);
+    if (prisma) await cleanupTestData(prisma);
     await teardownE2E({ app, prisma, module: testModule });
   });
 
@@ -132,6 +134,30 @@ describe('Calls E2E', () => {
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ client_id: clientId, status: 'busy', time: 'not-a-date' })
       .expect(400);
+  });
+
+  it('POST /calls with non-existent client returns 404', async () => {
+    await app
+      .post('/api/v1/calls')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ client_id: 999999, status: 'busy', time: '2026-08-28T10:00:00Z' })
+      .expect(404);
+  });
+
+  it('POST /calls/calling with non-existent client returns 404', async () => {
+    await app
+      .post('/api/v1/calls/calling')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ client_id: 999999 })
+      .expect(404);
+  });
+
+  it('POST /calls/calling with mismatched client_number returns 404', async () => {
+    await app
+      .post('/api/v1/calls/calling')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ client_id: clientId, client_number: '+201000000000' })
+      .expect(404);
   });
 
   it('GET /calls/next returns the next dialable owner (200)', async () => {

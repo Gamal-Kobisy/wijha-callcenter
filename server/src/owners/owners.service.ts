@@ -326,7 +326,10 @@ export class OwnersService {
         where: { id: clientId },
         include: { numbers: true, clientInfo: true },
       });
-      return toOwnerResponse(updated!);
+      if (!updated) {
+        throw new NotFoundException('Client not found');
+      }
+      return toOwnerResponse(updated);
     } catch (error) {
       throw error;
     }

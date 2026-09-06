@@ -17,6 +17,7 @@
 import { JwtService } from '@nestjs/jwt';
 import { setupE2E, teardownE2E, TestApp } from '@/test/setup-e2e';
 import { seedTestData } from '@/test/seed';
+import { cleanupTestData } from '@/test/cleanup';
 
 describe('Security E2E', () => {
   let app: TestApp['app'];
@@ -40,6 +41,7 @@ describe('Security E2E', () => {
   });
 
   afterAll(async () => {
+    if (prisma) await cleanupTestData(prisma);
     await teardownE2E({ app, prisma, module: testModule });
   });
 

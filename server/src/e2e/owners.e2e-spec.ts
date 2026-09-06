@@ -25,12 +25,16 @@ describe('Owners E2E', () => {
     testModule = ctx.module;
     await seedTestData(prisma);
     adminToken = await login(app, 'admin1@gmail.com', 'admin123');
-    projectId = (await prisma.project.findFirst({ where: { name: 'Default Project' } }))!.id;
-    adminId = (await prisma.user.findFirst({ where: { email: 'admin1@gmail.com' } }))!.id;
+    const project = await prisma.project.findFirst({ where: { name: 'Default Project' } });
+    if (!project) throw new Error('Seed data missing: Default Project not found');
+    projectId = project.id;
+    const admin = await prisma.user.findFirst({ where: { email: 'admin1@gmail.com' } });
+    if (!admin) throw new Error('Seed data missing: admin user not found');
+    adminId = admin.id;
   });
 
   afterAll(async () => {
-    await cleanupTestData(prisma);
+    if (prisma) await cleanupTestData(prisma);
     await teardownE2E({ app, prisma, module: testModule });
   });
 

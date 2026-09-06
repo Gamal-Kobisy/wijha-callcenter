@@ -25,13 +25,23 @@ describe('E2E Flows', () => {
     testModule = ctx.module;
     await seedTestData(prisma);
     adminToken = await login(app, 'admin1@gmail.com', 'admin123');
-    projectId = (await prisma.project.findFirst({ where: { name: 'Default Project' } }))!.id;
-    adminId = (await prisma.user.findFirst({ where: { email: 'admin1@gmail.com' } }))!.id;
+    const project = await prisma.project.findFirst({ where: { name: 'Default Project' } });
+    if (!project) throw new Error('Seed data missing: Default Project not found');
+    projectId = project.id;
+    const admin = await prisma.user.findFirst({ where: { email: 'admin1@gmail.com' } });
+    if (!admin) throw new Error('Seed data missing: admin user not found');
+    adminId = admin.id;
   });
 
   afterAll(async () => {
-    await cleanupTestData(prisma);
+    if (prisma) await cleanupTestData(prisma);
     await teardownE2E({ app, prisma, module: testModule });
+  });
+
+  it('GET /health returns DB status (200)', async () => {
+    const res = await app.get('/api/v1/health').expect(200);
+    expect(res.body).toHaveProperty('status', 'OK');
+    expect(res.body).toHaveProperty('db_status');
   });
 
   it('Full call dispatch with type=OWNER filter', async () => {

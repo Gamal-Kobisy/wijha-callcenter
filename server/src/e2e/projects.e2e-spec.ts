@@ -33,7 +33,7 @@ describe('Projects E2E', () => {
   });
 
   afterAll(async () => {
-    await cleanupTestData(prisma);
+    if (prisma) await cleanupTestData(prisma);
     await teardownE2E({ app, prisma, module: testModule });
   });
 

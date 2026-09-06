@@ -40,7 +40,7 @@ describe('Users E2E', () => {
   });
 
   afterAll(async () => {
-    await cleanupTestData(prisma);
+    if (prisma) await cleanupTestData(prisma);
     await teardownE2E({ app, prisma, module: testModule });
   });
 
@@ -270,6 +270,14 @@ describe('Users E2E', () => {
     expect(res.body).toHaveProperty('total_calls');
     expect(res.body).toHaveProperty('avg_duration_seconds');
     expect(res.body).toHaveProperty('total_session_time_seconds');
+  });
+
+  it('GET /users/:id/stats with date range filters (200)', async () => {
+    const res = await app
+      .get(`/api/v1/users/${agentId}/stats?from=2026-01-01T00:00:00Z&to=2026-12-31T23:59:59Z`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .expect(200);
+    expect(res.body).toHaveProperty('total_calls');
   });
 
   it('GET /users/:id/stats not found returns empty body (200)', async () => {

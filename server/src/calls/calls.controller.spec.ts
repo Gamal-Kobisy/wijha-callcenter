@@ -57,6 +57,12 @@ describe('CallsController', () => {
         clientInfo: [mockClientInfo({ key: 'email', value: 'john@example.com' })],
       }),
     );
+    prisma.client.findFirst.mockResolvedValue(
+      mockClient({
+        numbers: [mockNumber({ number: '555-0100' })],
+        clientInfo: [mockClientInfo({ key: 'email', value: 'john@example.com' })],
+      }),
+    );
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [CallsController],

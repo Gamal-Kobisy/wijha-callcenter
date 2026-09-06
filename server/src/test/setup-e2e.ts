@@ -24,35 +24,44 @@ import { ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { PrismaService } from '@/prisma/prisma.service';
 import { AppModule } from '@/app.module';
+import { PrismaClient } from '@prisma/client';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import request from 'supertest';
 
-/**
- * Shape of the test application context returned by setupE2E().
- * - app: supertest SuperTest instance for HTTP requests
- * - prisma: PrismaService for direct database manipulation
- * - module: TestingModule for teardown (must be passed to teardownE2E)
- */
 export interface TestApp {
   app: ReturnType<typeof request>;
   prisma: PrismaService;
   module: TestingModule;
 }
 
-/**
- * Boots a full NestJS application for E2E testing.
- *
- * Sets environment variables with sensible defaults so tests can run
- * without a full .env file. The DATABASE_URL from the environment or
- * .env file takes precedence over the fallback.
- *
- * @returns TestApp containing supertest agent, PrismaService, and TestingModule
- */
 export async function setupE2E(): Promise<TestApp> {
-  process.env.DATABASE_URL = process.env.DATABASE_URL || 'postgresql://myuser:mypassword@localhost:5432/e2e';
+  process.env.DATABASE_URL = 'postgresql://myuser:mypassword@localhost:5432/mydb';
   process.env.JWT_SECRET = process.env.JWT_SECRET || 'test-secret';
   process.env.JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1d';
   process.env.PORT = process.env.PORT || '3001';
   process.env.FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
+      const adapter = new PrismaPg(pool);
+      const tempPrisma = new PrismaClient({ adapter });
+      await tempPrisma.$connect();
+      await tempPrisma.$queryRaw`SELECT 1`;
+      await tempPrisma.$disconnect();
+      await pool.end();
+      break;
+    } catch (error) {
+      if (attempt === 3) {
+        console.error('Failed to connect to PostgreSQL after 3 attempts.');
+        console.error('Make sure PostgreSQL is running at localhost:5432 and database "mydb" exists.');
+        console.error('Start it with: docker compose up -d db');
+        throw error;
+      }
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
 
   const module: TestingModule = await Test.createTestingModule({
     imports: [AppModule],

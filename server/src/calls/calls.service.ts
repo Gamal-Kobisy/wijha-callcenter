@@ -1,4 +1,4 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '@/prisma/prisma.service';
 import type { SubmitCallDto } from '@/calls/dto/submit-call.dto';
@@ -117,6 +117,11 @@ export class CallsService {
 
   async submit(dto: SubmitCallDto, agentId: number): Promise<CallResponseDto> {
     try {
+      const client = await this.prisma.client.findUnique({ where: { id: dto.client_id } });
+      if (!client) {
+        throw new NotFoundException(`Client ${dto.client_id} not found`);
+      }
+
       if (dto.project_id) {
         await this.assertProjectExists(dto.project_id);
       }
@@ -235,8 +240,13 @@ export class CallsService {
     }
 
     try {
+      const client = await this.prisma.client.findFirst({ where });
+      if (!client) {
+        throw new NotFoundException('Client not found');
+      }
+
       await this.prisma.client.update({
-        where,
+        where: { id: client.id },
         data: { nextDialAt: new Date() },
       })
 
@@ -244,9 +254,9 @@ export class CallsService {
         await this.assertProjectExists(dto.project_id);
 
         await this.prisma.clientProject.upsert({
-          where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
+          where: { clientId_projectId: { clientId: client.id, projectId: dto.project_id } },
           create: {
-            clientId: dto.client_id,
+            clientId: client.id,
             projectId: dto.project_id,
             status: 'dial',
             attemptCount: 1,

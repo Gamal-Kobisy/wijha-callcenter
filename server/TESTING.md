@@ -35,9 +35,9 @@ npm run test:integration          # Run only integration tests
 cd /home/gamal-kobisy/Projects/wijha-callcenter
 docker-compose up -d db
 
-# 2. The database 'mydb' with user 'myuser' / 'mypassword' runs on localhost:5432
-#    Schema is deployed inside the container
-#    Seed data is inserted via prisma/seed.sql (admin1@gmail.com / admin123)
+# 2. Deploy schema (only needed if schema changed)
+cd server
+npx prisma db push
 
 # 3. Run E2E tests
 npm run test:e2e
@@ -112,16 +112,22 @@ Or programmatically via `seedTestData(prisma)` in `src/test/seed.ts` (used by E2
 | `users/users.service.spec.ts` | 18 | CRUD, stats, profile images |
 | `users/users.controller.spec.ts` | 15 | CRUD, RBAC, profile images |
 | `auth/strategies/jwt.strategy.spec.ts` | 5 | Token validation, revocation, missing header |
-| `api.e2e-spec.ts` | 3 | Full API flow (requires DB) |
 | `src/integration/auth.integration.spec.ts` | 8 | Login, register, logout, auth flow |
 | `src/integration/users.integration.spec.ts` | 7 | RBAC: admin allows, user denies, no-token denies |
 
-### E2E Test Files (2 files, 8 tests)
+### E2E Test Files (9 files, ~100 tests)
 
 | File | Tests | What's Tested |
 |------|-------|---------------|
-| `e2e/auth.e2e-spec.ts` | 3 | Login 401 (invalid email/password), 401 without token |
-| `e2e/validation.e2e-spec.ts` | 5 | DTO validation: missing phones, invalid type, duplicate email, missing required fields |
+| `e2e/auth.e2e-spec.ts` | 10 | Login, register, logout, me endpoint |
+| `e2e/api.e2e-spec.ts` | 5 | Full call dispatch flows, callback, not-interested |
+| `e2e/calls.e2e-spec.ts` | 18 | Call CRUD, next dispatch, calling notify, statuses |
+| `e2e/owners.e2e-spec.ts` | 18 | Owner CRUD, bulk, assign, statuses, merge |
+| `e2e/projects.e2e-spec.ts` | 10 | Project CRUD, duplicate, RBAC delete |
+| `e2e/security.e2e-spec.ts` | 6 | JWT tampering, expired tokens, malformed headers |
+| `e2e/sessions.e2e-spec.ts` | 7 | Session list, create, merge, heartbeat |
+| `e2e/users.e2e-spec.ts` | 18 | User CRUD, profile image, stats, deactivate |
+| `e2e/validation.e2e-spec.ts` | 5 | DTO validation, missing fields, duplicate email |
 
 ---
 

@@ -4,7 +4,7 @@ import { BadRequestException } from '@nestjs/common';
 import { CallsService } from './calls.service';
 import { OwnersService } from '@/owners/owners.service';
 import { PrismaService } from '@/prisma/prisma.service';
-import { mockCallRecord, mockProject } from '@/prisma/mock-data';
+import { mockCallRecord, mockProject, mockClient } from '@/prisma/mock-data';
 
 const withProjects = (overrides: Record<string, unknown> = {}) => ({
   client: {
@@ -35,6 +35,8 @@ describe('CallsService', () => {
     ownersService = module.get<OwnersService>(OwnersService);
 
     prisma.project.findFirst.mockResolvedValue(mockProject());
+    prisma.client.findUnique.mockResolvedValue(mockClient({ id: 1n }));
+    prisma.client.findFirst.mockResolvedValue(mockClient({ id: 1n }));
   });
 
   it('should be defined', () => {
@@ -523,7 +525,7 @@ describe('CallsService', () => {
       await service.notifyCalling({ client_id: 1, project_id: 1 });
 
       expect(prisma.client.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1n },
         data: { nextDialAt: expect.any(Date) },
       });
     });
@@ -532,9 +534,9 @@ describe('CallsService', () => {
       await service.notifyCalling({ client_id: 1, project_id: 1 });
 
       expect(prisma.clientProject.upsert).toHaveBeenCalledWith({
-        where: { clientId_projectId: { clientId: 1, projectId: 1 } },
+        where: { clientId_projectId: { clientId: 1n, projectId: 1 } },
         create: {
-          clientId: 1,
+          clientId: 1n,
           projectId: 1,
           status: 'dial',
           attemptCount: 1,
@@ -547,18 +549,20 @@ describe('CallsService', () => {
     it('should filter by client_number when provided', async () => {
       await service.notifyCalling({ client_id: 1, client_number: '555-0100', project_id: 1 });
 
-      expect(prisma.client.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: 1, numbers: { some: { number: '555-0100' } } },
-        }),
-      );
+      expect(prisma.client.findFirst).toHaveBeenCalledWith({
+        where: { id: 1, numbers: { some: { number: '555-0100' } } },
+      });
+      expect(prisma.client.update).toHaveBeenCalledWith({
+        where: { id: 1n },
+        data: { nextDialAt: expect.any(Date) },
+      });
     });
 
     it('should notify calling without project_id', async () => {
       await service.notifyCalling({ client_id: 1 });
 
       expect(prisma.client.update).toHaveBeenCalledWith({
-        where: { id: 1 },
+        where: { id: 1n },
         data: { nextDialAt: expect.any(Date) },
       });
       expect(prisma.project.findFirst).not.toHaveBeenCalled();
