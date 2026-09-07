@@ -1,0 +1,37 @@
+services:
+  db:
+    build: ./db
+    container_name: postgres_db
+    env_file: .env
+    ports:
+      - "5432:5432"
+    # volumes:
+    #   - ./db/pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      interval: 5s     # How often to check
+      timeout: 5s      # How long a single check can take before failing
+      retries: 6       # Fail completely after 6 consecutive tries
+      start_period: 5s # Wait 5s before starting checks (gives DB time to init)
+
+  backend:
+    build:
+      context: ./server
+      dockerfile: ./Dockerfile.local
+    container_name: backend
+    env_file:
+      - ./server/.env
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DATABASE_URL=postgresql://myuser:mypassword@db:5432/mydb
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./server:/app
+      - /app/node_modules # 💡 Keeps the container's node_modules safe from host overrides
+    cpu_count: 2
+    mem_limit: 1g
