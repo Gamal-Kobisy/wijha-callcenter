@@ -1,11 +1,16 @@
 FROM node:current-alpine as builder
+WORKDIR /apk
+RUN apk add --no-cache postgresql-client
+
 WORKDIR /app
-# RUN apk add --no-cache build-base python3
 COPY package*.json ./
 RUN npm install
-# COPY prisma ./prisma/
 COPY . .
 RUN npx prisma generate
+
+COPY wait-for-db.sh /wait-for-db.sh
+RUN chmod +x /wait-for-db.sh
+
 EXPOSE 3000
 
-CMD ["sh", "-c", "npx prisma generate && npx prisma db push && npx prisma db execute --file ./prisma/seed.sql && npm run start:dev"]
+CMD ["sh", "-c", "/wait-for-db.sh && npx prisma db push && npx prisma db execute --file ./prisma/seed.sql && npm run start:dev"]
