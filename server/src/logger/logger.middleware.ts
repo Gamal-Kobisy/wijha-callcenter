@@ -8,22 +8,18 @@ export class LoggerMiddleware implements NestMiddleware {
     const start = Date.now();
 
     console.log(`[${method}] ${originalUrl}`);
-
-    if (body && Object.keys(body).length > 0) {
-      console.log('Body:', body);
-    }
-    if (query && Object.keys(query).length > 0) {
+    // if (Object.keys(body).length > 0) {
+    //   console.log('Body:', body);
+    // }
+    if (Object.keys(query).length > 0) {
       console.log('Query:', query);
     }
     if (params && Object.keys(params).length > 1) {
       console.log('Params:', params);
     }
-
-    res.on('finish', () => {
-      const duration = Date.now() - start;
-      console.log(`[${method}] ${originalUrl} - ${duration}ms`);
-    });
-
+    // if (Object.keys(res).length > 0) {
+    //   console.log('Response:', res);
+    // }
     next();
   }
 }

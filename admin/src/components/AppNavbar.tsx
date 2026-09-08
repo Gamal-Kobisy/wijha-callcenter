@@ -1,4 +1,4 @@
-import { Menu, BarChart3, Target, Headset, BadgeCheck, LogOut, LayoutDashboard } from "lucide-react"
+import { Menu, BarChart3, Target, Headset, BadgeCheck, LogOut, LayoutDashboard, FolderOpen } from "lucide-react"
 import { Link, useLocation, useNavigate } from "react-router-dom"
 import Logo from "@/components/Logo"
 import NavbarUserButton from "@/components/NavbarUserButton.tsx"
@@ -17,12 +17,14 @@ interface AppNavbarProps {
   link1Name?: string
   link2Name?: string
   link3Name?: string
+  link4Name?: string
 }
 
 export default function AppNavbar({
   link1Name = "Dashboard",
   link2Name = "Agents",
   link3Name = "Clients",
+  link4Name = "Projects",
 }: AppNavbarProps) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -30,7 +32,7 @@ export default function AppNavbar({
 
   const { user, logout } = useAuth()
 
-  // 1. Setup fallback variables for the mobile menu
+  // Setup fallback variables for the mobile menu
   const displayName = user?.name || "Loading..."
   const displayEmail = user?.email || ""
   const displayAvatar = user?.avatarUrl || defaultAvatar
@@ -38,18 +40,18 @@ export default function AppNavbar({
   // Helper to map icons to specific link names
   const getIcon = (name: string) => {
     switch (name.toLowerCase()) {
-      case "dashboard": return <LayoutDashboard className="size-5 shrink-0" />
-      case "reports": return <BarChart3 className="size-5 shrink-0" />
-      case "clients": return <Target className="size-5 shrink-0" />
-      case "agents": return <Headset className="size-5 shrink-0" />
-      default: return <BarChart3 className="size-5 shrink-0" />
+      case "dashboard": return <LayoutDashboard className="size-4 lg:size-5 shrink-0" />
+      case "projects": return <FolderOpen className="size-4 lg:size-5 shrink-0" />
+      case "clients": return <Target className="size-4 lg:size-5 shrink-0" />
+      case "agents": return <Headset className="size-4 lg:size-5 shrink-0" />
+      default: return <BarChart3 className="size-4 lg:size-5 shrink-0" />
     }
   }
 
   const NavLink = ({ name }: { name: string }) => (
     <Link
       to={`/${name.toLowerCase()}`}
-      className={`flex items-center gap-2 rounded-md font-medium transition-all duration-200 px-5 py-2.5 text-base ${
+      className={`flex items-center gap-1.5 lg:gap-2 rounded-md font-medium transition-all duration-200 px-3 lg:px-5 py-2.5 text-sm lg:text-base whitespace-nowrap ${
         isActive(`/${name.toLowerCase()}`)
           ? 'bg-primary/10 text-primary shadow-[inset_0_-2px_0_0_hsl(var(--primary))]'
           : 'text-muted-foreground hover:bg-primary hover:text-primary-foreground'
@@ -74,19 +76,23 @@ export default function AppNavbar({
   return (
   <>
     <header className="sticky top-0 z-30 flex h-20 w-full items-center justify-between border-b border-border bg-background px-4 sm:px-6">
-      <div className="flex items-center shrink-0 w-auto lg:w-64">
+
+      {/* Left side: Logo */}
+      <div className="flex items-center shrink-0 w-auto lg:w-48 xl:w-64">
         <Logo />
       </div>
 
-      <nav className="hidden md:flex flex-1 items-center justify-center gap-4">
+      {/* Middle: Navigation Links (Responsive gaps and padding) */}
+      <nav className="hidden md:flex flex-1 items-center justify-center gap-1 lg:gap-4 overflow-hidden">
         {link1Name && <NavLink name={link1Name} />}
         {link2Name && <NavLink name={link2Name} />}
         {link3Name && <NavLink name={link3Name} />}
+        {link4Name && <NavLink name={link4Name} />}
       </nav>
 
-      <div className="flex items-center justify-end shrink-0 gap-2 sm:gap-4 w-auto lg:w-64">
+      {/* Right side: User Profile / Mobile Menu */}
+      <div className="flex items-center justify-end shrink-0 gap-2 sm:gap-4 w-auto lg:w-48 xl:w-64">
         <div className="hidden md:block w-40 sm:w-auto lg:w-full">
-          {/* Because we made NavbarUserButton smart, we only need to pass the navigation prop! */}
           <NavbarUserButton onAccountClick={handleAccountNavigation} />
         </div>
 
@@ -115,6 +121,7 @@ export default function AppNavbar({
               {link1Name && <MobileNavLink name={link1Name} />}
               {link2Name && <MobileNavLink name={link2Name} />}
               {link3Name && <MobileNavLink name={link3Name} />}
+              {link4Name && <MobileNavLink name={link4Name} />}
 
               <DropdownMenuSeparator className="my-2 bg-border" />
 

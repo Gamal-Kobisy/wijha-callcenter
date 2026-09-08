@@ -1,4 +1,4 @@
-﻿import { useState, useMemo, useEffect} from "react"
+﻿import { useState, useMemo, useEffect, useCallback } from "react"
 import {
   LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, Tooltip as RechartsTooltip,
   ResponsiveContainer, CartesianGrid, Legend
@@ -12,7 +12,7 @@ import {
 import AppNavbar from "@/components/AppNavbar.tsx"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Button } from "@/components/ui/button" 
+import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Label } from "@/components/ui/label"
@@ -21,11 +21,11 @@ import {
 } from "@/components/ui/dialog"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast, Toaster } from "sonner"
-import * as XLSX from "xlsx" // NEW: SheetJS import for Excel parsing
+import * as XLSX from "xlsx"
 
 import { apiFetch } from "@/lib/api.tsx"
 import { useAuth } from "@/contexts/AuthContext.tsx"
-import { clientsApi } from "@/lib/clients-api.ts"
+import { clientsApi, type Owner, type Project } from "@/lib/clients-api.ts"
 
 // --- PALETTES & UTILS ---
 const chartPalette = { dial: "#0077BE", connect: "#0D9488", interest: "#F59E0B", convert: "#4F46E5", miss: "#FB7185", neutral: "#94A3B8", emerald: "#10B981" }
@@ -50,7 +50,7 @@ function hexToRgba(hex: string, alpha: number) {
 }
 
 const heatmapHours = ["9am", "10am", "11am", "12pm", "1pm", "2pm", "3pm", "4pm", "5pm", "6pm"]
-const systemFields = ["Client Name", "Status", "Project", "Attempts", "Next Dial"] // Phone is handled dynamically
+const systemFields = ["Client Name", "Project", "Type", "Status", "Attempts", "Next Dial"]
 
 const letterToIndex = (letters: string) => {
   let n = 0;
@@ -60,13 +60,62 @@ const letterToIndex = (letters: string) => {
   return n - 1;
 }
 
-const getStatusColor = (status: string) => {
+// Used for Charts and Call History (Hex Colors)
+const getCallStatusColor = (status: string) => {
   if (!status) return chartPalette.neutral;
   const formatted = status.toLowerCase().replace(" ", "_") as keyof typeof statusPalette;
   if (statusPalette[formatted]) return statusPalette[formatted];
   let hash = 0;
   for (let i = 0; i < formatted.length; i++) hash = formatted.charCodeAt(i) + ((hash << 5) - hash);
   return `#${(hash & 0x00FFFFFF).toString(16).padStart(6, '0')}`;
+}
+
+// Used for Pipeline Table (Tailwind Classes - perfectly matches ClientsPage)
+const getClientStatusColor = (status: string) => {
+  const s = status.toLowerCase()
+  if (s === 'new' || s === 'dial') return 'bg-blue-100 text-blue-800 border-blue-200'
+  if (s === 'interested' || s === 'callback') return 'bg-amber-100 text-amber-800 border-amber-200'
+  if (s === 'closed' || s === 'answered') return 'bg-emerald-100 text-emerald-800 border-emerald-200'
+  if (s === 'do not call' || s === 'not_interested') return 'bg-rose-100 text-rose-800 border-rose-200'
+  if (s === 'voicemail' || s === 'no_answer') return 'bg-slate-100 text-slate-800 border-slate-200'
+  if (s === 'busy') return 'bg-orange-100 text-orange-800 border-orange-200'
+  if (s === 'failed') return 'bg-red-100 text-red-800 border-red-200'
+  return 'bg-gray-100 text-gray-800 border-gray-200'
+}
+
+const formatStatus = (status: string) => {
+  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+}
+
+interface DisplayClient {
+  id: string
+  name: string
+  primaryNumber: string
+  status: string
+  attemptCount: number
+  lastDialedAt: string | null
+  nextDialAt: string | null
+  projects: string[]
+  info: { key: string; value: string }[]
+  history: any[]
+  _raw: Owner
+}
+
+function ownerToDisplayClient(owner: Owner): DisplayClient {
+  const firstProject = owner.projects?.[0]
+  return {
+    id: owner.id.toString(),
+    name: owner.name || "Unknown Client",
+    primaryNumber: owner.phones?.[0]?.phone || "",
+    status: firstProject?.status ? formatStatus(firstProject.status) : "New",
+    attemptCount: firstProject?.attempt_count ?? 0,
+    lastDialedAt: firstProject?.last_dialed_at ?? null,
+    nextDialAt: owner.next_dial_at ?? null,
+    projects: owner.projects?.map(p => p.project_name) ?? [],
+    info: owner.info?.map(i => ({ key: i.key, value: i.value })) ?? [],
+    history: [],
+    _raw: owner,
+  }
 }
 
 export default function AgentDashboardPage() {
@@ -94,9 +143,11 @@ export default function AgentDashboardPage() {
   const [callTotalRecords, setCallTotalRecords] = useState(0)
 
   // --- CLIENTS PIPELINE TABLE STATE (SERVER-SIDE) ---
-  const [clients, setClients] = useState<any[]>([])
+  const [clients, setClients] = useState<DisplayClient[]>([])
+  const [allProjects, setAllProjects] = useState<Project[]>([])
   const [clientSearchTerm, setClientSearchTerm] = useState("")
   const [clientStatusFilter, setClientStatusFilter] = useState("All")
+  const [typeFilter, setTypeFilter] = useState("")
   const [clientCurrentPage, setClientCurrentPage] = useState(1)
   const [clientTotalPages, setClientTotalPages] = useState(1)
   const [clientTotalRecords, setClientTotalRecords] = useState(0)
@@ -119,6 +170,7 @@ export default function AgentDashboardPage() {
     loadWeeklyAvgDuration()
     loadFollowUps()
     loadCallingWindows()
+    loadProjects()
   }, [id])
 
   useEffect(() => {
@@ -133,7 +185,7 @@ export default function AgentDashboardPage() {
       loadClients()
     }, 400)
     return () => clearTimeout(timer)
-  }, [id, clientCurrentPage, clientStatusFilter, clientSearchTerm])
+  }, [id, clientCurrentPage, clientStatusFilter, clientSearchTerm, typeFilter])
 
   useEffect(() => {
     const fetchMissingDetails = async () => {
@@ -230,6 +282,15 @@ export default function AgentDashboardPage() {
     return { from: new Date("2020-01-01").toISOString(), to: new Date().toISOString() };
   };
 
+  const loadProjects = useCallback(async () => {
+    try {
+      const data = await clientsApi.getProjects()
+      setAllProjects(data)
+    } catch (error: any) {
+      console.error("Failed to load projects:", error)
+    }
+  }, [])
+
   const loadAgentData = async () => {
     try {
       if (!id) return;
@@ -262,7 +323,7 @@ export default function AgentDashboardPage() {
         .map(([statusKey, countValue]) => ({
           name: statusKey,
           value: Number(countValue),
-          color: getStatusColor(statusKey)
+          color: getCallStatusColor(statusKey)
       }))
 
       if (formattedCallsArray.length === 0) {
@@ -316,6 +377,7 @@ export default function AgentDashboardPage() {
       let url = `owners?agent_id=${id}&page=${clientCurrentPage}&limit=${ITEMS_PER_PAGE}`;
       if (clientStatusFilter !== "All") url += `&status=${encodeURIComponent(clientStatusFilter)}`;
       if (clientSearchTerm.trim() !== "") url += `&search=${encodeURIComponent(clientSearchTerm)}`;
+      if (typeFilter) url += `&type=${encodeURIComponent(typeFilter)}`;
 
       const response = await apiFetch(url, { method: "GET" })
       if(!response.ok) {
@@ -323,10 +385,14 @@ export default function AgentDashboardPage() {
       }
       const jsonResponse = await response.json();
 
-      setClients(jsonResponse.data || [])
-      const total = jsonResponse.meta?.total || 0;
-      setClientTotalRecords(total)
-      setClientTotalPages(Math.ceil(total / ITEMS_PER_PAGE) || 1)
+      if (jsonResponse && Array.isArray(jsonResponse.data)) {
+        setClients(jsonResponse.data.map(ownerToDisplayClient))
+        const total = jsonResponse.meta?.total || 0;
+        setClientTotalRecords(total)
+        setClientTotalPages(Math.ceil(total / ITEMS_PER_PAGE) || 1)
+      } else {
+        setClients([])
+      }
     } catch(error: any) {
       setClients([])
       toast.error("Failed to load your pipeline")
@@ -579,7 +645,6 @@ export default function AgentDashboardPage() {
     setUploadStep(2);
   }
 
-  // The parsed JSON payload will be POSTed directly to `owners/bulk` endpoint
   const handleFinalSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!uploadFile) return;
@@ -591,11 +656,7 @@ export default function AgentDashboardPage() {
       const workbook = XLSX.read(buffer, { type: 'array' });
       const firstSheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[firstSheetName];
-
-      // header: 1 returns a 2D array of rows and columns. raw: false ensures cells are read as formatted text.
       const rows = XLSX.utils.sheet_to_json<string[]>(worksheet, { header: 1, raw: false });
-
-      // Filter out completely empty rows created by random formatting in Excel
       const validRows = rows.filter(row => row && row.length > 0);
 
       const startIndex = Math.max(0, startRow - 1);
@@ -614,34 +675,54 @@ export default function AgentDashboardPage() {
           return val ? String(val).trim() : "";
         }
 
-        // Loop through all dynamically created phone columns
         const phones = phoneFields
             .map(field => getVal(field))
-            .filter(phone => !!phone) // Remove empty strings
-            .map(phone => phone.replace(/\t/g, '')); // Clean export garbage
+            .filter(phone => !!phone)
+            .map(phone => phone.replace(/\t/g, ''));
 
-        if (phones.length === 0) continue; // Requires at least one valid phone
+        if (phones.length === 0) continue;
 
-        parsedClients.push({
+        // 1. Parse Core Data
+        let rawType = getVal("Type").toUpperCase();
+        if (!["OWNER", "LEAD", "BOTH"].includes(rawType)) {
+          rawType = "OWNER";
+        }
+
+        const clientPayload: any = {
           name: getVal("Client Name") || "Unknown Client",
           phones: phones.map(p => ({ phone: p })),
-          type: "OWNER",
+          type: rawType,
           agent_id: id,
-          info: [
-            { key: "Status", value: getVal("Status") || "New" },
-            { key: "Project", value: getVal("Project") || "Default Project" },
-            { key: "Attempts", value: getVal("Attempts") || "0" },
-            { key: "Next Dial", value: getVal("Next Dial")?.replace(/\t/g, '') || "" }
-          ].filter(i => i.value !== "")
-        });
+          info: []
+        };
+
+        // 2. Parse Project directly into `project_id` matching ClientsPage logic
+        const projectName = getVal("Project");
+        if (projectName) {
+          const matchedProj = allProjects.find(p => p.name.toLowerCase() === projectName.toLowerCase());
+          if (matchedProj) {
+            clientPayload.project_id = matchedProj.id;
+          }
+        }
+
+        // 3. Parse Status, Attempts, and Next Dial explicitly as top-level payload values
+        const rawStatus = getVal("Status");
+        if (rawStatus) clientPayload.status = rawStatus.toLowerCase().replace(" ", "_");
+
+        const rawAttempts = getVal("Attempts");
+        if (rawAttempts) clientPayload.attempt_count = parseInt(rawAttempts);
+
+        const rawNextDial = getVal("Next Dial");
+        if (rawNextDial) clientPayload.next_dial_at = new Date(rawNextDial).toISOString();
+
+        parsedClients.push(clientPayload);
       }
 
-      // Send the correctly formatted payload to the backend API via the centralized clientsApi
       await clientsApi.bulkCreateClients(parsedClients);
 
       toast.success(`Successfully assigned ${parsedClients.length} new clients to your pipeline!`, { id: "upload-toast" });
       resetModals();
-      loadClients(); // Automatically refetch table data from the database
+      loadClients();
 
     } catch (err: any) {
       toast.error(err.message || "Failed to process file.", { id: "upload-toast" })
@@ -654,7 +735,7 @@ export default function AgentDashboardPage() {
   return (
     <>
       <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-        <AppNavbar link1Name="" link2Name="" link3Name="" />
+        <AppNavbar link1Name="" link2Name="" link3Name="" link4Name="" />
 
         <main className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto w-full">
           {/* Header */}
@@ -971,7 +1052,7 @@ export default function AgentDashboardPage() {
                         <TableCell className="whitespace-nowrap text-slate-500">{dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</TableCell>
                         <TableCell className="whitespace-nowrap font-semibold text-slate-700">{log.project_id ? (projectDetails[log.project_id] || `Project #${log.project_id}`) : "-"}</TableCell>
                         <TableCell>
-                          <Badge className="border-none text-white text-xs font-semibold py-0.5 capitalize" style={{backgroundColor: getStatusColor(log.status)}}>
+                          <Badge className="border-none text-white text-xs font-semibold py-0.5 capitalize" style={{backgroundColor: getCallStatusColor(log.status)}}>
                             {(log.status || "Unknown").replace("_", " ")}
                           </Badge>
                         </TableCell>
@@ -980,7 +1061,7 @@ export default function AgentDashboardPage() {
                           <span className="font-semibold text-slate-800">{ownerDetails[log.owner_id]?.name || `Owner #${log.owner_id}`}</span><br/>
                           <span className="text-xs text-muted-foreground">{ownerDetails[log.owner_id]?.phone || ""}</span>
                         </TableCell>
-                        <TableCell className="max-w-xs truncate pr-6 text-slate-600">{log.agent_notes || "�"}</TableCell>
+                        <TableCell className="max-w-xs truncate pr-6 text-slate-600">{log.agent_notes || ""}</TableCell>
                       </TableRow>
                     )}) : (
                       <TableRow>
@@ -1028,18 +1109,41 @@ export default function AgentDashboardPage() {
               </div>
 
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 w-full border-t pt-4 border-slate-100">
-                <div className="flex items-center gap-3 w-full md:w-auto">
+                <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
                   <Filter className="h-4 w-4 text-slate-400 hidden sm:block" />
+
+                  {/* Client Type Filter */}
+                  <div className="flex items-center rounded-md border border-input bg-background overflow-hidden h-9 shrink-0">
+                    {(["", "OWNER", "LEAD"] as const).map((t) => (
+                      <button
+                        key={t || "all"}
+                        type="button"
+                        onClick={() => { setTypeFilter(t); setClientCurrentPage(1); }}
+                        className={`px-3 h-full text-sm font-medium transition-colors ${
+                          typeFilter === t
+                            ? "bg-primary text-primary-foreground"
+                            : "hover:bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {t === "" ? "All Types" : t === "OWNER" ? "Owners" : "Leads"}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Status Filter synced to match ClientsPage */}
                   <select
                     className="h-9 w-full sm:w-auto rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none"
                     value={clientStatusFilter}
                     onChange={(e) => { setClientStatusFilter(e.target.value); setClientCurrentPage(1); }}
                   >
                     <option value="All">All Statuses</option>
-                    <option value="New">New</option>
-                    <option value="Interested">Interested</option>
-                    <option value="Voicemail">Voicemail</option>
-                    <option value="Closed">Closed</option>
+                    <option value="Dial">Dial</option>
+                    <option value="Callback">Callback</option>
+                    <option value="Answered">Answered</option>
+                    <option value="No Answer">No Answer</option>
+                    <option value="Not Interested">Not Interested</option>
+                    <option value="Busy">Busy</option>
+                    <option value="Failed">Failed</option>
                   </select>
                 </div>
 
@@ -1069,20 +1173,22 @@ export default function AgentDashboardPage() {
                       <TableRow key={client.id} className="hover:bg-slate-50/80 transition-colors">
                         <TableCell className="pl-6 font-semibold text-slate-800 whitespace-nowrap">{client.name}</TableCell>
                         <TableCell className="font-mono text-xs text-slate-600 whitespace-nowrap">
-                          {client.phones?.[0]?.phone || client.primaryNumber || "N/A"}
+                          {client.primaryNumber || "N/A"}
                         </TableCell>
                         <TableCell className="text-xs text-slate-600 font-medium whitespace-nowrap">{client.projects?.join(', ') || "-"}</TableCell>
                         <TableCell className="whitespace-nowrap">
+                          {/* Synced Badge classes to perfectly match ClientsPage */}
                           <Badge
                             variant="outline"
-                            className="font-semibold border-none text-white py-0.5 capitalize"
-                            style={{backgroundColor: getStatusColor(client.status)}}
+                            className={`font-semibold border-none py-0.5 capitalize ${getClientStatusColor(client.status)}`}
                           >
                             {client.status || "Unknown"}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-center font-semibold text-slate-700">{client.attemptCount || 0}</TableCell>
-                        <TableCell className="text-sm text-slate-600 whitespace-nowrap">{client.nextDialAt || "�"}</TableCell>
+                        <TableCell className="text-sm text-slate-600 whitespace-nowrap">
+                          {client.nextDialAt ? new Date(client.nextDialAt).toLocaleString() : "—"}
+                        </TableCell>
                       </TableRow>
                     )) : (
                       <TableRow>
@@ -1113,7 +1219,6 @@ export default function AgentDashboardPage() {
 
       {/* --- UPLOAD MODAL --- */}
       <Dialog open={isUploadOpen} onOpenChange={(open) => !open && resetModals()}>
-        {/* Added: max-h-[90vh] flex flex-col to lock the modal height and prevent screen overflow */}
         <DialogContent className="sm:max-w-[550px] bg-background max-h-[90vh] flex flex-col">
 
           <DialogHeader className="shrink-0">
@@ -1136,10 +1241,8 @@ export default function AgentDashboardPage() {
               </DialogFooter>
             </div>
           ) : (
-            // Added: overflow-hidden min-h-0 to the form wrapper
             <form onSubmit={handleFinalSubmit} className="flex flex-col overflow-hidden min-h-0">
 
-              {/* Added: flex-1 overflow-y-auto to create the internal scrollbar! */}
               <div className="flex-1 overflow-y-auto space-y-4 pt-4 pr-2">
 
                 <div className="flex gap-4">
@@ -1173,7 +1276,6 @@ export default function AgentDashboardPage() {
                 </div>
               </div>
 
-              {/* Added: shrink-0 mt-4 border-t to pin the buttons to the bottom */}
               <DialogFooter className="pt-6 shrink-0 mt-2 border-t border-slate-100">
                 <Button type="button" variant="ghost" onClick={() => setUploadStep(1)}>Back</Button>
                 <Button type="submit" disabled={!columnMapping["Primary Phone"]} className="bg-blue-600 hover:bg-blue-700 text-white">
