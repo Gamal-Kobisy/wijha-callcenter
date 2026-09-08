@@ -76,10 +76,6 @@ model Number {
   number   String @id @unique @db.VarChar(20)
   clientId BigInt @map("client_id")
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  client Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
-
-  @@id([number])
   @@map("numbers")
 }
 
