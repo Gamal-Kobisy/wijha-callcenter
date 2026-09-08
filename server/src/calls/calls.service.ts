@@ -23,6 +23,11 @@ const callWithProjects = Prisma.validator<Prisma.CallDetailRecordDefaultArgs>()(
 
 type CallWithProjects = Prisma.CallDetailRecordGetPayload<typeof callWithProjects>;
 
+const normalizeProjectId = (projectId?: number): number | undefined => {
+  if (projectId === undefined || projectId === null || projectId === 0) return undefined;
+  return projectId;
+};
+
 @Injectable()
 export class CallsService {
   constructor(
@@ -68,8 +73,9 @@ export class CallsService {
     if (filters.status) where.status = filters.status;
     if (filters.from) where.time = { ...where.time, gte: filters.from };
     if (filters.to) where.time = { ...where.time, lte: filters.to };
-    if (filters.project_id !== undefined) {
-      where.client = { clientProjects: { some: { projectId: filters.project_id } } };
+    const projectId = normalizeProjectId(filters.project_id);
+    if (projectId !== undefined) {
+      where.client = { clientProjects: { some: { projectId } } };
     }
 
     const page = filters.page ?? 1;
@@ -122,8 +128,10 @@ export class CallsService {
         throw new NotFoundException(`Client ${dto.client_id} not found`);
       }
 
-      if (dto.project_id) {
-        await this.assertProjectExists(dto.project_id);
+      const projectId = normalizeProjectId(dto.project_id);
+
+      if (projectId !== undefined) {
+        await this.assertProjectExists(projectId);
       }
 
       const call = await this.prisma.callDetailRecord.create({
@@ -137,12 +145,12 @@ export class CallsService {
         },
       });
 
-      if (dto.project_id) {
+      if (projectId !== undefined) {
         await this.prisma.clientProject.upsert({
-          where: { clientId_projectId: { clientId: dto.client_id, projectId: dto.project_id } },
+          where: { clientId_projectId: { clientId: dto.client_id, projectId } },
           create: {
             clientId: dto.client_id,
-            projectId: dto.project_id,
+            projectId,
             status: dto.status,
             lastDialedAt: new Date(),
           },
@@ -156,6 +164,7 @@ export class CallsService {
           nextDialAt: dto.next_dial_at ? new Date(dto.next_dial_at) : null,
         },
       });
+
       return {
         id: Number(call.id),
         client_id: Number(call.clientId),
@@ -248,16 +257,18 @@ export class CallsService {
       await this.prisma.client.update({
         where: { id: client.id },
         data: { nextDialAt: new Date() },
-      })
+      });
 
-      if (dto.project_id) {
-        await this.assertProjectExists(dto.project_id);
+      const projectId = normalizeProjectId(dto.project_id);
+
+      if (projectId !== undefined) {
+        await this.assertProjectExists(projectId);
 
         await this.prisma.clientProject.upsert({
-          where: { clientId_projectId: { clientId: client.id, projectId: dto.project_id } },
+          where: { clientId_projectId: { clientId: client.id, projectId } },
           create: {
             clientId: client.id,
-            projectId: dto.project_id,
+            projectId,
             status: 'dial',
             attemptCount: 1,
             lastDialedAt: new Date(),

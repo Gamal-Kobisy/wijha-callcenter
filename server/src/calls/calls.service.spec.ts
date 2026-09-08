@@ -122,6 +122,23 @@ describe('CallsService', () => {
         }),
       );
     });
+
+    it('should ignore project_id=0 and return all calls', async () => {
+      prisma.callDetailRecord.findMany.mockResolvedValue([
+        mockCallRecord({ ...withProjects() }),
+      ]);
+      prisma.callDetailRecord.count.mockResolvedValue(1);
+
+      const result = await service.findAll({ project_id: 0 });
+      expect(result.data).toHaveLength(1);
+      expect(prisma.callDetailRecord.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.not.objectContaining({
+            client: expect.anything(),
+          }),
+        }),
+      );
+    });
   });
 
   describe('findById', () => {
@@ -326,6 +343,21 @@ describe('CallsService', () => {
         { client_id: 1, status: 'answered', time: '2024-06-01T12:00:00Z' },
         1,
       );
+      expect(call.status).toBe('answered');
+      expect(prisma.project.findFirst).not.toHaveBeenCalled();
+      expect(prisma.clientProject.upsert).not.toHaveBeenCalled();
+    });
+
+    it('should ignore project_id=0 during submit', async () => {
+      prisma.callDetailRecord.create.mockResolvedValue(
+        mockCallRecord({ id: 16n, status: 'answered' }),
+      );
+
+      const call = await service.submit(
+        { client_id: 1, status: 'answered', time: '2024-06-01T12:00:00Z', project_id: 0 },
+        1,
+      );
+
       expect(call.status).toBe('answered');
       expect(prisma.project.findFirst).not.toHaveBeenCalled();
       expect(prisma.clientProject.upsert).not.toHaveBeenCalled();

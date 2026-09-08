@@ -36,7 +36,7 @@ export class CallsController {
   }> {
     const clientId = query.client_id ? Number(query.client_id) : undefined;
     const agentId = query.agent_id ? Number(query.agent_id) : undefined;
-    const projectId = query.project_id ? Number(query.project_id) : undefined;
+    const projectId = query.project_id && query.project_id !== '0' ? Number(query.project_id) : undefined;
     const from = query.from ? new Date(query.from) : undefined;
     const to = query.to ? new Date(query.to) : undefined;
 
