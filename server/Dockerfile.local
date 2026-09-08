@@ -11,4 +11,4 @@ RUN npx prisma generate
 
 RUN npm run build
 
-CMD ["sh", "-c", "npm run start"]
+CMD ["sh", "-c", "npx prisma migrate deploy && npx prisma db execute --file ./prisma/seed.sql && npm run start"]
